@@ -1,10 +1,11 @@
 <template>
-  <v-card class="pa-10 rashi bg-grey-lighten-2" min-width="600">
+  <v-card class="pa-5 py-8 rashi bg-grey-lighten-2" min-width="600">
     <v-locale-provider rtl>
       <v-text-field
         label="Enter gematria"
         variant="outlined"
-        class="text-h2 py-10 rashi"
+        class="text-h2 text-h4 py-4"
+        :class="{'rashi': rashiStat}"
         v-model="gimatria"
         :loading="loading"
         :rules="gimatriaRules"
@@ -13,7 +14,7 @@
     <v-row>
       <v-col cols="6">
         <v-card variant="outlined" cols="5" min-height="150">
-          <v-card-title class="pr-1 text-h6">גימטריה:</v-card-title>
+          <v-card-title class="pr-4 text-h6">גימטריה:</v-card-title>
           <div class="pa-8 pt-1 pl-1 d-flex align-center justify-center">
             <h2 class="text-center">{{ gimatriaCalc("full") }}</h2>
           </div>
@@ -21,7 +22,7 @@
       </v-col>
       <v-col cols="6">
         <v-card variant="outlined" cols="5" min-height="150">
-          <v-card-title class="pr-1 text-h6">מספר קטן:</v-card-title>
+          <v-card-title class="pr-4 text-h6">מספר קטן:</v-card-title>
           <div class="pa-8 pt-1 pl-1 d-flex align-center justify-center">
             <h2 class="text-center">{{ gimatriaCalc("short") }}</h2>
           </div>
@@ -35,7 +36,7 @@
 
 <script setup>
 import { reactive, ref } from "vue";
-
+const props  = defineProps({ rashiStat: Boolean})
 const gimatria = ref("");
 
 const gimatriaRules = ref([
@@ -98,4 +99,8 @@ const gimatriaCalc = (stat) => {
 };
 </script>
 
-<style></style>
+<style>
+.text-h4 input {
+  font-size: 1.8rem; /* Adjust the font size as needed */
+}
+</style>

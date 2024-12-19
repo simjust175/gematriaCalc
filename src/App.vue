@@ -1,23 +1,25 @@
 <template>
   <div>
     <v-app class="bg-alef-beis" theme="light" id="app">
-      <v-app-bar scroll-behavior="elevate inverted" class="bg-grey-lighten-2 mr-10" height="45">
-        <v-toolbar-title>
-          <v-img src="../public/images/gemariaLogo.png" max-width="40"></v-img>
-        </v-toolbar-title>
-        <v-spacer></v-spacer>
-        
-      </v-app-bar>
+
+     <app-bar @fontChange="rashiStat = $event"/>
+
       <v-main class="d-flex align-center justify-center">
-        <gim-form />
+        <gim-form :rashiStat="rashiStat"/>
       </v-main>
+      <footer-comp height="0" class="pa-0 pb-0" />
     </v-app>
   </div>
 </template>
 
 <script>
 export default {
-  name: 'app'
+  name: 'app',
+  data() {
+    return {
+      rashiStat: true
+    }
+  },
 }
 </script>
 
