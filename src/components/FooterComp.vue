@@ -7,7 +7,7 @@
       </div>
       <div class="px-4 py-2 bg-black text-center w-100">
         Copyright ©
-        {{ new Date().getFullYear() }}- Dreamware. All rights reserved. 
+        {{ new Date().getFullYear() }} - Dreamware. All rights reserved. 
       </div>
       <v-img src="../../public/images/dreamware.png" max-width="30" max-height="30" ></v-img>
     </v-footer>
