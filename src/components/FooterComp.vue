@@ -1,7 +1,7 @@
 <template>
       <v-footer class="d-flex flex-column pb-0 mb-0" height="0">
       <div class="bg-grey-lighten-2 d-flex w-100 align-center px-4 py-2">
-        <strong>Contact us for all your soft ware needs!</strong>
+        <strong>Contact us for all your software needs!</strong>
         <v-spacer></v-spacer>
       </div>
       <div class="px-4 py-2 bg-black text-center w-100">
