@@ -2,7 +2,7 @@
   <v-card class="pa-5 py-8 rashi bg-grey-lighten-2" min-width="600">
     <v-locale-provider rtl>
       <v-text-field
-        label="Enter gematria"
+        label="Enter a word to calculate"
         variant="outlined"
         class="text-h2 text-h4 py-4"
         :class="{'rashi': rashiStat}"
