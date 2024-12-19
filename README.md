@@ -1,79 +1,70 @@
-# Vuetify (Default)
+## gematrisCalc: A Vue.js Gematria Calculator
 
-This is the official scaffolding tool for Vuetify, designed to give you a head start in building your new Vuetify application. It sets up a base template with all the necessary configurations and standard directory structure, enabling you to begin development without the hassle of setting up the project from scratch.
+**gematrisCalc** is a single-page application built with Vue.js and Vuetify that allows you to calculate the gematria (numerical value) of Hebrew words and phrases.
 
-## ❗️ Important Links
+### Features
 
-- 📄 [Docs](https://vuetifyjs.com/)
-- 🚨 [Issues](https://issues.vuetifyjs.com/)
-- 🏬 [Store](https://store.vuetifyjs.com/)
-- 🎮 [Playground](https://play.vuetifyjs.com/)
-- 💬 [Discord](https://community.vuetifyjs.com)
+* Simple and intuitive interface
+* Calculates gematria for both standard and final values
+* Supports different gematria systems (Milui, Mispar Katan, etc.) - **(Optional, depending on your implementation)**
 
-## 💿 Install
+### Installation
 
-Set up your project using your preferred package manager. Use the corresponding command to install the dependencies:
+1. Clone this repository:
 
-| Package Manager                                                | Command        |
-|---------------------------------------------------------------|----------------|
-| [yarn](https://yarnpkg.com/getting-started)                   | `yarn install` |
-| [npm](https://docs.npmjs.com/cli/v7/commands/npm-install)     | `npm install`  |
-| [pnpm](https://pnpm.io/installation)                          | `pnpm install` |
-| [bun](https://bun.sh/#getting-started)                        | `bun install`  |
+   ```bash
+   git clone https://github.com/your-username/gematrisCalc.git
+   ```
 
-After completing the installation, your environment is ready for Vuetify development.
+2. Install dependencies:
 
-## ✨ Features
+   ```bash
+   npm install
+   ```
 
-- 🖼️ **Optimized Front-End Stack**: Leverage the latest Vue 3 and Vuetify 3 for a modern, reactive UI development experience. [Vue 3](https://v3.vuejs.org/) | [Vuetify 3](https://vuetifyjs.com/en/)
-- 🗃️ **State Management**: Integrated with [Pinia](https://pinia.vuejs.org/), the intuitive, modular state management solution for Vue.
-- 🚦 **Routing and Layouts**: Utilizes Vue Router for SPA navigation and vite-plugin-vue-layouts for organizing Vue file layouts. [Vue Router](https://router.vuejs.org/) | [vite-plugin-vue-layouts](https://github.com/JohnCampionJr/vite-plugin-vue-layouts)
-- ⚡ **Next-Gen Tooling**: Powered by Vite, experience fast cold starts and instant HMR (Hot Module Replacement). [Vite](https://vitejs.dev/)
-- 🧩 **Automated Component Importing**: Streamline your workflow with unplugin-vue-components, automatically importing components as you use them. [unplugin-vue-components](https://github.com/antfu/unplugin-vue-components)
+### Usage
 
-These features are curated to provide a seamless development experience from setup to deployment, ensuring that your Vuetify application is both powerful and maintainable.
+1. Run the development server:
 
-## 💡 Usage
+   ```bash
+   npm run serve
+   ```
 
-This section covers how to start the development server and build your project for production.
+2. Open http://localhost:8080 in your browser.
 
-### Starting the Development Server
+### Contributing
 
-To start the development server with hot-reload, run the following command. The server will be accessible at [http://localhost:3000](http://localhost:3000):
+We welcome contributions to this project! Please see the CONTRIBUTING.md file for details.
 
-```bash
-yarn dev
-```
+### License
 
-(Repeat for npm, pnpm, and bun with respective commands.)
+This project is licensed under the MIT License. See the LICENSE file for details.
 
-> Add NODE_OPTIONS='--no-warnings' to suppress the JSON import warnings that happen as part of the Vuetify import mapping. If you are on Node [v21.3.0](https://nodejs.org/en/blog/release/v21.3.0) or higher, you can change this to NODE_OPTIONS='--disable-warning=5401'. If you don't mind the warning, you can remove this from your package.json dev script.
+### Get in touch
 
-### Building for Production
+* If you have any questions or suggestions, feel free to create an issue on GitHub.
 
-To build your project for production, use:
+## Using gematrisCalc
 
-```bash
-yarn build
-```
+1. Enter a Hebrew word or phrase in the input field.
+2. Choose the desired gematria system from the dropdown menu (if applicable).
+3. Click the "Calculate" button.
+4. The gematria value will be displayed below the input field.
 
-(Repeat for npm, pnpm, and bun with respective commands.)
+**(Optional)** You can also include a section explaining the different gematria systems and their interpretations if you've implemented multiple systems.
 
-Once the build process is completed, your application will be ready for deployment in a production environment.
+### Built with
 
-## 💪 Support Vuetify Development
+* Vue.js
+* Vuetify
 
-This project is built with [Vuetify](https://vuetifyjs.com/en/), a UI Library with a comprehensive collection of Vue components. Vuetify is an MIT licensed Open Source project that has been made possible due to the generous contributions by our [sponsors and backers](https://vuetifyjs.com/introduction/sponsors-and-backers/). If you are interested in supporting this project, please consider:
+### Author
 
-- [Requesting Enterprise Support](https://support.vuetifyjs.com/)
-- [Sponsoring John on Github](https://github.com/users/johnleider/sponsorship)
-- [Sponsoring Kael on Github](https://github.com/users/kaelwd/sponsorship)
-- [Supporting the team on Open Collective](https://opencollective.com/vuetify)
-- [Becoming a sponsor on Patreon](https://www.patreon.com/vuetify)
-- [Becoming a subscriber on Tidelift](https://tidelift.com/subscription/npm/vuetify)
-- [Making a one-time donation with Paypal](https://paypal.me/vuetify)
+* Your Name (or Organization)
 
-## 📑 License
-[MIT](http://opensource.org/licenses/MIT)
+## Additional Notes
 
-Copyright (c) 2016-present Vuetify, LLC
+* You can customize this template to fit your specific implementation details and features.
+* Feel free to add screenshots or a GIF showcasing the functionality of gematrisCalc.
+
+I hope this helps! Let me know if you have any other questions. 
