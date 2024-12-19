@@ -1,15 +1,14 @@
 <template>
-  <div>
-    <v-app class="bg-alef-beis" theme="light" id="app">
+    <v-app class="bg-alef-beis bg-red pb-0" theme="light" id="app">
 
      <app-bar @fontChange="rashiStat = $event"/>
 
       <v-main class="d-flex align-center justify-center">
         <gim-form :rashiStat="rashiStat"/>
       </v-main>
-      <footer-comp height="0" class="pa-0 pb-0" />
+      <footer-comp height="0" class="pa-0 pb-0 bg-red" />
     </v-app>
-  </div>
+    
 </template>
 
 <script>
@@ -33,5 +32,7 @@ export default {
 #app {
   background: url("../public/images/alef_beis.png") no-repeat center center fixed !important;
   background-size: cover;
+  padding-bottom: 0;
+  margin-bottom: 0;
 }
 </style>
