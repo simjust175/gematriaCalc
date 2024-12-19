@@ -9,7 +9,7 @@
         v-model="gimatria"
         :loading="loading"
         :rules="gimatriaRules"
-        clearable
+    
       ></v-text-field>
     <v-row>
       <v-col cols="6">
