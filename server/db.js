@@ -1,4 +1,5 @@
 import pg from 'pg';
+import { computeAll } from '../src/composables/useGematria.js';
 const { Pool } = pg;
 
 export const pool = new Pool({
@@ -34,5 +35,35 @@ export async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_entries_initials_gematria ON saved_entries(initials_gematria);
     CREATE INDEX IF NOT EXISTS idx_words_gematria ON saved_words(gematria);
   `);
+
+  // Backfill derived ראשי תיבות data for entries created before these fields
+  // became part of the saved-entry contract.
+  const existing = await pool.query(
+    'SELECT id, original_text FROM saved_entries ORDER BY id'
+  );
+  for (const entry of existing.rows) {
+    const calculated = computeAll(entry.original_text);
+    if (!calculated) continue;
+    await pool.query(
+      `UPDATE saved_entries
+       SET normalized_text = $1,
+           full_gematria = $2,
+           full_gematria_hebrew = $3,
+           initials = $4,
+           initials_gematria = $5,
+           initials_gematria_hebrew = $6
+       WHERE id = $7`,
+      [
+        calculated.normalizedText,
+        calculated.fullGematria,
+        calculated.fullHebrewNumber,
+        calculated.initials,
+        calculated.initialsGematria,
+        calculated.initialsHebrewNumber,
+        entry.id,
+      ]
+    );
+  }
+
   console.log('Database initialized');
 }

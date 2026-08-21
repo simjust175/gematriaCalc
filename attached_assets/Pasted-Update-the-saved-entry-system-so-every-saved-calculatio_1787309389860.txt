@@ -1,0 +1,187 @@
+Update the saved-entry system so every saved calculation permanently stores and displays its ראשי תיבות information.
+
+This is REQUIRED data, not merely a temporary UI calculation.
+
+## Every saved entry must contain
+
+When the user presses:
+
+שמור
+
+persist all of the following:
+
+* `originalText`
+* `normalizedText`
+* `fullGematria`
+* `fullGematriaHebrew`
+* `initials` — the generated ראשי תיבות
+* `initialsGematria`
+* `initialsGematriaHebrew`
+* `createdAt`
+
+Continue saving/indexing individual words as already implemented.
+
+Example conceptually:
+
+```js
+{
+  originalText: "שמע ישראל",
+  normalizedText: "שמע ישראל",
+
+  fullGematria: 951,
+  fullGematriaHebrew: "תתקנא",
+
+  initials: "שי",
+  initialsGematria: 310,
+  initialsGematriaHebrew: "שי",
+
+  createdAt: ...
+}
+```
+
+Do not hardcode any examples.
+
+---
+
+# IMPORTANT — SERVER-SIDE DATA INTEGRITY
+
+When saving, do not blindly trust gematria values sent by the browser.
+
+Where practical, recompute/validate on the server from the saved Hebrew text:
+
+* full gematria
+* ראשי תיבות
+* ראשי תיבות gematria
+
+so the persistent database remains internally consistent.
+
+---
+
+# DATABASE / API
+
+Inspect the existing schema first.
+
+If these fields do not currently exist, add them cleanly:
+
+* `initials`
+* `initials_gematria`
+* Hebrew-number values only if storing them is appropriate for the current architecture
+
+It is acceptable to generate Hebrew numeral strings dynamically rather than storing duplicate display-only data, provided the actual numerical ראשי תיבות value and initials are persisted.
+
+Update:
+
+* create/save API
+* fetch API
+* relevant TypeScript/interfaces/models if applicable
+* tests
+
+Do not break existing saved entries.
+
+---
+
+# EXISTING SAVED DATA
+
+There are already saved records in the database.
+
+Do NOT leave old records permanently missing ראשי תיבות data.
+
+For existing records that have their original Hebrew text available:
+
+calculate/backfill:
+
+* ראשי תיבות
+* ראשי תיבות gematria
+
+either through a safe migration/backfill or another appropriate one-time upgrade mechanism.
+
+Do not delete existing saved data.
+
+---
+
+# SAVED LIBRARY UI
+
+On the שמורים page, every collapsed saved card should now show:
+
+1. original Hebrew text
+2. full gematria — decimal + Hebrew numeral
+3. ראשי תיבות
+4. gematria of ראשי תיבות — decimal + Hebrew numeral
+
+Keep this compact.
+
+Suggested hierarchy:
+
+**שמע ישראל**
+
+951 · תתקנא
+
+ר״ת: **שי**
+גימטריית ר״ת: **310 · שי**
+
+Do not make the cards excessively tall.
+
+The ראשי תיבות information is secondary to the phrase/full gematria, but it must be immediately visible.
+
+---
+
+# EXPANDED VIEW
+
+When a saved card is expanded, continue showing the full breakdown and ensure it includes:
+
+* full text
+* full gematria
+* ראשי תיבות
+* ראשי תיבות gematria
+* individual words and their gematria
+* letter breakdown where supported
+* saved date
+
+---
+
+# SECONDARY LIVE MATCHING
+
+The persisted `initialsGematria` must be used by the existing secondary matching system.
+
+The required comparison is:
+
+CURRENT LIVE FULL GEMATRIA
+→ compare against SAVED `initialsGematria`
+
+Example:
+
+Saved entry:
+
+Full gematria = 951
+ראשי תיבות = שי
+ראשי תיבות gematria = 310
+
+If a future live calculation reaches:
+
+310
+
+that saved entry should be eligible to appear under:
+
+התאמות לפי ראשי תיבות
+
+It should NOT appear as though its full gematria is 310.
+
+Keep primary and secondary matching clearly distinguished.
+
+---
+
+# TESTS
+
+Add/adjust tests verifying:
+
+1. saving a multi-word phrase stores its ראשי תיבות
+2. saving stores the correct ראשי תיבות gematria
+3. fetching the saved entry returns these values
+4. old saved records are handled/backfilled correctly
+5. the שמורים UI displays both values
+6. secondary matching queries saved `initialsGematria` correctly
+7. duplicate/save behavior remains intact
+
+Do not modify unrelated visual design or calculation behavior.
+
+This task is specifically about making ראשי תיבות and its gematria a permanent part of every saved calculation.

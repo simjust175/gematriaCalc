@@ -66,6 +66,14 @@
               <span class="gematria-dot">·</span>
               <span class="gematria-heb">{{ entry.full_gematria_hebrew }}</span>
             </div>
+            <div class="entry-initials">
+              <span>ר״ת:</span>
+              <strong>{{ entry.initials }}</strong>
+              <span class="initials-gematria-label">גימטריית ר״ת:</span>
+              <strong>{{ entry.initials_gematria }}</strong>
+              <span class="gematria-dot">·</span>
+              <span>{{ entry.initials_gematria_hebrew }}</span>
+            </div>
           </div>
           <div class="entry-actions">
             <button
@@ -331,6 +339,23 @@ onMounted(() => fetchEntries());
 .gematria-heb {
   font-size: 0.9rem;
   color: var(--text-secondary);
+}
+
+.entry-initials {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 5px;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+.entry-initials strong {
+  color: var(--navy);
+  font-size: 0.9rem;
+}
+.initials-gematria-label {
+  margin-right: 7px;
 }
 
 .entry-actions {

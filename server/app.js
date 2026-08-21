@@ -5,6 +5,7 @@
 import express from 'express';
 import session from 'express-session';
 import { pool } from './db.js';
+import { computeAll } from '../src/composables/useGematria.js';
 
 export const app = express();
 
@@ -148,47 +149,61 @@ app.get('/api/matches', requireAuth, async (req, res) => {
  * POST /api/entries — save a phrase with its words.
  */
 app.post('/api/entries', requireAuth, async (req, res) => {
+  let client;
   try {
-    const {
-      originalText, normalizedText, fullGematria, fullGematriaHebrew,
-      initials, initialsGematria, initialsGematriaHebrew, words,
-    } = req.body;
+    const { originalText } = req.body;
+    const calculated = computeAll(typeof originalText === 'string' ? originalText : '');
 
-    if (!normalizedText || !fullGematria) {
+    if (!calculated) {
       return res.status(400).json({ error: 'missing_fields' });
     }
 
-    const exists = await pool.query(
+    client = await pool.connect();
+    await client.query('BEGIN');
+
+    const exists = await client.query(
       'SELECT id FROM saved_entries WHERE normalized_text = $1',
-      [normalizedText]
+      [calculated.normalizedText]
     );
     if (exists.rows.length > 0) {
+      await client.query('ROLLBACK');
       return res.status(409).json({ error: 'already_saved', id: exists.rows[0].id });
     }
 
-    const entryRes = await pool.query(
+    const entryRes = await client.query(
       `INSERT INTO saved_entries
          (original_text, normalized_text, full_gematria, full_gematria_hebrew,
           initials, initials_gematria, initials_gematria_hebrew)
        VALUES ($1,$2,$3,$4,$5,$6,$7)
        RETURNING id`,
-      [originalText, normalizedText, fullGematria, fullGematriaHebrew,
-       initials, initialsGematria, initialsGematriaHebrew]
+      [
+        originalText,
+        calculated.normalizedText,
+        calculated.fullGematria,
+        calculated.fullHebrewNumber,
+        calculated.initials,
+        calculated.initialsGematria,
+        calculated.initialsHebrewNumber,
+      ]
     );
     const entryId = entryRes.rows[0].id;
 
-    for (const w of (words || [])) {
-      await pool.query(
+    for (const w of calculated.words) {
+      await client.query(
         `INSERT INTO saved_words (entry_id, word, normalized_word, gematria, position)
          VALUES ($1,$2,$3,$4,$5)`,
         [entryId, w.word, w.word, w.gematria, w.position]
       );
     }
 
+    await client.query('COMMIT');
     res.json({ id: entryId, success: true });
   } catch (err) {
+    if (client) await client.query('ROLLBACK').catch(() => {});
     console.error('/api/entries POST error:', err.message);
     res.status(500).json({ error: err.message });
+  } finally {
+    client?.release();
   }
 });
 
