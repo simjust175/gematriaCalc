@@ -1,0 +1,181 @@
+Update the live-matching logic so a saved entry can match in THREE clearly distinguishable ways.
+
+The UI must always tell the user WHY a saved item is being shown.
+
+## Match type 1 — Full gematria
+
+Compare the CURRENT LIVE FULL GEMATRIA against the saved entry's:
+
+`fullGematria`
+
+If equal, the saved entry matches as:
+
+**גימטריה מלאה**
+
+Example:
+
+Current live gematria = 951
+
+Saved:
+
+שמע ישראל
+fullGematria = 951
+
+Show it with a badge/label:
+
+גימטריה מלאה
+
+---
+
+## Match type 2 — Gematria of ראשי תיבות
+
+Compare the CURRENT LIVE FULL GEMATRIA against the saved entry's:
+
+`initialsGematria`
+
+If equal, the saved entry matches as:
+
+**גימטריית ראשי תיבות**
+
+or compactly in the UI:
+
+**גימטריית ר״ת**
+
+Example:
+
+Saved:
+
+שמע ישראל
+ראשי תיבות = שי
+initialsGematria = 310
+
+If the current live gematria reaches 310, show:
+
+שמע ישראל
+
+with the match reason:
+
+גימטריית ר״ת
+
+It must NOT appear as though the full gematria of שמע ישראל is 310.
+
+---
+
+## Match type 3 — ראשי תיבות text
+
+Also compare the relevant current Hebrew text / generated ראשי תיבות against the saved entry's stored:
+
+`initials`
+
+Example:
+
+Saved:
+
+שמע ישראל
+ראשי תיבות = שי
+
+If the current value relevant to ראשי תיבות matching is:
+
+שי
+
+then show:
+
+שמע ישראל
+
+with the match reason:
+
+ראשי תיבות
+
+This is a TEXT match, distinct from the numeric gematria-of-ראשי-תיבות match.
+
+Normalize Hebrew consistently before comparing so punctuation, גרש/גרשיים, ניקוד, and whitespace do not incorrectly prevent a match.
+
+---
+
+# IMPORTANT — ONE SAVED ITEM MAY MATCH MORE THAN ONE WAY
+
+Do NOT render duplicate cards for the same saved entry.
+
+If one saved record matches several criteria simultaneously, render it ONCE and show multiple match badges.
+
+Example:
+
+שמע ישראל
+
+[ גימטריה מלאה ] [ גימטריית ר״ת ]
+
+or:
+
+[ ראשי תיבות ] [ גימטריית ר״ת ]
+
+This makes the reason for the match completely explicit without duplicating the result.
+
+---
+
+# VISUAL PRIORITY
+
+Use clear compact badges/tags on every matching result.
+
+Suggested labels:
+
+* גימטריה מלאה
+* ראשי תיבות
+* גימטריית ר״ת
+* מילה שמורה / מתוך משפט — if word-within-phrase matching is already supported
+
+Full-gematria matches may receive the strongest badge/accent.
+
+ראשי תיבות and גימטריית ר״ת matches should remain visually secondary.
+
+Do not rely only on color to communicate match type; include the actual Hebrew label.
+
+---
+
+# LIVE BEHAVIOR
+
+All three match types must update live as the user types.
+
+When the current text/value changes:
+
+* remove match reasons that no longer apply;
+* add newly applicable match reasons;
+* remove the entire saved item if none of its match criteria remain;
+* never allow an old/stale server response to overwrite results for newer input.
+
+---
+
+# DATA RETURN FORMAT
+
+Prefer returning enough information from the matching API to identify the reason(s) for every result.
+
+Conceptually:
+
+```js
+{
+  entry: { ... },
+  matchTypes: [
+    "full_gematria",
+    "initials_gematria",
+    "initials_text"
+  ]
+}
+```
+
+A single saved entry can therefore contain one or multiple match types.
+
+Do not create three duplicate records in the response merely because three criteria matched.
+
+---
+
+# TESTS
+
+Add tests for:
+
+1. full gematria only match
+2. ראשי תיבות text only match
+3. ראשי תיבות gematria only match
+4. one entry matching two criteria simultaneously
+5. one entry matching all applicable criteria
+6. no duplicate card when multiple criteria match
+7. match badges accurately reflect the reason
+8. live match reasons disappear/update as input changes
