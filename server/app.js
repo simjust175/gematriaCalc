@@ -5,7 +5,7 @@
 import express from 'express';
 import session from 'express-session';
 import { pool } from './db.js';
-import { computeAll } from '../src/composables/useGematria.js';
+import { computeAll, normalize } from '../src/composables/useGematria.js';
 
 export const app = express();
 
@@ -78,67 +78,116 @@ function requireAuth(req, res, next) {
 
 /**
  * GET /api/matches
- * Query: gematria, initialsGematria, normalizedText
- * Returns primary (full gematria) and secondary (ראשי תיבות) matches.
+ * Query: normalizedText
+ * Returns one result per saved entry with every applicable match reason.
  */
 app.get('/api/matches', requireAuth, async (req, res) => {
   try {
-    const { gematria, initialsGematria, normalizedText } = req.query;
-    const g  = parseInt(gematria)         || 0;
-    const ig = parseInt(initialsGematria) || 0;
+    const { normalizedText } = req.query;
+    const current = computeAll(typeof normalizedText === 'string' ? normalizedText : '');
+    const g = current?.fullGematria || 0;
+    const initialsTextCandidates = [...new Set(
+      [current?.normalizedText, current?.initials]
+        .filter(Boolean)
+        .map(value => normalize(value).replace(/\s+/g, ''))
+    )];
 
-    let primary = [];
-    let secondary = [];
+    const entryMatches = new Map();
     let isAlreadySaved = false;
 
     if (g > 0) {
       // Check if current phrase is already saved
-      if (normalizedText) {
+      if (current?.normalizedText) {
         const chk = await pool.query(
           'SELECT id FROM saved_entries WHERE normalized_text = $1',
-          [normalizedText]
+          [current.normalizedText]
         );
         isAlreadySaved = chk.rows.length > 0;
       }
 
-      // Entries whose full gematria matches
+      // Fetch every entry matching at least one entry-level criterion.
       const entriesRes = await pool.query(
-        `SELECT id, original_text, normalized_text, full_gematria
-         FROM saved_entries WHERE full_gematria = $1
-         ORDER BY created_at DESC LIMIT 20`,
-        [g]
+        `SELECT id, original_text, normalized_text,
+                full_gematria, full_gematria_hebrew,
+                initials, initials_gematria, initials_gematria_hebrew,
+                created_at
+         FROM saved_entries
+         WHERE full_gematria = $1
+            OR initials_gematria = $1
+            OR initials = ANY($2::text[])
+         ORDER BY created_at DESC`,
+        [g, initialsTextCandidates]
       );
 
-      // Individual words whose gematria matches
+      for (const entry of entriesRes.rows) {
+        const normalizedInitials = normalize(entry.initials || '').replace(/\s+/g, '');
+        const matchTypes = [];
+
+        if (entry.full_gematria === g) matchTypes.push('full_gematria');
+        if (initialsTextCandidates.includes(normalizedInitials)) matchTypes.push('initials_text');
+        if (entry.initials_gematria === g) matchTypes.push('initials_gematria');
+
+        entryMatches.set(entry.id, {
+          type: 'entry',
+          ...entry,
+          matchTypes,
+          matched_words: [],
+        });
+      }
+
+      // Attach matching words to their parent entry instead of duplicating cards.
       const wordsRes = await pool.query(
-        `SELECT sw.word, sw.gematria, se.original_text AS entry_text, se.id AS entry_id
+        `SELECT sw.id AS word_id, sw.word, sw.gematria,
+                se.id, se.original_text, se.normalized_text,
+                se.full_gematria, se.full_gematria_hebrew,
+                se.initials, se.initials_gematria, se.initials_gematria_hebrew,
+                se.created_at
          FROM saved_words sw
          JOIN saved_entries se ON sw.entry_id = se.id
          WHERE sw.gematria = $1
-         ORDER BY se.created_at DESC LIMIT 20`,
+         ORDER BY se.created_at DESC, sw.position ASC`,
         [g]
       );
 
-      const entryIds = new Set(entriesRes.rows.map(e => e.id));
-      primary = [
-        ...entriesRes.rows.map(e => ({ type: 'entry', ...e })),
-        ...wordsRes.rows
-          .filter(w => !entryIds.has(w.entry_id))
-          .map(w => ({ type: 'word', ...w })),
-      ];
+      for (const wordMatch of wordsRes.rows) {
+        let result = entryMatches.get(wordMatch.id);
+        if (!result) {
+          result = {
+            type: 'entry',
+            id: wordMatch.id,
+            original_text: wordMatch.original_text,
+            normalized_text: wordMatch.normalized_text,
+            full_gematria: wordMatch.full_gematria,
+            full_gematria_hebrew: wordMatch.full_gematria_hebrew,
+            initials: wordMatch.initials,
+            initials_gematria: wordMatch.initials_gematria,
+            initials_gematria_hebrew: wordMatch.initials_gematria_hebrew,
+            created_at: wordMatch.created_at,
+            matchTypes: [],
+            matched_words: [],
+          };
+          entryMatches.set(wordMatch.id, result);
+        }
+
+        if (!result.matchTypes.includes('saved_word')) {
+          result.matchTypes.push('saved_word');
+        }
+        result.matched_words.push({
+          id: wordMatch.word_id,
+          word: wordMatch.word,
+          gematria: wordMatch.gematria,
+        });
+      }
     }
 
-    if (ig > 0) {
-      const secRes = await pool.query(
-        `SELECT id, original_text, initials, initials_gematria
-         FROM saved_entries WHERE initials_gematria = $1
-         ORDER BY created_at DESC LIMIT 10`,
-        [ig]
-      );
-      secondary = secRes.rows.map(e => ({ type: 'entry', ...e }));
-    }
+    const priority = ['full_gematria', 'initials_text', 'initials_gematria', 'saved_word'];
+    const matches = [...entryMatches.values()].sort((a, b) => {
+      const aPriority = Math.min(...a.matchTypes.map(type => priority.indexOf(type)));
+      const bPriority = Math.min(...b.matchTypes.map(type => priority.indexOf(type)));
+      return aPriority - bPriority;
+    });
 
-    res.json({ primary, secondary, isAlreadySaved });
+    res.json({ matches, isAlreadySaved });
   } catch (err) {
     console.error('/api/matches error:', err.message);
     res.status(500).json({ error: err.message });

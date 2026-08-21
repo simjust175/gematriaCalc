@@ -140,10 +140,8 @@
       <!-- ── RIGHT: Match panel (desktop sidebar) ──────────── -->
       <aside class="match-col" v-if="hasInput">
         <MatchPanel
-          :primary="matches.primary"
-          :secondary="matches.secondary"
+          :matches="matches.matches"
           :gematria="result?.fullGematria"
-          :initialsGematria="result?.fullGematria"
           :isAlreadySaved="matches.isAlreadySaved"
           :hasInput="hasInput"
         />
@@ -153,10 +151,8 @@
     <!-- Mobile: match panel below calculator -->
     <div class="match-col-mobile" v-if="hasInput">
       <MatchPanel
-        :primary="matches.primary"
-        :secondary="matches.secondary"
+        :matches="matches.matches"
         :gematria="result?.fullGematria"
-          :initialsGematria="result?.fullGematria"
         :isAlreadySaved="matches.isAlreadySaved"
         :hasInput="hasInput"
       />
@@ -167,6 +163,7 @@
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue';
 import { computeAll } from '@/composables/useGematria.js';
+import { useLiveMatching } from '@/composables/useLiveMatching.js';
 import MatchPanel from './MatchPanel.vue';
 
 const inputText   = ref('');
@@ -174,14 +171,13 @@ const textareaRef = ref(null);
 const expandedWords = ref({});
 const saveStatus  = ref('idle');   // idle | loading | saved
 const saveError   = ref('');
-const matches     = ref({ primary: [], secondary: [], isAlreadySaved: false });
 
-let matchDebounce = null;
 let saveResetTimer = null;
 
 // ── Computed result ───────────────────────────────────────────────────────────
 const result  = computed(() => computeAll(inputText.value));
 const hasInput = computed(() => !!result.value);
+const { matches } = useLiveMatching(result);
 
 // Reset expanded words when text changes; restore min-height when cleared
 watch(inputText, (val) => {
@@ -202,35 +198,6 @@ function resizeTextarea() {
   el.style.height = 'auto';
   el.style.height = Math.max(100, el.scrollHeight) + 'px';
 }
-
-// ── Live match lookup (debounced 350ms) ──────────────────────────────────────
-watch(result, (newResult) => {
-  clearTimeout(matchDebounce);
-
-  if (!newResult) {
-    matches.value = { primary: [], secondary: [], isAlreadySaved: false };
-    return;
-  }
-
-  matchDebounce = setTimeout(async () => {
-    try {
-      const params = new URLSearchParams({
-        gematria:        newResult.fullGematria,
-          // Secondary matching compares the current full value against
-          // saved initials gematria values.
-          initialsGematria: newResult.fullGematria,
-        normalizedText:  newResult.normalizedText,
-      });
-      const res = await fetch(`/api/matches?${params}`);
-      if (!res.ok) return;
-      // Guard against stale responses: only apply if text hasn't changed
-      if (result.value?.normalizedText !== newResult.normalizedText) return;
-      matches.value = await res.json();
-    } catch (e) {
-      console.warn('Match fetch error:', e);
-    }
-  }, 350);
-});
 
 // ── Toggle word letter breakdown ─────────────────────────────────────────────
 function toggleWord(index) {

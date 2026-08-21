@@ -4,6 +4,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { ref } from 'vue';
 import {
   normalize,
   calcGematria,
@@ -12,6 +13,8 @@ import {
   getWordBreakdown,
   computeAll,
 } from '../src/composables/useGematria.js';
+import { useLiveMatching } from '../src/composables/useLiveMatching.js';
+import { getMatchTypeMeta } from '../src/utils/matchTypes.js';
 
 // ── Individual letter values ─────────────────────────────────────────────────
 test('letter values — standard alphabet', () => {
@@ -139,4 +142,71 @@ test('normalize preserves spaces for word splitting', () => {
 
 test('normalize collapses multiple spaces', () => {
   assert.equal(normalize('שמע   ישראל'), 'שמע ישראל');
+});
+
+// ── Live matching presentation and request ordering ───────────────────────────
+test('match type identifiers map to explicit Hebrew badge labels', () => {
+  assert.equal(getMatchTypeMeta('full_gematria').label, 'גימטריה מלאה');
+  assert.equal(getMatchTypeMeta('initials_text').label, 'ראשי תיבות');
+  assert.equal(getMatchTypeMeta('initials_gematria').label, 'גימטריית ר״ת');
+  assert.equal(getMatchTypeMeta('saved_word').label, 'מילה שמורה');
+});
+
+test('live matching clears old reasons and ignores stale A → B → A responses', async () => {
+  const pending = [];
+  const fetchImpl = () => {
+    let resolve;
+    const promise = new Promise(done => { resolve = done; });
+    pending.push({ promise, resolve });
+    return promise;
+  };
+  const flush = () => new Promise(resolve => setTimeout(resolve, 0));
+  const response = payload => ({
+    ok: true,
+    json: async () => payload,
+  });
+
+  const result = ref(null);
+  const live = useLiveMatching(result, { fetchImpl, debounceMs: 0 });
+
+  try {
+    const a = computeAll('שמע ישראל');
+    const b = computeAll('אברהם יצחק יעקב');
+
+    result.value = a;
+    await flush();
+    assert.equal(pending.length, 1);
+
+    result.value = b;
+    assert.deepEqual(live.matches.value.matches, []);
+    await flush();
+    assert.equal(pending.length, 2);
+
+    result.value = a;
+    assert.deepEqual(live.matches.value.matches, []);
+    await flush();
+    assert.equal(pending.length, 3);
+
+    pending[2].resolve(response({
+      matches: [{ id: 3, matchTypes: ['full_gematria'] }],
+      isAlreadySaved: false,
+    }));
+    await flush();
+    assert.equal(live.matches.value.matches[0].id, 3);
+
+    pending[0].resolve(response({
+      matches: [{ id: 1, matchTypes: ['initials_text'] }],
+      isAlreadySaved: true,
+    }));
+    pending[1].resolve(response({
+      matches: [{ id: 2, matchTypes: ['initials_gematria'] }],
+      isAlreadySaved: true,
+    }));
+    await flush();
+
+    assert.equal(live.matches.value.matches[0].id, 3);
+    assert.equal(live.matches.value.isAlreadySaved, false);
+  } finally {
+    live.stop();
+  }
 });

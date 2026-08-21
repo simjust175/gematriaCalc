@@ -14,7 +14,7 @@
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 import request from 'supertest';
-import { computeAll } from '../src/composables/useGematria.js';
+import { computeAll, toHebrewNumber } from '../src/composables/useGematria.js';
 
 // Set required env vars before importing the app
 process.env.SESSION_SECRET  = 'test-session-secret-for-api-tests';
@@ -118,17 +118,27 @@ test('GET /api/matches with valid session returns 200', async () => {
   const cookie = loginRes.headers['set-cookie'];
 
   const res = await request(app)
-    .get('/api/matches?gematria=951&initialsGematria=310')
+    .get('/api/matches?gematria=951&normalizedText=שמע%20ישראל')
     .set('Cookie', cookie);
   // 200 OK (may fail with 500 if no DB, but not 401)
   assert.notEqual(res.status, 401);
 });
 
-test('saving derives, persists, fetches, and secondary-matches initials data server-side', async () => {
+test('matching returns all reasons once per saved entry and preserves word matches', async () => {
   const agent = request.agent(app);
-  const originalText = 'בדיקת שמירת ראשי תיבות';
+  const alphabet = [...'אבגדהוזחטיכלמנסעפצקרשת'];
+  let seed = Date.now();
+  let uniqueToken = '';
+  while (seed > 0) {
+    uniqueToken += alphabet[seed % alphabet.length];
+    seed = Math.floor(seed / alphabet.length);
+  }
+
+  const originalText = `בדיקת התאמות ${uniqueToken}`;
   const calculated = computeAll(originalText);
-  let savedId;
+  const allTypesText = [...uniqueToken].join(' ');
+  const allTypesCalculated = computeAll(allTypesText);
+  const savedIds = [];
 
   try {
     const loginRes = await agent
@@ -149,7 +159,15 @@ test('saving derives, persists, fetches, and secondary-matches initials data ser
         words: [],
       });
     assert.equal(saveRes.status, 200);
-    savedId = saveRes.body.id;
+    const savedId = saveRes.body.id;
+    savedIds.push(savedId);
+
+    const allTypesSaveRes = await agent
+      .post('/api/entries')
+      .send({ originalText: allTypesText });
+    assert.equal(allTypesSaveRes.status, 200);
+    const allTypesId = allTypesSaveRes.body.id;
+    savedIds.push(allTypesId);
 
     const duplicateRes = await agent
       .post('/api/entries')
@@ -172,21 +190,89 @@ test('saving derives, persists, fetches, and secondary-matches initials data ser
     assert.equal(saved.words.length, calculated.words.length);
     assert.ok(saved.created_at, 'saved entry should include its creation date');
 
-    const matchRes = await agent
-      .get('/api/matches')
-      .query({
-        gematria: 999999,
-        initialsGematria: calculated.initialsGematria,
-        normalizedText: 'unrelated',
-      });
-    assert.equal(matchRes.status, 200);
-    assert.equal(matchRes.body.primary.length, 0);
+    const getMatch = async (normalizedText, id, extraQuery = {}) => {
+      const response = await agent
+        .get('/api/matches')
+        .query({ normalizedText, ...extraQuery });
+      assert.equal(response.status, 200);
+      const matchingRows = response.body.matches.filter(entry => entry.id === id);
+      assert.equal(matchingRows.length, 1, 'each saved entry must render only once');
+      return matchingRows[0];
+    };
+    const entryReasons = entry => entry.matchTypes.filter(type => type !== 'saved_word');
+
+    const fullOnlyText = toHebrewNumber(calculated.fullGematria);
+    assert.notEqual(fullOnlyText, calculated.initials);
+    const fullOnly = await getMatch(fullOnlyText, savedId);
+    assert.deepEqual(entryReasons(fullOnly), ['full_gematria']);
+
+    const initialsGematriaOnlyText = toHebrewNumber(calculated.initialsGematria);
+    assert.notEqual(initialsGematriaOnlyText, calculated.initials);
+    const initialsGematriaOnly = await getMatch(initialsGematriaOnlyText, savedId);
+    assert.deepEqual(entryReasons(initialsGematriaOnly), ['initials_gematria']);
+
+    const initialsTextOnlyInput = [...calculated.initials]
+      .map(letter => `${letter}א`)
+      .join(' ״ ');
+    const initialsTextOnly = await getMatch(initialsTextOnlyInput, savedId);
+    assert.deepEqual(entryReasons(initialsTextOnly), ['initials_text']);
+
+    const twoReasons = await getMatch(originalText, savedId);
+    assert.deepEqual(
+      entryReasons(twoReasons),
+      ['full_gematria', 'initials_text']
+    );
+
+    const allReasons = await getMatch(allTypesText, allTypesId);
+    assert.deepEqual(
+      entryReasons(allReasons),
+      ['full_gematria', 'initials_text', 'initials_gematria']
+    );
+
+    const wordOnly = await getMatch(calculated.words[0].word, savedId);
+    assert.ok(wordOnly.matchTypes.includes('saved_word'));
     assert.ok(
-      matchRes.body.secondary.some(entry => entry.id === savedId),
-      'saved entry should appear as a secondary initials match'
+      wordOnly.matched_words.some(word => word.word === calculated.words[0].word),
+      'word match should remain attached to its source entry'
+    );
+
+    const forgedValue = await getMatch(fullOnlyText, savedId, {
+      gematria: calculated.initialsGematria,
+    });
+    assert.deepEqual(
+      entryReasons(forgedValue),
+      ['full_gematria'],
+      'numeric reasons must be derived from the live Hebrew text'
+    );
+
+    const bulkIds = [];
+    for (let index = 0; index < 31; index += 1) {
+      const suffix = `${uniqueToken}${alphabet[index % alphabet.length]}${alphabet[Math.floor(index / alphabet.length)]}`;
+      const bulkSave = await agent
+        .post('/api/entries')
+        .send({ originalText: `א ${suffix}` });
+      assert.equal(bulkSave.status, 200);
+      bulkIds.push(bulkSave.body.id);
+      savedIds.push(bulkSave.body.id);
+    }
+
+    const untruncatedWords = await agent
+      .get('/api/matches')
+      .query({ normalizedText: 'א' });
+    assert.equal(untruncatedWords.status, 200);
+    const returnedBulkIds = new Set(
+      untruncatedWords.body.matches
+        .filter(entry => entry.matchTypes.includes('saved_word'))
+        .map(entry => entry.id)
+    );
+    assert.ok(
+      bulkIds.every(id => returnedBulkIds.has(id)),
+      'word matches from more than 30 saved entries must not be truncated'
     );
   } finally {
-    if (savedId) await agent.delete(`/api/entries/${savedId}`);
+    for (const id of savedIds) {
+      await agent.delete(`/api/entries/${id}`);
+    }
   }
 });
 
