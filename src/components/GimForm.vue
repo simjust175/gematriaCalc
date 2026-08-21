@@ -42,44 +42,42 @@
                 <span class="result-divider">·</span>
                 <span class="result-heb primary-heb">{{ result.fullHebrewNumber }}</span>
               </div>
-              <!-- Save button — belongs to this result -->
-              <div class="save-row">
-                <button
-                  class="save-btn"
-                  :class="{
-                    'save-btn--saved': saveStatus === 'saved' || matches.isAlreadySaved,
-                    'save-btn--loading': saveStatus === 'loading',
-                  }"
-                  :disabled="saveStatus === 'loading' || matches.isAlreadySaved"
-                  @click="saveEntry"
-                >
-                  <span v-if="matches.isAlreadySaved" class="mdi mdi-check-circle"></span>
-                  <span v-else-if="saveStatus === 'loading'" class="mdi mdi-loading mdi-spin"></span>
-                  <span v-else-if="saveStatus === 'saved'" class="mdi mdi-check-circle"></span>
-                  <span v-else class="mdi mdi-content-save-outline"></span>
-                  {{ matches.isAlreadySaved ? 'כבר שמור' : saveStatus === 'saved' ? 'נשמר!' : 'שמור' }}
-                </button>
-                <span v-if="saveError" class="save-error">{{ saveError }}</span>
+            </div>
+
+            <!-- ── ROSHEI TEIVOT: two equal calculation cards ── -->
+            <div class="result-secondary-grid">
+              <div class="result-card result-card--secondary">
+                <div class="result-label">ראשי תיבות</div>
+                <div class="roshei-letters">{{ result.initials }}</div>
+              </div>
+              <div class="result-card result-card--secondary">
+                <div class="result-label">גימטריה ר"ת</div>
+                <div class="result-value-row roshei-value">
+                  <span class="result-num secondary-num">{{ result.initialsGematria }}</span>
+                  <span class="result-divider">·</span>
+                  <span class="result-heb secondary-heb">{{ result.initialsHebrewNumber }}</span>
+                </div>
               </div>
             </div>
 
-            <!-- ── ROSHEI TEIVOT ────────────────────────── -->
-            <div class="result-card result-card--roshei">
-              <div class="result-card-inner">
-                <div class="roshei-block">
-                  <div class="result-label">ראשי תיבות</div>
-                  <div class="roshei-letters">{{ result.initials }}</div>
-                </div>
-                <div class="roshei-divider"></div>
-                <div class="roshei-block">
-                  <div class="result-label">גימטריה ר"ת</div>
-                  <div class="result-value-row roshei-value">
-                    <span class="result-num secondary-num">{{ result.initialsGematria }}</span>
-                    <span class="result-divider">·</span>
-                    <span class="result-heb secondary-heb">{{ result.initialsHebrewNumber }}</span>
-                  </div>
-                </div>
-              </div>
+            <!-- ── SAVE BUTTON ───────────────────────────── -->
+            <div class="save-row">
+              <button
+                class="save-btn"
+                :class="{
+                  'save-btn--saved': saveStatus === 'saved' || matches.isAlreadySaved,
+                  'save-btn--loading': saveStatus === 'loading',
+                }"
+                :disabled="saveStatus === 'loading' || matches.isAlreadySaved"
+                @click="saveEntry"
+              >
+                <span v-if="matches.isAlreadySaved" class="mdi mdi-check-circle"></span>
+                <span v-else-if="saveStatus === 'loading'" class="mdi mdi-loading mdi-spin"></span>
+                <span v-else-if="saveStatus === 'saved'" class="mdi mdi-check-circle"></span>
+                <span v-else class="mdi mdi-content-save-outline"></span>
+                {{ matches.isAlreadySaved ? 'כבר שמור' : saveStatus === 'saved' ? 'נשמר!' : 'שמור' }}
+              </button>
+              <span v-if="saveError" class="save-error">{{ saveError }}</span>
             </div>
 
             <!-- ── WORD BREAKDOWN ─────────────────────────── -->
@@ -381,16 +379,8 @@ async function saveEntry() {
 .result-card--primary {
   background: linear-gradient(135deg, #FFFBF2 0%, #FFF8EC 100%);
   border-color: #E8D89A;
-  padding: 22px 24px 18px;
-  box-shadow: 0 4px 20px rgba(192, 152, 64, 0.1);
-}
-
-/* Save row lives inside the primary card */
-.result-card--primary .save-row {
-  margin-top: 16px;
-  padding-top: 14px;
-  border-top: 1px solid rgba(232, 216, 154, 0.5);
-  justify-content: flex-end;
+  padding: 18px 22px;
+  box-shadow: 0 2px 12px rgba(192, 152, 64, 0.08);
 }
 
 .result-label {
@@ -414,8 +404,8 @@ async function saveEntry() {
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
-.primary-num { color: #C09840; font-size: 3.4rem; }
-.secondary-num { color: #1A2744; font-size: 1.3rem; }
+.primary-num { color: #C09840; font-size: 2.35rem; }
+.secondary-num { color: #1A2744; font-size: 2.05rem; }
 
 .result-divider {
   font-size: 1.4rem;
@@ -428,33 +418,23 @@ async function saveEntry() {
   font-weight: 600;
   color: var(--navy);
 }
-.primary-heb  { font-size: 2.2rem; }
-.secondary-heb { font-size: 1.2rem; }
+.primary-heb  { font-size: 2rem; }
+.secondary-heb { font-size: 1.8rem; }
 
-/* ── ראשי תיבות card — subordinate to primary ───────────────────────────── */
-.result-card--roshei {
-  padding: 12px 22px;
-  opacity: 0.88;
+/* ── Two equal secondary calculation cards ───────────────────────────────── */
+.result-secondary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 
-.result-card-inner {
-  display: flex;
-  align-items: center;
-  gap: 0;
-}
-
-.roshei-block { flex: 1; }
-
-.roshei-divider {
-  width: 1px;
-  height: 48px;
-  background: var(--border);
-  margin: 0 20px;
+.result-card--secondary {
+  padding: 18px 20px;
 }
 
 .roshei-letters {
-  font-size: 1.55rem;
-  font-weight: 600;
+  font-size: 2.05rem;
+  font-weight: 700;
   color: var(--navy);
   margin-top: 2px;
 }
@@ -466,6 +446,7 @@ async function saveEntry() {
   display: flex;
   align-items: center;
   gap: 12px;
+  justify-content: flex-end;
 }
 
 .save-btn {
@@ -494,6 +475,10 @@ async function saveEntry() {
 .save-btn--saved:hover:not(:disabled) { background: #388E3C; border-color: #388E3C; }
 
 .save-error { font-size: 0.82rem; color: #D32F2F; }
+
+@media (max-width: 480px) {
+  .result-secondary-grid { grid-template-columns: 1fr; }
+}
 
 /* ── Word breakdown ──────────────────────────────────────────────────────── */
 .breakdown-section {

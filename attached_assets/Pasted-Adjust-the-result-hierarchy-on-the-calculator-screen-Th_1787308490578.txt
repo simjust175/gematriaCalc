@@ -1,0 +1,80 @@
+Adjust the result hierarchy on the calculator screen.
+
+The current implementation makes **גימטריה מלאה** dramatically larger and more visually important than the other two calculations.
+
+That is NOT what the client wants.
+
+For this user, these are essentially **three equal calculation results**:
+
+1. גימטריה מלאה
+2. ראשי תיבות
+3. גימטריית ראשי תיבות
+
+They should feel like three parts of the same calculation, not one primary result with two minor statistics.
+
+## Desired layout
+
+Keep:
+
+**גימטריה מלאה**
+
+as a full-width card on the first row.
+
+Then place:
+
+**ראשי תיבות**
+
+and
+
+**גימטריית ראשי תיבות**
+
+as two equal-width cards directly underneath.
+
+However, make all three cards have approximately the SAME visual importance.
+
+### Specifically:
+
+* Reduce the excessive height of the current גימטריה מלאה card.
+* Remove the large unused empty space inside it.
+* Use approximately the same vertical padding across all three result cards.
+* Use the same or very similar result-number/font size across all three cards.
+* Do not make the full-gematria number dramatically larger.
+* Keep borders, radius, shadows, labels, and typography consistent.
+* The full-width card may retain the subtle gold accent, but it should NOT look like a hero banner.
+* The two lower cards should feel like equal members of the same calculation group.
+* Keep the layout compact and balanced.
+
+Conceptually:
+
+גימטריה מלאה
+304 · דש
+
+────────────────────────────
+
+ראשי תיבות              גימטריית ראשי תיבות
+ש                         300 · ש
+
+The exact RTL ordering should follow the current Hebrew layout.
+
+## Save button
+
+Keep the שמור / כבר שמור control associated with the calculation, but do not make the full-gematria card unnecessarily tall just to accommodate it.
+
+If necessary, place the Save control neatly immediately below the three-result group or in a compact position inside the full-width card.
+
+## Important
+
+Do NOT change:
+
+* calculation logic
+* matching logic
+* database behavior
+* word breakdown
+* colors/palette
+* overall design language
+
+This is only a visual hierarchy/layout correction.
+
+The goal is:
+
+**three equally important calculations presented in a clean 1 + 2 card arrangement.**
