@@ -1,0 +1,304 @@
+The core redesign is now in place. DO NOT redesign the application again and do not change the established visual language.
+
+This is now a focused UX polish and behavior-verification pass.
+
+Use the current implementation as the starting point.
+
+
+## 2. DESKTOP SCALE / EMPTY SPACE
+
+The current desktop UI is visually too small relative to the viewport and leaves a very large amount of unused beige space.
+
+Increase the useful visual scale modestly.
+
+Do NOT make everything huge.
+
+The goal is for the calculator to feel confidently centered and substantial on a normal desktop display.
+
+The main calculator + optional matching area should occupy more of the available width, similar to the supplied reference mockup.
+
+Keep a sensible max-width so it still looks premium on very large monitors.
+
+---
+
+## 3. INPUT HEIGHT
+
+The current input area is unnecessarily tall when entering a short word.
+
+Change it so:
+
+* short text / one line starts approximately 90–110px high;
+* the Hebrew text remains large and comfortable;
+* longer phrases/pesukim can grow naturally to multiple lines;
+* no awkward internal scrollbar for normal-length text;
+* RTL remains correct.
+
+It should feel like a premium calculator input, not a large generic textarea.
+
+---
+
+## 4. SAVE BUTTON PLACEMENT
+
+The current Save button feels visually detached from the result.
+
+Improve its placement.
+
+It should clearly belong to the CURRENT calculation.
+
+Place it either:
+
+* integrated into/adjacent to the main gematria result card, OR
+* immediately beneath the main result in a deliberately aligned position.
+
+Keep the Hebrew label:
+
+שמור
+
+When already saved, show a tasteful state such as:
+
+כבר שמור
+
+Do not make it look like an unrelated floating button.
+
+---
+
+## 5. RESULT HIERARCHY
+
+The main/full gematria must remain the visual hero.
+
+Make:
+
+גימטריה מלאה
+
+and:
+
+308 · שח
+
+for the current example feel clearly more important than every secondary calculation.
+
+Then beneath it keep:
+
+ראשי תיבות
+
+and:
+
+גימטריית ראשי תיבות
+
+visually related and more compact.
+
+Do not let those secondary cards compete with the full gematria card.
+
+---
+
+## 6. ראשי תיבות AREA
+
+The current structure is correct.
+
+Do not change the calculation rule.
+
+For one word:
+
+שח
+
+ראשי תיבות = ש
+
+Gematria of ראשי תיבות = 300
+
+For multiple words, use the first Hebrew letter of every word.
+
+However, make the two ראשי תיבות values visually tighter and more obviously related.
+
+---
+
+## 7. WORD BREAKDOWN
+
+Keep the current word breakdown.
+
+Maintain expandable rows.
+
+When expanded, show letter-level values cleanly.
+
+Do not make the rows taller than necessary.
+
+---
+
+# 8. VERIFY LIVE FULL-GEMATRIA MATCHING
+
+This is the highest-priority functional test.
+
+There are currently saved records in the library with gematria 811.
+
+Use existing saved data or test fixtures as appropriate.
+
+Test this exact behavior:
+
+1. Open calculator.
+2. Begin with blank input.
+3. Type Hebrew characters progressively.
+4. Watch the full gematria change.
+5. The instant the FULL gematria equals 811, all appropriate saved entries whose matching value is 811 must appear.
+6. If there are two saved entries at 811, BOTH must appear.
+7. Add/remove a character so the current gematria is no longer 811.
+8. The 811 matches must immediately disappear.
+9. If the new current value has its own saved matches, those must replace the old matches.
+
+There must be no Search button involved.
+
+Matching is driven entirely by the current live calculation.
+
+---
+
+# 9. VERIFY MULTIPLE RESULTS AT SAME VALUE
+
+Multiple different saved words/sentences may have identical gematria.
+
+Never stop at one result.
+
+For a current value such as 811, return ALL relevant saved matches, subject only to a sensible visual initial limit.
+
+If there are many results:
+
+show the first few cleanly and provide:
+
+הצג עוד
+
+Do not silently omit matches.
+
+---
+
+# 10. VERIFY WORDS INSIDE SAVED PHRASES
+
+Confirm the matching implementation also indexes individual saved words.
+
+Example:
+
+If a saved entry contains:
+
+שמע ישראל
+
+the matching engine must understand:
+
+שמע = 410
+ישראל = 541
+full phrase = 951
+
+If the live FULL gematria becomes 541, it should be possible to show:
+
+ישראל
+
+with contextual information that it comes from:
+
+שמע ישראל
+
+Do not show confusing duplicate versions of the exact same logical match.
+
+---
+
+# 11. VERIFY ראשי תיבות MATCHING SEPARATELY
+
+Run a separate test where the CURRENT FULL gematria does NOT match a saved value, but the current ראשי תיבות gematria DOES.
+
+In that situation:
+
+* do NOT pretend it is a full-gematria match;
+* show it in a separate secondary section;
+* clearly label that it is a ראשי תיבות match;
+* give it less visual prominence than a full gematria match.
+
+Suggested label:
+
+התאמות לפי ראשי תיבות
+
+If both full gematria AND ראשי תיבות have matches simultaneously:
+
+show both sections, with full gematria first and visually stronger.
+
+---
+
+# 12. SAVED LIBRARY PAGE POLISH
+
+The שמורים page works but currently feels sparse on desktop.
+
+Keep its simplicity.
+
+Improve:
+
+* content width;
+* typography hierarchy;
+* card spacing;
+* search prominence;
+* empty-space balance.
+
+Do NOT turn it into an admin dashboard.
+
+Each saved card should make these immediately understandable:
+
+* saved Hebrew text;
+* full numerical gematria;
+* Hebrew-number equivalent if available;
+* expand/open action;
+* delete action.
+
+When expanded, show:
+
+* full gematria;
+* ראשי תיבות;
+* ראשי תיבות gematria;
+* word breakdown;
+* saved date if available.
+
+---
+
+# 13. SEARCH
+
+Verify saved-library search supports BOTH:
+
+Hebrew text search
+
+and
+
+numeric gematria search.
+
+Example:
+
+811
+
+must return every appropriate entry/word with gematria 811.
+
+---
+
+# 14. DO NOT BREAK EXISTING CORRECT BEHAVIOR
+
+Preserve:
+
+* live calculation
+* standard gematria
+* Hebrew number display
+* ראשי תיבות
+* ראשי תיבות gematria
+* saving
+* saved library
+* word breakdown
+* RTL
+* responsive design
+
+Do NOT bring back מספר קטן.
+
+---
+
+# 15. REPORT BACK WITH ACTUAL TEST RESULTS
+
+After making the changes, do not merely say "implemented."
+
+Report:
+
+1. files changed;
+2. whether the database matching is server-side or client-side;
+3. exact test performed for multiple saved entries with the same gematria;
+4. exact test performed for full-gematria live matching;
+5. exact test performed for ראשי תיבות matching;
+6. exact test performed for match disappearance when the value changes;
+7. test/build/lint results;
+8. any remaining limitation.
+
+Do not claim these behaviors work unless you actually verified them.
