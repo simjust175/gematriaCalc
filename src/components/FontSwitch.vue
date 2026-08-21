@@ -16,7 +16,7 @@
   </script>
   
   <style scoped>
-  @import url(https://fonts.googleapis.com/css?family=Source+Sans+Pro:400,400i,700,700i);
+  @import url('https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@300;400;600;700;900&display=swap');
   
   .container {
     /* background-color: var(--bg);

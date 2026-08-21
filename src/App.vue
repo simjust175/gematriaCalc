@@ -52,7 +52,7 @@ async function onLogout() {
 </script>
 
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Noto+Rashi+Hebrew:wght@300;400;500;600;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@300;400;600;700;900&display=swap');
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -79,7 +79,7 @@ async function onLogout() {
 
 html, body {
   height: 100%;
-  font-family: 'Noto Rashi Hebrew', 'Arial Hebrew', Arial, sans-serif;
+  font-family: "Source Sans Pro", Arial, sans-serif;
   background: var(--bg);
   color: var(--text-primary);
   direction: rtl;

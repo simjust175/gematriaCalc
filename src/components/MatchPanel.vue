@@ -121,7 +121,7 @@ const visibleSecondary = computed(() => props.secondary.slice(0, showSecondaryCo
 .matches-value {
   font-size: 1.5rem;
   font-weight: 700;
-  font-family: 'Georgia', serif;
+  font-family: "Source Sans Pro", Arial, sans-serif;
 }
 
 .primary-accent { color: #C09840; }

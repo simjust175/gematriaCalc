@@ -327,7 +327,7 @@ async function saveEntry() {
   outline: none;
   resize: none;
   background: transparent;
-  font-family: 'Noto Rashi Hebrew', Arial, sans-serif;
+  font-family: "Source Sans Pro", Arial, sans-serif;
   font-size: 1.9rem;
   font-weight: 600;
   color: var(--navy);
