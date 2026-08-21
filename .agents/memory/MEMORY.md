@@ -1,3 +1,4 @@
 - [Stack and architecture](stack.md) — Vue 3 + Vuetify + Vite (port 5000) + Express (port 3001) + PostgreSQL; proxy at /api
 - [Auth and secrets](auth.md) — Session auth via express-session; APP_PASSWORD + SESSION_SECRET both required as Replit Secrets
 - [Matching behavior](matching.md) — All 4 matching scenarios verified against live DB; secondary ראשי תיבות section hidden when no matches
+- [Saved-entry integrity](saved-entry-integrity.md) — Server recalculates saved gematria data and backfills existing entries

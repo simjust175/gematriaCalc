@@ -97,9 +97,16 @@
 
           <div class="detail-words" v-if="entry.words && entry.words.length > 0">
             <div class="detail-label" style="margin-bottom:8px;">פירוט מילים:</div>
-            <div class="detail-word-row" v-for="w in entry.words" :key="w.id">
-              <span class="word-text">{{ w.word }}</span>
-              <span class="word-gematria">{{ w.gematria }}</span>
+            <div class="detail-word-block" v-for="w in getEntryBreakdown(entry.original_text)" :key="w.position">
+              <div class="detail-word-row">
+                <span class="word-text">{{ w.word }}</span>
+                <span class="word-gematria">{{ w.gematria }}</span>
+              </div>
+              <div class="detail-letter-list">
+                <span v-for="letter in w.letters" :key="letter.letter + letter.value" class="detail-letter">
+                  {{ letter.letter }} · {{ letter.value }}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -135,6 +142,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
+import { getWordBreakdown } from '@/composables/useGematria.js';
 
 const entries = ref([]);
 const total = ref(0);
@@ -209,6 +217,10 @@ function formatDate(iso) {
   if (!iso) return '';
   const d = new Date(iso);
   return d.toLocaleDateString('he-IL', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function getEntryBreakdown(text) {
+  return getWordBreakdown(text);
 }
 
 onMounted(() => fetchEntries());
@@ -417,9 +429,20 @@ onMounted(() => fetchEntries());
   padding: 5px 0;
   border-bottom: 1px solid #F0ECE4;
 }
-.detail-word-row:last-child { border-bottom: none; }
+.detail-word-block:last-child .detail-word-row { border-bottom: none; }
 .word-text { color: var(--navy); font-weight: 500; }
 .word-gematria { color: var(--gold); font-weight: 600; }
+.detail-letter-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 10px;
+  padding: 6px 0 9px;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.detail-letter {
+  white-space: nowrap;
+}
 
 .detail-meta {
   font-size: 0.75rem;

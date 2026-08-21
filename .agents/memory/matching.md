@@ -7,7 +7,7 @@ Matching is entirely server-side. The client sends `gematria`, `initialsGematria
 
 **Primary matches** = entries whose `full_gematria` equals the current value, PLUS individual words from `saved_words` whose `gematria` matches (with parent-phrase suppression to avoid duplicates).
 
-**Secondary matches** = entries whose `initials_gematria` equals the current `initialsGematria`. The secondary section in `MatchPanel.vue` is hidden entirely when `secondary.length === 0` — it does NOT show "אין התאמות".
+**Secondary matches** = entries whose persisted `initials_gematria` equals the current live **full** gematria. The client intentionally sends the current full value in the `initialsGematria` request parameter for this comparison. The secondary section in `MatchPanel.vue` is hidden entirely when `secondary.length === 0` — it does NOT show "אין התאמות".
 
 **Verified scenarios (against live DB with 2 entries at 811):**
 1. gematria=811 → 2 primary matches appear simultaneously ✓

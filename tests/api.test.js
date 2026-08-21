@@ -14,6 +14,7 @@
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 import request from 'supertest';
+import { computeAll } from '../src/composables/useGematria.js';
 
 // Set required env vars before importing the app
 process.env.SESSION_SECRET  = 'test-session-secret-for-api-tests';
@@ -121,6 +122,72 @@ test('GET /api/matches with valid session returns 200', async () => {
     .set('Cookie', cookie);
   // 200 OK (may fail with 500 if no DB, but not 401)
   assert.notEqual(res.status, 401);
+});
+
+test('saving derives, persists, fetches, and secondary-matches initials data server-side', async () => {
+  const agent = request.agent(app);
+  const originalText = 'בדיקת שמירת ראשי תיבות';
+  const calculated = computeAll(originalText);
+  let savedId;
+
+  try {
+    const loginRes = await agent
+      .post('/api/auth/login')
+      .send({ password: 'correct-test-password-12345' });
+    assert.equal(loginRes.status, 200);
+
+    const saveRes = await agent
+      .post('/api/entries')
+      .send({
+        originalText,
+        normalizedText: 'tampered',
+        fullGematria: 1,
+        fullGematriaHebrew: 'א',
+        initials: 'א',
+        initialsGematria: 1,
+        initialsGematriaHebrew: 'א',
+        words: [],
+      });
+    assert.equal(saveRes.status, 200);
+    savedId = saveRes.body.id;
+
+    const duplicateRes = await agent
+      .post('/api/entries')
+      .send({ originalText });
+    assert.equal(duplicateRes.status, 409);
+
+    const listRes = await agent
+      .get('/api/entries')
+      .query({ search: originalText, limit: 20, offset: 0 });
+    assert.equal(listRes.status, 200);
+
+    const saved = listRes.body.entries.find(entry => entry.id === savedId);
+    assert.ok(saved, 'saved entry should be returned by the fetch API');
+    assert.equal(saved.normalized_text, calculated.normalizedText);
+    assert.equal(saved.full_gematria, calculated.fullGematria);
+    assert.equal(saved.full_gematria_hebrew, calculated.fullHebrewNumber);
+    assert.equal(saved.initials, calculated.initials);
+    assert.equal(saved.initials_gematria, calculated.initialsGematria);
+    assert.equal(saved.initials_gematria_hebrew, calculated.initialsHebrewNumber);
+    assert.equal(saved.words.length, calculated.words.length);
+    assert.ok(saved.created_at, 'saved entry should include its creation date');
+
+    const matchRes = await agent
+      .get('/api/matches')
+      .query({
+        gematria: 999999,
+        initialsGematria: calculated.initialsGematria,
+        normalizedText: 'unrelated',
+      });
+    assert.equal(matchRes.status, 200);
+    assert.equal(matchRes.body.primary.length, 0);
+    assert.ok(
+      matchRes.body.secondary.some(entry => entry.id === savedId),
+      'saved entry should appear as a secondary initials match'
+    );
+  } finally {
+    if (savedId) await agent.delete(`/api/entries/${savedId}`);
+  }
 });
 
 // ── Logout invalidates session ────────────────────────────────────────────────

@@ -143,7 +143,7 @@
           :primary="matches.primary"
           :secondary="matches.secondary"
           :gematria="result?.fullGematria"
-          :initialsGematria="result?.initialsGematria"
+          :initialsGematria="result?.fullGematria"
           :isAlreadySaved="matches.isAlreadySaved"
           :hasInput="hasInput"
         />
@@ -156,7 +156,7 @@
         :primary="matches.primary"
         :secondary="matches.secondary"
         :gematria="result?.fullGematria"
-        :initialsGematria="result?.initialsGematria"
+          :initialsGematria="result?.fullGematria"
         :isAlreadySaved="matches.isAlreadySaved"
         :hasInput="hasInput"
       />
@@ -216,7 +216,9 @@ watch(result, (newResult) => {
     try {
       const params = new URLSearchParams({
         gematria:        newResult.fullGematria,
-        initialsGematria: newResult.initialsGematria,
+          // Secondary matching compares the current full value against
+          // saved initials gematria values.
+          initialsGematria: newResult.fullGematria,
         normalizedText:  newResult.normalizedText,
       });
       const res = await fetch(`/api/matches?${params}`);
