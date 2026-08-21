@@ -13,11 +13,12 @@
             class="heb-input"
             :class="{ 'heb-input--active': hasInput }"
             placeholder="הקלד מילה או משפט..."
+            ref="textareaRef"
             dir="rtl"
-            rows="2"
             autocomplete="off"
             autocorrect="off"
             spellcheck="false"
+            @input="resizeTextarea"
           ></textarea>
           <button
             v-if="inputText"
@@ -41,6 +42,25 @@
                 <span class="result-divider">·</span>
                 <span class="result-heb primary-heb">{{ result.fullHebrewNumber }}</span>
               </div>
+              <!-- Save button — belongs to this result -->
+              <div class="save-row">
+                <button
+                  class="save-btn"
+                  :class="{
+                    'save-btn--saved': saveStatus === 'saved' || matches.isAlreadySaved,
+                    'save-btn--loading': saveStatus === 'loading',
+                  }"
+                  :disabled="saveStatus === 'loading' || matches.isAlreadySaved"
+                  @click="saveEntry"
+                >
+                  <span v-if="matches.isAlreadySaved" class="mdi mdi-check-circle"></span>
+                  <span v-else-if="saveStatus === 'loading'" class="mdi mdi-loading mdi-spin"></span>
+                  <span v-else-if="saveStatus === 'saved'" class="mdi mdi-check-circle"></span>
+                  <span v-else class="mdi mdi-content-save-outline"></span>
+                  {{ matches.isAlreadySaved ? 'כבר שמור' : saveStatus === 'saved' ? 'נשמר!' : 'שמור' }}
+                </button>
+                <span v-if="saveError" class="save-error">{{ saveError }}</span>
+              </div>
             </div>
 
             <!-- ── ROSHEI TEIVOT ────────────────────────── -->
@@ -60,26 +80,6 @@
                   </div>
                 </div>
               </div>
-            </div>
-
-            <!-- ── SAVE BUTTON ───────────────────────────── -->
-            <div class="save-row">
-              <button
-                class="save-btn"
-                :class="{
-                  'save-btn--saved': saveStatus === 'saved' || matches.isAlreadySaved,
-                  'save-btn--loading': saveStatus === 'loading',
-                }"
-                :disabled="saveStatus === 'loading' || matches.isAlreadySaved"
-                @click="saveEntry"
-              >
-                <span v-if="matches.isAlreadySaved" class="mdi mdi-check-circle"></span>
-                <span v-else-if="saveStatus === 'loading'" class="mdi mdi-loading mdi-spin"></span>
-                <span v-else-if="saveStatus === 'saved'" class="mdi mdi-check-circle"></span>
-                <span v-else class="mdi mdi-content-save-outline"></span>
-                {{ matches.isAlreadySaved ? 'כבר שמור' : saveStatus === 'saved' ? 'נשמר!' : 'שמור' }}
-              </button>
-              <span v-if="saveError" class="save-error">{{ saveError }}</span>
             </div>
 
             <!-- ── WORD BREAKDOWN ─────────────────────────── -->
@@ -165,11 +165,12 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, nextTick } from 'vue';
 import { computeAll } from '@/composables/useGematria.js';
 import MatchPanel from './MatchPanel.vue';
 
 const inputText   = ref('');
+const textareaRef = ref(null);
 const expandedWords = ref({});
 const saveStatus  = ref('idle');   // idle | loading | saved
 const saveError   = ref('');
@@ -182,12 +183,25 @@ let saveResetTimer = null;
 const result  = computed(() => computeAll(inputText.value));
 const hasInput = computed(() => !!result.value);
 
-// Reset expanded words when text changes
-watch(inputText, () => {
+// Reset expanded words when text changes; restore min-height when cleared
+watch(inputText, (val) => {
   expandedWords.value = {};
   saveStatus.value = 'idle';
   saveError.value = '';
+  if (!val) {
+    nextTick(() => {
+      if (textareaRef.value) textareaRef.value.style.height = '';
+    });
+  }
 });
+
+// Auto-resize textarea to fit content, starting at 100px
+function resizeTextarea() {
+  const el = textareaRef.value;
+  if (!el) return;
+  el.style.height = 'auto';
+  el.style.height = Math.max(100, el.scrollHeight) + 'px';
+}
 
 // ── Live match lookup (debounced 350ms) ──────────────────────────────────────
 watch(result, (newResult) => {
@@ -275,8 +289,8 @@ async function saveEntry() {
 
 .calc-layout {
   display: grid;
-  grid-template-columns: 1fr 320px;
-  gap: 24px;
+  grid-template-columns: 1fr 380px;
+  gap: 28px;
   align-items: start;
 }
 
@@ -321,7 +335,8 @@ async function saveEntry() {
   direction: rtl;
   text-align: right;
   caret-color: #C09840;
-  min-height: 56px;
+  min-height: 100px;
+  overflow-y: hidden;
 }
 
 .heb-input::placeholder {
@@ -366,6 +381,16 @@ async function saveEntry() {
 .result-card--primary {
   background: linear-gradient(135deg, #FFFBF2 0%, #FFF8EC 100%);
   border-color: #E8D89A;
+  padding: 22px 24px 18px;
+  box-shadow: 0 4px 20px rgba(192, 152, 64, 0.1);
+}
+
+/* Save row lives inside the primary card */
+.result-card--primary .save-row {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(232, 216, 154, 0.5);
+  justify-content: flex-end;
 }
 
 .result-label {
@@ -389,8 +414,8 @@ async function saveEntry() {
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
-.primary-num { color: #C09840; }
-.secondary-num { color: #1A2744; font-size: 1.6rem; }
+.primary-num { color: #C09840; font-size: 3.4rem; }
+.secondary-num { color: #1A2744; font-size: 1.3rem; }
 
 .result-divider {
   font-size: 1.4rem;
@@ -403,11 +428,14 @@ async function saveEntry() {
   font-weight: 600;
   color: var(--navy);
 }
-.primary-heb  { font-size: 2rem; }
-.secondary-heb { font-size: 1.3rem; }
+.primary-heb  { font-size: 2.2rem; }
+.secondary-heb { font-size: 1.2rem; }
 
-/* ── ראשי תיבות card ─────────────────────────────────────────────────────── */
-.result-card--roshei { padding: 16px 22px; }
+/* ── ראשי תיבות card — subordinate to primary ───────────────────────────── */
+.result-card--roshei {
+  padding: 12px 22px;
+  opacity: 0.88;
+}
 
 .result-card-inner {
   display: flex;
@@ -425,8 +453,8 @@ async function saveEntry() {
 }
 
 .roshei-letters {
-  font-size: 2rem;
-  font-weight: 700;
+  font-size: 1.55rem;
+  font-weight: 600;
   color: var(--navy);
   margin-top: 2px;
 }

@@ -213,10 +213,10 @@ onMounted(() => fetchEntries());
   margin-bottom: 24px;
 }
 .library-title {
-  font-size: 1.8rem;
+  font-size: 2.2rem;
   font-weight: 700;
   color: var(--navy);
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 .library-subtitle {
   font-size: 0.9rem;
@@ -228,21 +228,25 @@ onMounted(() => fetchEntries());
   display: flex;
   align-items: center;
   background: #fff;
-  border: 1.5px solid var(--border);
+  border: 2px solid var(--border);
   border-radius: var(--radius);
-  padding: 0 14px;
-  margin-bottom: 16px;
+  padding: 0 16px;
+  margin-bottom: 20px;
   gap: 8px;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  box-shadow: 0 2px 8px rgba(26, 39, 68, 0.05);
 }
-.search-bar:focus-within { border-color: var(--gold); }
+.search-bar:focus-within {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(192, 152, 64, 0.1);
+}
 .search-icon { color: var(--text-secondary); font-size: 1.1rem; }
 .search-input {
   flex: 1;
   border: none;
   outline: none;
-  padding: 12px 0;
-  font-size: 0.95rem;
+  padding: 14px 0;
+  font-size: 1rem;
   background: transparent;
   font-family: inherit;
   color: var(--text-primary);
@@ -284,7 +288,7 @@ onMounted(() => fetchEntries());
 }
 .empty-text { margin-top: 16px; line-height: 1.8; font-size: 0.95rem; }
 
-.entries-list { display: flex; flex-direction: column; gap: 10px; }
+.entries-list { display: flex; flex-direction: column; gap: 12px; }
 
 /* Entry card */
 .entry-card {
@@ -300,16 +304,16 @@ onMounted(() => fetchEntries());
 .entry-header {
   display: flex;
   align-items: center;
-  padding: 16px 18px;
+  padding: 18px 22px;
   cursor: pointer;
   gap: 12px;
 }
 .entry-main-info { flex: 1; min-width: 0; }
 .entry-text {
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: 1.15rem;
+  font-weight: 700;
   color: var(--navy);
-  margin-bottom: 4px;
+  margin-bottom: 5px;
   text-align: right;
   word-break: break-all;
 }
@@ -319,7 +323,7 @@ onMounted(() => fetchEntries());
   gap: 6px;
 }
 .gematria-num {
-  font-size: 1.15rem;
+  font-size: 1.35rem;
   font-weight: 700;
   color: var(--gold);
 }
@@ -351,11 +355,11 @@ onMounted(() => fetchEntries());
 /* Expanded detail */
 .entry-detail {
   border-top: 1px solid var(--border);
-  padding: 16px 18px;
+  padding: 18px 22px;
   background: #FAFAF7;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .detail-row {

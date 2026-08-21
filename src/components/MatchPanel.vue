@@ -32,8 +32,8 @@
       <div v-else-if="gematria" class="no-matches">אין התאמות</div>
     </div>
 
-    <!-- Secondary matches: ראשי תיבות gematria -->
-    <div class="matches-section secondary-section" v-if="initialsGematria && (secondary.length > 0 || gematria)">
+    <!-- Secondary matches: ראשי תיבות gematria — only shown when there are actual matches -->
+    <div class="matches-section secondary-section" v-if="secondary.length > 0">
       <div class="matches-header">
         <span class="matches-title secondary-title">התאמות לפי ראשי תיבות</span>
         <span class="matches-value secondary-accent" v-if="initialsGematria">{{ initialsGematria }}</span>
@@ -53,13 +53,12 @@
           הצג עוד ({{ secondary.length - showSecondaryCount }})
         </button>
       </template>
-      <div v-else class="no-matches no-matches-sm">אין התאמות</div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 
 const props = defineProps({
   primary: { type: Array, default: () => [] },
@@ -72,6 +71,10 @@ const props = defineProps({
 
 const showPrimaryCount = ref(5);
 const showSecondaryCount = ref(3);
+
+// Reset pagination when match set changes
+watch(() => props.primary, () => { showPrimaryCount.value = 5; });
+watch(() => props.secondary, () => { showSecondaryCount.value = 3; });
 
 const visiblePrimary = computed(() => props.primary.slice(0, showPrimaryCount.value));
 const visibleSecondary = computed(() => props.secondary.slice(0, showSecondaryCount.value));
