@@ -36,11 +36,33 @@
 
             <!-- ── PRIMARY RESULT: גימטריה מלאה ─────────── -->
             <div class="result-card result-card--primary">
-              <div class="result-label">גימטריה מלאה</div>
-              <div class="result-value-row">
-                <span class="result-num primary-num">{{ result.fullGematria }}</span>
-                <span class="result-divider">·</span>
-                <span class="result-heb primary-heb">{{ result.fullHebrewNumber }}</span>
+              <div class="primary-result-content">
+                <div class="result-label">גימטריה מלאה</div>
+                <div class="result-value-row">
+                  <span class="result-num primary-num">{{ result.fullGematria }}</span>
+                  <span class="result-divider">·</span>
+                  <span class="result-heb primary-heb">{{ result.fullHebrewNumber }}</span>
+                </div>
+              </div>
+
+              <!-- Save button belongs to the full calculation card -->
+              <div class="save-row">
+                <button
+                  class="save-btn"
+                  :class="{
+                    'save-btn--saved': saveStatus === 'saved' || matches.isAlreadySaved,
+                    'save-btn--loading': saveStatus === 'loading',
+                  }"
+                  :disabled="saveStatus === 'loading' || matches.isAlreadySaved"
+                  @click="saveEntry"
+                >
+                  <span v-if="matches.isAlreadySaved" class="mdi mdi-bookmark-check-outline"></span>
+                  <span v-else-if="saveStatus === 'loading'" class="mdi mdi-loading mdi-spin"></span>
+                  <span v-else-if="saveStatus === 'saved'" class="mdi mdi-bookmark-check-outline"></span>
+                  <span v-else class="mdi mdi-bookmark-outline"></span>
+                  {{ matches.isAlreadySaved ? 'כבר שמור' : saveStatus === 'saved' ? 'נשמר' : 'שמור' }}
+                </button>
+                <span v-if="saveError" class="save-error">{{ saveError }}</span>
               </div>
             </div>
 
@@ -58,26 +80,6 @@
                   <span class="result-heb secondary-heb">{{ result.initialsHebrewNumber }}</span>
                 </div>
               </div>
-            </div>
-
-            <!-- ── SAVE BUTTON ───────────────────────────── -->
-            <div class="save-row">
-              <button
-                class="save-btn"
-                :class="{
-                  'save-btn--saved': saveStatus === 'saved' || matches.isAlreadySaved,
-                  'save-btn--loading': saveStatus === 'loading',
-                }"
-                :disabled="saveStatus === 'loading' || matches.isAlreadySaved"
-                @click="saveEntry"
-              >
-                <span v-if="matches.isAlreadySaved" class="mdi mdi-check-circle"></span>
-                <span v-else-if="saveStatus === 'loading'" class="mdi mdi-loading mdi-spin"></span>
-                <span v-else-if="saveStatus === 'saved'" class="mdi mdi-check-circle"></span>
-                <span v-else class="mdi mdi-content-save-outline"></span>
-                {{ matches.isAlreadySaved ? 'כבר שמור' : saveStatus === 'saved' ? 'נשמר!' : 'שמור' }}
-              </button>
-              <span v-if="saveError" class="save-error">{{ saveError }}</span>
             </div>
 
             <!-- ── WORD BREAKDOWN ─────────────────────────── -->
@@ -381,6 +383,14 @@ async function saveEntry() {
   border-color: #E8D89A;
   padding: 18px 22px;
   box-shadow: 0 2px 12px rgba(192, 152, 64, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.primary-result-content {
+  min-width: 0;
 }
 
 .result-label {
@@ -446,19 +456,19 @@ async function saveEntry() {
   display: flex;
   align-items: center;
   gap: 12px;
-  justify-content: flex-end;
+  flex: 0 0 auto;
 }
 
 .save-btn {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 10px 24px;
-  border-radius: 10px;
-  border: 2px solid #C09840;
-  background: #C09840;
-  color: #fff;
-  font-size: 1rem;
+  gap: 5px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid #C09840;
+  background: rgba(192, 152, 64, 0.1);
+  color: #A07C2E;
+  font-size: 0.86rem;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
@@ -466,18 +476,29 @@ async function saveEntry() {
   direction: rtl;
 }
 .save-btn:hover:not(:disabled) {
-  background: #A07C2E;
+  background: #C09840;
+  color: #fff;
   border-color: #A07C2E;
-  box-shadow: 0 3px 12px rgba(192,152,64,0.3);
+  box-shadow: 0 2px 8px rgba(192,152,64,0.2);
 }
 .save-btn:disabled { opacity: 0.65; cursor: default; }
-.save-btn--saved { background: #4CAF7D; border-color: #4CAF7D; }
-.save-btn--saved:hover:not(:disabled) { background: #388E3C; border-color: #388E3C; }
+.save-btn--saved {
+  background: rgba(76, 175, 125, 0.08);
+  border-color: rgba(76, 175, 125, 0.45);
+  color: #388E3C;
+}
+.save-btn--saved:hover:not(:disabled) {
+  background: rgba(76, 175, 125, 0.08);
+  border-color: rgba(76, 175, 125, 0.45);
+  color: #388E3C;
+}
 
 .save-error { font-size: 0.82rem; color: #D32F2F; }
 
 @media (max-width: 480px) {
   .result-secondary-grid { grid-template-columns: 1fr; }
+  .result-card--primary { gap: 12px; }
+  .save-btn { padding-inline: 10px; }
 }
 
 /* ── Word breakdown ──────────────────────────────────────────────────────── */
