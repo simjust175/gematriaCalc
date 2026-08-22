@@ -139,12 +139,6 @@
           </div>
         </transition>
 
-        <!-- Placeholder when empty -->
-        <div v-if="!hasInput" class="empty-hint">
-          <div class="hint-text">כתוב מילה או משפט בעברית</div>
-          <div class="hint-sub">החישוב מתבצע אוטומטית</div>
-        </div>
-
       </div>
 
       <!-- ── RIGHT: Match panel (desktop sidebar) ──────────── -->
@@ -391,14 +385,22 @@ async function saveEntry() {
   direction: rtl;
   text-align: right;
   caret-color: #C09840;
-  min-height: 100px;
-  overflow-y: hidden;
+  min-height: 190px;
+  max-height: 420px;
+  overflow-y: auto;
 }
 
 .heb-input::placeholder {
   color: #C8C2B4;
   font-weight: 400;
   font-size: 1.5rem;
+}
+
+@media (max-width: 640px) {
+  .heb-input {
+    min-height: 150px;
+    max-height: 360px;
+  }
 }
 
 .keyboard-toggle {
@@ -706,12 +708,4 @@ async function saveEntry() {
 .letter-dash { color: #D4C9B0; font-size: 0.8rem; }
 .letter-val  { font-size: 0.9rem; font-weight: 600; color: var(--text-secondary); }
 
-/* ── Empty state ─────────────────────────────────────────────────────────── */
-.empty-hint {
-  text-align: center;
-  padding: 60px 20px;
-  color: #CBCDC4;
-}
-.hint-text { font-size: 1.1rem; font-weight: 500; margin-bottom: 6px; }
-.hint-sub  { font-size: 0.85rem; }
 </style>

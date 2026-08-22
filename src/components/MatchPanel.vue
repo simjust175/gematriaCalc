@@ -2,8 +2,13 @@
   <div class="match-panel" v-if="hasInput">
     <div class="matches-section">
       <div class="matches-header">
-        <span class="matches-title">התאמות שמורות</span>
-        <span class="matches-value primary-accent" v-if="gematria">{{ gematria }}</span>
+        <div>
+          <div class="matches-title">התאמות שמורות</div>
+          <div class="matches-context" v-if="gematria">
+            התאמות לחישוב הנוכחי:
+            <strong class="primary-accent">{{ gematria }} · {{ currentGematriaHebrew }}</strong>
+          </div>
+        </div>
       </div>
 
       <div v-if="isAlreadySaved" class="already-saved-badge">כבר שמור ✓</div>
@@ -60,6 +65,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
 import { getMatchTypeMeta } from '@/utils/matchTypes.js';
+import { toHebrewNumber } from '@/composables/useGematria.js';
 
 const props = defineProps({
   matches: { type: Array, default: () => [] },
@@ -74,6 +80,9 @@ const showCount = ref(5);
 watch(() => props.matches, () => { showCount.value = 5; });
 
 const visibleMatches = computed(() => props.matches.slice(0, showCount.value));
+const currentGematriaHebrew = computed(() => (
+  props.gematria ? toHebrewNumber(props.gematria) : ''
+));
 
 function hasMatchType(match, type) {
   return match.matchTypes?.includes(type);
@@ -109,13 +118,17 @@ function hasMatchType(match, type) {
   text-transform: uppercase;
 }
 
-.matches-value {
-  font-size: 1.5rem;
-  font-weight: 700;
-  font-family: "Source Sans Pro", Arial, sans-serif;
+.matches-context {
+  margin-top: 4px;
+  color: #6B7A94;
+  font-size: 0.78rem;
+  line-height: 1.35;
 }
 
-.primary-accent { color: #C09840; }
+.primary-accent {
+  color: #C09840;
+  font-family: "Source Sans Pro", Arial, sans-serif;
+}
 
 .already-saved-badge {
   display: inline-flex;

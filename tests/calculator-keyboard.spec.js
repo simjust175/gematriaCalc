@@ -29,6 +29,8 @@ test('automatic Hebrew keyboard maps physical keys and preserves calculator edit
   const textarea = page.locator('.heb-input');
   const automaticKeyboard = page.getByRole('checkbox', { name: 'מקלדת עברית אוטומטית' });
   await expect(automaticKeyboard).toBeChecked();
+  await expect(page.locator('.empty-hint')).toHaveCount(0);
+  expect(await textarea.evaluate((element) => Math.round(element.getBoundingClientRect().height))).toBeGreaterThanOrEqual(190);
 
   await textarea.focus();
   await page.keyboard.press('KeyJ');
@@ -38,6 +40,7 @@ test('automatic Hebrew keyboard maps physical keys and preserves calculator edit
   await page.keyboard.press('KeyK');
   await expect(textarea).toHaveValue('חעלעל');
   await expect(page.locator('.primary-num')).toHaveText('208');
+  await expect(page.locator('.matches-context').first()).toContainText('התאמות לחישוב הנוכחי: 208 · רח');
   const resultSections = page.locator('.result-panel .result-section');
   await expect(page.locator('.result-panel')).toHaveCount(1);
   await expect(resultSections).toHaveCount(3);
