@@ -38,6 +38,17 @@ export function createTanachCursor(displayText = '') {
       tokens.push({ text: character, letterIndex: null });
     }
   });
+  let previousLetterIndex = null;
+  for (const token of tokens) {
+    token.previousLetterIndex = previousLetterIndex;
+    if (token.letterIndex != null) previousLetterIndex = token.letterIndex;
+  }
+  let nextLetterIndex = null;
+  for (let index = tokens.length - 1; index >= 0; index -= 1) {
+    const token = tokens[index];
+    token.nextLetterIndex = nextLetterIndex;
+    if (token.letterIndex != null) nextLetterIndex = token.letterIndex;
+  }
 
   return {
     displayText,
@@ -72,4 +83,11 @@ export function createTanachCursor(displayText = '') {
 
 export function tanachRangeText(displayText, start, end) {
   return createTanachCursor(displayText).range(start, end).text;
+}
+
+export function normalizeTanachSelection(anchor, focus) {
+  return {
+    start: Math.min(anchor, focus),
+    end: Math.max(anchor, focus),
+  };
 }

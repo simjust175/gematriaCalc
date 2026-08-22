@@ -2,3 +2,4 @@
 - [Auth and secrets](auth.md) — Session auth via express-session; APP_PASSWORD + SESSION_SECRET both required as Replit Secrets
 - [Matching behavior](matching.md) — One card per saved entry with explicit full, initials-text, initials-gematria, and saved-word reasons
 - [Saved-entry integrity](saved-entry-integrity.md) — Server recalculates saved gematria data and backfills existing entries
+- [Browser tests on Nix](browser-tests-nix.md) — Playwright must launch the system Chromium wrapper; its downloaded binary lacks Replit’s runtime libraries

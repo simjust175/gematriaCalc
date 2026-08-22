@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { computeAll } from '../src/composables/useGematria.js';
-import { createTanachCursor, tanachRangeText } from '../src/composables/useTanachCursor.js';
+import { createTanachCursor, normalizeTanachSelection, tanachRangeText } from '../src/composables/useTanachCursor.js';
 
 const GENESIS_1_1 = 'בְּרֵאשִׁ֖ית בָּרָ֣א אֱלֹהִ֑ים אֵ֥ת הַשָּׁמַ֖יִם וְאֵ֥ת הָאָֽרֶץ׃';
 
@@ -35,4 +35,20 @@ test('range order is normalized and indices are clamped', () => {
   const cursor = createTanachCursor('אבג');
   assert.equal(cursor.range(2, 0).text, 'אבג');
   assert.equal(cursor.range(-10, 99).gematria, 6);
+});
+
+test('drag-style anchor and focus selection expands and contracts in either direction', () => {
+  assert.deepEqual(normalizeTanachSelection(0, 8), { start: 0, end: 8 });
+  assert.deepEqual(normalizeTanachSelection(8, 2), { start: 2, end: 8 });
+  assert.deepEqual(normalizeTanachSelection(8, 5), { start: 5, end: 8 });
+  const cursor = createTanachCursor(GENESIS_1_1);
+  assert.equal(cursor.range(0, 8).gematria, 1116);
+  assert.equal(cursor.range(0, 5).gematria, 913);
+});
+
+test('visual selection includes whitespace between selected Hebrew graphemes only', () => {
+  const cursor = createTanachCursor('בְּ רָא');
+  const space = cursor.tokens.find(token => token.text === ' ');
+  assert.equal(space.previousLetterIndex, 0);
+  assert.equal(space.nextLetterIndex, 1);
 });

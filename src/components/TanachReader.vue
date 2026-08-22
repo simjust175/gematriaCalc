@@ -107,40 +107,27 @@
             :aria-valuemin="1"
             :aria-valuemax="cursor.count"
             :aria-valuenow="cursorIndex + 1"
+            :aria-valuetext="`בחירה מאות ${rangeStart + 1} עד אות ${rangeEnd + 1} מתוך ${cursor.count}`"
             :aria-label="`סמן אות בפסוק ${referenceLabel}`"
             @keydown="onCursorKeydown"
+            @pointerdown="onPointerDown"
+            @pointermove="onPointerMove"
+            @pointerup="endDragging"
+            @pointercancel="endDragging"
           >
             <span
               v-for="(token, index) in cursor.tokens"
               :key="index"
               class="verse-token"
+              :data-letter-index="token.letterIndex ?? undefined"
               :class="{
                 'verse-token--letter': token.letterIndex != null,
-                'verse-token--range': isInRange(token.letterIndex),
+                'verse-token--range': isVisualTokenSelected(token),
                 'verse-token--current': token.letterIndex === cursorIndex,
               }"
-              @click="token.letterIndex != null && setCursor(token.letterIndex)"
             >{{ token.text }}</span>
           </div>
-
-          <div class="cursor-controls">
-            <button @click="setCursor(cursorIndex - 1)" :disabled="cursorIndex <= 0">
-              <span class="mdi mdi-chevron-right"></span>
-              אות קודמת
-            </button>
-            <button class="anchor-btn" @click="startIndex = cursorIndex">
-              <span class="mdi mdi-ray-start-arrow"></span>
-              קבע כאן התחלה
-            </button>
-            <button @click="resetStart" :disabled="startIndex === 0">
-              <span class="mdi mdi-restore"></span>
-              אפס התחלה
-            </button>
-            <button @click="setCursor(cursorIndex + 1)" :disabled="cursorIndex >= cursor.count - 1">
-              אות הבאה
-              <span class="mdi mdi-chevron-left"></span>
-            </button>
-          </div>
+          <p class="selection-hint">גרור על האותיות כדי לבחור טווח לחישוב</p>
         </section>
 
         <section v-if="result" class="calculation-area">
@@ -234,7 +221,7 @@
 <script setup>
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { computeAll, toHebrewNumber } from '@/composables/useGematria.js';
-import { createTanachCursor } from '@/composables/useTanachCursor.js';
+import { createTanachCursor, normalizeTanachSelection } from '@/composables/useTanachCursor.js';
 import { useLiveMatching } from '@/composables/useLiveMatching.js';
 import MatchPanel from './MatchPanel.vue';
 
@@ -246,8 +233,9 @@ const stats = ref({});
 const selectedBookSlug = ref('Genesis');
 const selectedChapter = ref(1);
 const selectedVerseNumber = ref(1);
-const cursorIndex = ref(0);
-const startIndex = ref(0);
+const anchorLetterIndex = ref(0);
+const focusLetterIndex = ref(0);
+const isDragging = ref(false);
 const loadingBooks = ref(true);
 const loadError = ref('');
 const searchQuery = ref('');
@@ -261,8 +249,10 @@ let searchTimer;
 const selectedBook = computed(() => books.value.find(book => book.slug === selectedBookSlug.value));
 const selectedVerse = computed(() => verses.value.find(verse => verse.verse === selectedVerseNumber.value));
 const cursor = computed(() => createTanachCursor(selectedVerse.value?.display_text || ''));
-const rangeStart = computed(() => Math.min(startIndex.value, cursorIndex.value));
-const rangeEnd = computed(() => Math.max(startIndex.value, cursorIndex.value));
+const cursorIndex = computed(() => focusLetterIndex.value);
+const selection = computed(() => normalizeTanachSelection(anchorLetterIndex.value, focusLetterIndex.value));
+const rangeStart = computed(() => selection.value.start);
+const rangeEnd = computed(() => selection.value.end);
 const selectedRange = computed(() => cursor.value.range(rangeStart.value, rangeEnd.value));
 const detailedResult = computed(() => computeAll(selectedRange.value.text));
 const result = computed(() => detailedResult.value && ({
@@ -279,8 +269,9 @@ const referenceLabel = computed(() => selectedBook.value
 const { matches } = useLiveMatching(result);
 
 watch(selectedVerse, () => {
-  cursorIndex.value = 0;
-  startIndex.value = 0;
+  anchorLetterIndex.value = 0;
+  focusLetterIndex.value = 0;
+  isDragging.value = false;
   saveStatus.value = 'idle';
   saveError.value = '';
   nextTick(() => verseDisplay.value?.focus());
@@ -355,15 +346,55 @@ async function moveVerse(delta) {
 }
 
 function setCursor(index) {
-  cursorIndex.value = cursor.value.clamp(index);
+  focusLetterIndex.value = cursor.value.clamp(index);
 }
 
-function resetStart() {
-  startIndex.value = 0;
+function selectSingleLetter(index) {
+  const clamped = cursor.value.clamp(index);
+  anchorLetterIndex.value = clamped;
+  focusLetterIndex.value = clamped;
 }
 
-function isInRange(letterIndex) {
-  return letterIndex != null && letterIndex >= rangeStart.value && letterIndex <= rangeEnd.value;
+function isVisualTokenSelected(token) {
+  if (token.letterIndex != null) {
+    return token.letterIndex >= rangeStart.value && token.letterIndex <= rangeEnd.value;
+  }
+  return token.previousLetterIndex != null
+    && token.nextLetterIndex != null
+    && token.previousLetterIndex >= rangeStart.value
+    && token.nextLetterIndex <= rangeEnd.value;
+}
+
+function getLetterIndexFromPointer(event) {
+  const target = document.elementFromPoint(event.clientX, event.clientY);
+  const token = target?.closest?.('[data-letter-index]');
+  const value = token?.dataset?.letterIndex;
+  return value == null || value === '' ? null : Number(value);
+}
+
+function onPointerDown(event) {
+  if (event.pointerType === 'mouse' && event.button !== 0) return;
+  const letterIndex = getLetterIndexFromPointer(event);
+  if (letterIndex == null) return;
+  event.preventDefault();
+  verseDisplay.value?.focus({ preventScroll: true });
+  selectSingleLetter(letterIndex);
+  isDragging.value = true;
+  verseDisplay.value?.setPointerCapture?.(event.pointerId);
+}
+
+function onPointerMove(event) {
+  if (!isDragging.value) return;
+  const letterIndex = getLetterIndexFromPointer(event);
+  if (letterIndex != null) setCursor(letterIndex);
+}
+
+function endDragging(event) {
+  if (!isDragging.value) return;
+  isDragging.value = false;
+  if (verseDisplay.value?.hasPointerCapture?.(event.pointerId)) {
+    verseDisplay.value.releasePointerCapture(event.pointerId);
+  }
 }
 
 function onCursorKeydown(event) {
@@ -373,13 +404,18 @@ function onCursorKeydown(event) {
   };
   if (event.key in movements) {
     event.preventDefault();
-    setCursor(cursorIndex.value + movements[event.key]);
+    const nextIndex = cursor.value.clamp(cursorIndex.value + movements[event.key]);
+    if (event.shiftKey) {
+      setCursor(nextIndex);
+    } else {
+      selectSingleLetter(nextIndex);
+    }
   } else if (event.key === 'Home') {
     event.preventDefault();
-    setCursor(0);
+    event.shiftKey ? setCursor(0) : selectSingleLetter(0);
   } else if (event.key === 'End') {
     event.preventDefault();
-    setCursor(cursor.value.count - 1);
+    event.shiftKey ? setCursor(cursor.value.count - 1) : selectSingleLetter(cursor.value.count - 1);
   }
 }
 
@@ -470,7 +506,7 @@ onMounted(loadBooks);
 .search-wrap input { width: 100%; border: 0; outline: 0; padding: 9px 0; font: inherit; background: none; }
 .search-results { overflow-y: auto; padding: 0 9px 10px; }
 .search-results button { display: flex; width: 100%; flex-direction: column; gap: 3px; border: 0; border-bottom: 1px solid #eee; background: none; padding: 9px; text-align: right; cursor: pointer; font: inherit; }
-.search-results button span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; font-size: .76rem; color: var(--text-secondary); }
+.search-results button span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; font-family: "Noto Serif Hebrew", "Times New Roman", serif; font-size: .76rem; color: var(--text-secondary); }
 .empty-search { padding: 22px; text-align: center; color: var(--text-secondary); }
 .reference-selectors { display: grid; grid-template-columns: 1fr 80px; gap: 8px; padding: 0 12px 10px; }
 .reference-selectors label { display: flex; flex-direction: column; gap: 3px; font-size: .68rem; color: var(--text-secondary); }
@@ -480,22 +516,20 @@ onMounted(loadBooks);
 .verse-list button:hover { background: #f8f5ef; }
 .verse-list button.active { background: var(--gold-light); color: #765812; }
 .verse-number { font-weight: 700; }
-.verse-preview { font-size: .76rem; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.verse-preview { font-family: "Noto Serif Hebrew", "Times New Roman", serif; font-size: .76rem; line-height: 1.65; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .reader-column { min-width: 0; display: flex; flex-direction: column; gap: 14px; }
 .verse-card { padding: 22px 24px 25px; min-height: 340px; }
 .verse-toolbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 15px; }
 .verse-toolbar h2 { font-size: 1rem; color: var(--navy); margin-bottom: 2px; }
 .verse-nav { display: flex; gap: 7px; }
-.verse-nav button, .cursor-controls button { border: 1px solid var(--border); border-radius: 7px; background: white; color: var(--navy); padding: 7px 11px; font: inherit; font-size: .76rem; cursor: pointer; }
-.verse-display { padding: 55px 18px 42px; text-align: center; font-size: clamp(2rem, 4vw, 3.25rem); line-height: 1.9; color: #152038; outline: none; }
+.verse-nav button { border: 1px solid var(--border); border-radius: 7px; background: white; color: var(--navy); padding: 7px 11px; font: inherit; font-size: .76rem; cursor: pointer; }
+.verse-display { padding: 50px 18px 28px; text-align: center; font-family: "Noto Serif Hebrew", "Times New Roman", serif; font-size: clamp(1.8rem, 3.55vw, 2.9rem); line-height: 1.9; color: #152038; outline: none; user-select: none; -webkit-user-select: none; touch-action: pan-y; }
 .verse-display:focus-visible { box-shadow: inset 0 0 0 2px rgba(192,152,64,.45); border-radius: 8px; }
 .verse-token--letter { cursor: pointer; border-radius: 4px; transition: background .12s; }
 .verse-token--letter:hover { background: #f2ead8; }
-.verse-token--range { background: rgba(192, 152, 64, .13); }
+.verse-token--range { background: rgba(192, 152, 64, .18); }
 .verse-token--current { background: #e5d2aa; color: #573f11; box-shadow: 0 2px 7px rgba(107,77,14,.18); }
-.cursor-controls { display: flex; justify-content: center; flex-wrap: wrap; gap: 7px; }
-.cursor-controls button:disabled { opacity: .4; cursor: default; }
-.cursor-controls .anchor-btn { border-color: #d8bd7b; background: #fffaf0; color: #80601d; }
+.selection-hint { text-align: center; color: var(--text-secondary); font-size: .74rem; }
 .calculation-area { display: flex; flex-direction: column; gap: 11px; }
 .primary-result { border: 1.5px solid #ddc57f; border-radius: 11px; background: linear-gradient(135deg,#fffcf5,#fff9eb); padding: 17px 20px; display: flex; justify-content: space-between; align-items: center; }
 .eyebrow { display: block; color: var(--text-secondary); font-size: .7rem; font-weight: 700; margin-bottom: 5px; }
@@ -552,6 +586,5 @@ onMounted(loadBooks);
   .summary-column .progress-card { grid-column: auto; }
   .primary-result { align-items: flex-start; gap: 12px; }
   .primary-value strong { font-size: 1.8rem; }
-  .cursor-controls button { flex: 1 1 42%; }
 }
 </style>

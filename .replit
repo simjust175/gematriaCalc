@@ -2,6 +2,7 @@ modules = ["vue-node-20", "nodejs-20", "web", "postgresql-16"]
 
 [nix]
 channel = "stable-25_05"
+packages = ["chromium"]
 
 [agent]
 expertMode = true

@@ -129,6 +129,10 @@ defineEmits(['navigate', 'logout']);
 
 @media (max-width: 480px) {
   .logo-sub { display: none; }
-  .nav-btn { padding: 6px 10px; font-size: 0.82rem; }
+  .header-inner { padding: 0 12px; }
+  .logo-main { font-size: 1.25rem; }
+  .header-nav { gap: 0; }
+  .nav-btn { padding: 6px 7px; font-size: 0.76rem; }
+  .nav-btn.logout-btn { padding-inline: 6px; }
 }
 </style>

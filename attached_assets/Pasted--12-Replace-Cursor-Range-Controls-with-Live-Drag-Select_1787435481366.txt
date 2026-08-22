@@ -1,0 +1,412 @@
+#12 — Replace Cursor Range Controls with Live Drag Selection
+
+The current Tanach reader foundation is working well.
+
+Do NOT redesign the Tanach page or change the Tanach dataset/calculation logic.
+
+However, the current interaction still uses the OLD cursor/range-start model with controls such as:
+
+קבע כאן התחלה
+אפס התחלה
+אות קודמת
+אות הבאה
+
+The client now wants the Hebrew text itself to behave like a natural text-selection interface.
+
+PRIMARY INTERACTION
+
+The user should:
+
+press the mouse/pointer down on any Hebrew letter;
+keep holding;
+drag across the Hebrew text;
+see the selected range grow or shrink LIVE;
+see all Gematria calculations update immediately while dragging;
+release the pointer and leave that range selected.
+
+This must feel like normal desktop text selection, but using our own theme-colored highlight and our own range state.
+
+EXAMPLE
+
+Using:
+
+בראשית ברא אלהים את השמים ואת הארץ
+
+Press on the first:
+
+ב
+
+Selected:
+
+ב
+
+Gematria:
+
+2
+
+Continue dragging:
+
+בר
+
+Gematria updates immediately.
+
+Continue:
+
+בראשית
+
+Gematria:
+
+913
+
+Continue over the space and through:
+
+ברא
+
+Selected text becomes:
+
+בראשית ברא
+
+Gematria:
+
+1116
+
+WITHOUT RELEASING THE MOUSE, drag backward.
+
+As the pointer moves backward:
+
+letters leave the selection;
+highlight contracts;
+gematria decreases immediately;
+ראשי תיבות updates;
+גימטריית ר״ת updates;
+word breakdown updates;
+live matches update.
+
+This must work in both drag directions.
+
+RANGE STATE
+
+Maintain explicit selection state approximately equivalent to:
+
+anchorLetterIndex
+focusLetterIndex
+selectionStart
+selectionEnd
+isDragging
+
+The actual selected range is:
+
+min(anchorLetterIndex, focusLetterIndex)
+
+through:
+
+max(anchorLetterIndex, focusLetterIndex)
+
+This allows the user to drag forward, backward, and across the original anchor naturally.
+
+POINTER BEHAVIOR
+
+Use Pointer Events where appropriate.
+
+pointerdown on Hebrew letter
+
+Set that letter as:
+
+anchor
+focus
+current one-letter selection
+
+Begin drag mode.
+
+A simple click without meaningful movement therefore selects exactly one Hebrew letter.
+
+pointermove / pointerenter while dragging
+
+When the pointer reaches another countable Hebrew letter:
+
+update the focus position.
+
+Immediately update:
+
+selectionStart
+selectionEnd
+visual highlight
+full gematria
+Hebrew numeral
+ראשי תיבות
+גימטריית ר״ת
+word/letter breakdown
+live-match input
+
+Do NOT wait for mouseup.
+
+pointerup / pointercancel
+
+Stop active dragging.
+
+Keep the resulting range selected.
+
+Use pointer capture/release correctly so fast dragging does not leave the app in a broken isDragging state.
+
+NEW SELECTION
+
+If a range is already selected and the user starts pressing/dragging somewhere else:
+
+immediately begin a NEW range from the newly pressed Hebrew letter.
+
+There should be no need to press a Clear button first.
+
+VISUAL DESIGN
+
+Do NOT use the browser's normal blue selection color.
+
+The selected range should use our existing warm/gold theme.
+
+Use approximately:
+
+selected range: light warm/gold background
+current drag/focus letter: somewhat stronger gold
+Hebrew letters remain dark and highly readable
+
+The result must still look like NORMAL continuous Hebrew text.
+
+Do NOT turn every letter into a visible box/button.
+
+Adjacent selected letters should visually feel like one continuous highlighted text selection.
+
+Where the selection passes across a space between words, it is acceptable/preferable for the highlight to visually continue across that space even though the space contributes zero Gematria.
+
+NIKUD / TAAMIM
+
+This is critical.
+
+A visual Hebrew glyph may consist of:
+
+one base Hebrew letter
+one or more ניקוד marks
+one or more טעמים
+
+The entire grapheme must behave as ONE selectable/countable Hebrew letter.
+
+Never allow:
+
+ניקוד
+טעמים
+combining marks
+
+to become their own drag/cursor positions.
+
+The highlight should include the marks visually with their base letter.
+
+DO NOT USE NATIVE BLUE SELECTION AS THE STATE
+
+The application should maintain its own semantic selection state.
+
+Prevent the browser's native blue drag-selection appearance inside the Tanach reader where needed.
+
+Do not allow the browser selection to conflict visually with our own selected range.
+
+The selected text must still remain accessible.
+
+REMOVE THE OLD RANGE-START UX
+
+The click-and-drag range itself now defines:
+
+start
+end
+
+Therefore the prominent controls:
+
+קבע כאן התחלה
+אפס התחלה
+
+are no longer needed and should be removed from the primary UI.
+
+Do not make users learn two competing ways of defining the selected range.
+
+PREVIOUS / NEXT LETTER CONTROLS
+
+The current prominent:
+
+אות קודמת
+אות הבאה
+
+controls are no longer necessary as the main interaction.
+
+Remove them from the prominent central toolbar.
+
+Keyboard accessibility must remain available.
+
+If explicit previous/next-letter buttons are still useful for accessibility, make them small/subtle and do not let them compete with drag selection.
+
+KEYBOARD ACCESSIBILITY
+
+Preserve keyboard operation.
+
+When a Hebrew letter/range is active:
+
+ArrowLeft / ArrowRight can move the current position according to the established RTL logic.
+Shift + Arrow should expand or contract the current selection where practical.
+
+Keyboard users must be able to achieve the same selection without a mouse.
+
+TOUCH
+
+On touch-capable devices, support pointer/touch range selection where practical without breaking normal vertical page scrolling.
+
+Do not introduce accidental horizontal scrolling.
+
+If precise drag selection proves problematic on small touch screens, use an appropriate touch-friendly range interaction while preserving the same selected-range model.
+
+Desktop mouse interaction is the highest-priority acceptance target.
+
+PERFORMANCE
+
+Basic range selection and Gematria calculation must be 100% local and instantaneous.
+
+Continue using the existing per-letter mapping and prefix sums.
+
+Every new end position should allow:
+
+total = prefix[end] - prefix[start - 1]
+
+Do not call the server simply to calculate a drag movement.
+
+Live saved-match network calls may remain debounced/stale-safe.
+
+SAVING
+
+שמור must save EXACTLY the currently highlighted range.
+
+If the verse is:
+
+בראשית ברא אלהים את השמים ואת הארץ
+
+and the selected highlighted text is:
+
+ברא אלהים
+
+then save:
+
+ברא אלהים
+
+NOT the entire verse.
+
+Also preserve the existing Tanach context:
+
+book
+chapter
+verse
+selection start
+selection end
+LIVE MATCHING
+
+Matching must use EXACTLY the current highlighted range.
+
+While dragging:
+
+highlight changes
+→ calculations change
+→ live matching changes.
+
+Example:
+
+The range reaches gematria 811.
+
+811 matches appear.
+
+Without releasing the mouse, user drags one letter backward.
+
+Gematria changes.
+
+811 matches disappear/recalculate.
+
+This is part of the intended real-time experience.
+
+WORD / ראשי תיבות BEHAVIOR
+
+Selection is allowed to start and finish:
+
+inside a word
+on a single letter
+across complete words
+across multiple words
+
+Do NOT silently expand the selection to whole words.
+
+All calculations must reflect the actual highlighted Hebrew range.
+
+Apply the existing ראשי תיבות rules sensibly to the selected text.
+
+SMALL VISUAL ADJUSTMENT TO VERSE SIZE
+
+The current Hebrew verse typography is slightly oversized on desktop.
+
+Reduce the verse font size approximately 10–15% while preserving:
+
+beautiful Hebrew readability
+strong prominence
+responsive scaling
+comfortable nikud/taamim spacing
+
+The goal is to allow a normal verse to occupy the central reader naturally without feeling unnecessarily enormous.
+
+Do not make it small.
+
+PRESERVE EVERYTHING ELSE
+
+Do NOT change:
+
+UXLC corpus/import
+book/chapter/verse navigation
+search
+database structure unless technically required
+existing gematria rules
+Hebrew numeral conversion
+saved matching rules
+save persistence
+שמורים
+מחשבון
+overall colors/palette
+three-column desktop layout
+
+This is primarily an INTERACTION change.
+
+ACCEPTANCE TEST
+
+Using בראשית א׳:א:
+
+Press on first ב.
+ב is highlighted.
+Gematria = 2.
+Keep mouse held down.
+Drag across ר.
+Selection visibly expands.
+Calculation updates without mouse release.
+Continue through complete בראשית.
+Highlight is בראשית.
+Gematria = 913.
+Continue across the space.
+Space contributes zero.
+Continue through ברא.
+Highlight is בראשית ברא.
+Gematria = 1116.
+Still holding mouse, drag backward.
+Highlight contracts letter-by-letter.
+Gematria decreases immediately.
+Drag forward again.
+Highlight expands immediately.
+Release mouse.
+Selection remains highlighted.
+Start dragging from another letter.
+Previous selection is replaced.
+No browser-default blue selection appears.
+ניקוד and טעמים move/highlight with their base letters.
+No combining mark can be selected separately.
+Save selected range.
+Only selected text is saved.
+Existing live matches react correctly while dragging.
+Keyboard accessibility remains functional.
+Existing calculator and saved-library tests remain passing.
+
+Do not report this complete unless the continuous mouse-down forward/backward drag behavior has been manually verified in the browser.
