@@ -241,7 +241,12 @@ onMounted(() => fetchEntries());
 </script>
 
 <style scoped>
-.library-page { direction: rtl; }
+.library-page {
+  direction: rtl;
+  width: 100%;
+  max-width: 1350px;
+  margin-inline: auto;
+}
 
 .library-header {
   margin-bottom: 24px;
@@ -322,7 +327,7 @@ onMounted(() => fetchEntries());
 }
 .empty-text { margin-top: 16px; line-height: 1.8; font-size: 0.95rem; }
 
-.entries-list { display: flex; flex-direction: column; gap: 12px; }
+.entries-list { display: flex; flex-direction: column; gap: 17px; }
 
 /* Entry card */
 .entry-card {
@@ -338,11 +343,11 @@ onMounted(() => fetchEntries());
 .entry-header {
   display: flex;
   align-items: center;
-  padding: 18px 22px;
+  padding: 20px 26px;
   cursor: pointer;
-  gap: 12px;
+  gap: 14px;
 }
-.entry-card:not(.expanded) .entry-header { padding-block: 8px; gap: 10px; }
+.entry-card:not(.expanded) .entry-header { padding: 14px 24px; }
 .entry-main-info { flex: 1; min-width: 0; }
 .entry-text {
   font-size: 1.15rem;
@@ -352,7 +357,7 @@ onMounted(() => fetchEntries());
   text-align: right;
   word-break: break-all;
 }
-.entry-card:not(.expanded) .entry-text { margin-bottom: 2px; line-height: 1.15; }
+.entry-card:not(.expanded) .entry-text { margin-bottom: 3px; line-height: 1.25; }
 .tanach-reference {
   display: inline-flex;
   align-items: center;
@@ -365,25 +370,25 @@ onMounted(() => fetchEntries());
   font-size: .72rem;
   font-weight: 600;
 }
-.entry-card:not(.expanded) .tanach-reference { margin-bottom: 2px; padding-block: 1px; font-size: .68rem; line-height: 1.1; }
+.entry-card:not(.expanded) .tanach-reference { margin-bottom: 3px; padding-block: 1px; font-size: .7rem; line-height: 1.2; }
 .entry-gematria {
   display: flex;
   align-items: center;
   gap: 6px;
 }
-.entry-card:not(.expanded) .entry-gematria { gap: 5px; line-height: 1.05; }
+.entry-card:not(.expanded) .entry-gematria { gap: 6px; line-height: 1.15; }
 .gematria-num {
   font-size: 1.35rem;
   font-weight: 700;
   color: var(--gold);
 }
-.entry-card:not(.expanded) .gematria-num { font-size: 1.15rem; }
+.entry-card:not(.expanded) .gematria-num { font-size: 1.2rem; }
 .gematria-dot { color: #CCC; }
 .gematria-heb {
   font-size: 0.9rem;
   color: var(--text-secondary);
 }
-.entry-card:not(.expanded) .gematria-heb { font-size: .82rem; }
+.entry-card:not(.expanded) .gematria-heb { font-size: .85rem; }
 
 .entry-initials {
   display: flex;
@@ -394,21 +399,21 @@ onMounted(() => fetchEntries());
   color: var(--text-secondary);
   font-size: 0.78rem;
 }
-.entry-card:not(.expanded) .entry-initials { margin-top: 2px; gap: 3px; font-size: .7rem; line-height: 1.1; }
+.entry-card:not(.expanded) .entry-initials { margin-top: 4px; gap: 4px; font-size: .74rem; line-height: 1.2; }
 .entry-initials strong {
   color: var(--navy);
   font-size: 0.9rem;
 }
-.entry-card:not(.expanded) .entry-initials strong { font-size: .82rem; }
+.entry-card:not(.expanded) .entry-initials strong { font-size: .84rem; }
 .initials-gematria-label {
   margin-right: 7px;
 }
-.entry-card:not(.expanded) .initials-gematria-label { margin-right: 4px; }
+.entry-card:not(.expanded) .initials-gematria-label { margin-right: 6px; }
 
 .entry-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 .delete-btn {
   background: none;
@@ -416,7 +421,7 @@ onMounted(() => fetchEntries());
   cursor: pointer;
   color: #CCC;
   font-size: 1.1rem;
-  padding: 4px;
+  padding: 6px;
   border-radius: 6px;
   transition: all 0.15s;
   display: flex;
