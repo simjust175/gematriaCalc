@@ -19,7 +19,16 @@
             autocorrect="off"
             spellcheck="false"
             @input="resizeTextarea"
+            @keydown="onCalculatorKeydown"
           ></textarea>
+          <label
+            class="keyboard-toggle"
+            title="מאפשר להקליד עברית גם כשהמקלדת במצב אנגלית"
+          >
+            <input v-model="automaticHebrewKeyboard" type="checkbox">
+            <span class="keyboard-toggle__track" aria-hidden="true"></span>
+            <span>מקלדת עברית אוטומטית</span>
+          </label>
           <button
             v-if="inputText"
             class="clear-input-btn"
@@ -164,10 +173,27 @@
 import { ref, computed, watch, nextTick } from 'vue';
 import { computeAll } from '@/composables/useGematria.js';
 import { useLiveMatching } from '@/composables/useLiveMatching.js';
+import {
+  getMappedHebrewCharacter,
+  insertAtSelection,
+  supportsPhysicalKeyboardMapping,
+} from '@/utils/hebrewKeyboard.js';
 import MatchPanel from './MatchPanel.vue';
+
+const AUTOMATIC_HEBREW_KEYBOARD_PREFERENCE = 'gimatria.automatic-hebrew-keyboard';
+
+function readAutomaticHebrewKeyboardPreference() {
+  if (typeof window === 'undefined') return true;
+  try {
+    return window.localStorage.getItem(AUTOMATIC_HEBREW_KEYBOARD_PREFERENCE) !== 'false';
+  } catch {
+    return true;
+  }
+}
 
 const inputText   = ref('');
 const textareaRef = ref(null);
+const automaticHebrewKeyboard = ref(readAutomaticHebrewKeyboardPreference());
 const expandedWords = ref({});
 const saveStatus  = ref('idle');   // idle | loading | saved
 const saveError   = ref('');
@@ -191,12 +217,63 @@ watch(inputText, (val) => {
   }
 });
 
+watch(automaticHebrewKeyboard, (enabled) => {
+  try {
+    window.localStorage.setItem(AUTOMATIC_HEBREW_KEYBOARD_PREFERENCE, String(enabled));
+  } catch {
+    // The calculator remains usable when browser storage is unavailable.
+  }
+});
+
 // Auto-resize textarea to fit content, starting at 100px
 function resizeTextarea() {
   const el = textareaRef.value;
   if (!el) return;
   el.style.height = 'auto';
   el.style.height = Math.max(100, el.scrollHeight) + 'px';
+}
+
+function restoreCaretAfterMappedInput(textarea, selectionStart, selectionEnd) {
+  nextTick(() => {
+    textarea.focus();
+    textarea.setSelectionRange(selectionStart, selectionEnd);
+    resizeTextarea();
+  });
+}
+
+function onCalculatorKeydown(event) {
+  const mappedCharacter = getMappedHebrewCharacter(event, {
+    enabled: automaticHebrewKeyboard.value,
+    supportsPhysicalKeyboard: supportsPhysicalKeyboardMapping(),
+  });
+  if (!mappedCharacter) return;
+
+  event.preventDefault();
+  const textarea = event.currentTarget;
+
+  // execCommand creates a native editable-text transaction, preserving the
+  // browser's undo/redo stack and letting Vue's normal v-model input flow run.
+  const insertedNatively = typeof document !== 'undefined'
+    && typeof document.execCommand === 'function'
+    && document.execCommand('insertText', false, mappedCharacter);
+
+  if (insertedNatively) {
+    nextTick(() => {
+      if (inputText.value !== textarea.value) inputText.value = textarea.value;
+      resizeTextarea();
+    });
+    return;
+  }
+
+  const replacement = insertAtSelection(
+    textarea.value,
+    textarea.selectionStart,
+    textarea.selectionEnd,
+    mappedCharacter
+  );
+  textarea.value = replacement.value;
+  inputText.value = replacement.value;
+  restoreCaretAfterMappedInput(textarea, replacement.selectionStart, replacement.selectionEnd);
 }
 
 // ── Toggle word letter breakdown ─────────────────────────────────────────────
@@ -313,6 +390,47 @@ async function saveEntry() {
   font-weight: 400;
   font-size: 1.5rem;
 }
+
+.keyboard-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 9px;
+  color: var(--text-secondary);
+  font-size: .72rem;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+}
+.keyboard-toggle input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.keyboard-toggle__track {
+  width: 28px;
+  height: 16px;
+  border-radius: 999px;
+  background: #D7D2C8;
+  position: relative;
+  transition: background .16s ease;
+}
+.keyboard-toggle__track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(26,39,68,.18);
+  transition: transform .16s ease;
+}
+.keyboard-toggle input:checked + .keyboard-toggle__track { background: var(--gold); }
+.keyboard-toggle input:checked + .keyboard-toggle__track::after { transform: translateX(-12px); }
+.keyboard-toggle input:focus-visible + .keyboard-toggle__track { outline: 2px solid var(--navy); outline-offset: 2px; }
 
 .clear-input-btn {
   position: absolute;

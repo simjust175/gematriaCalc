@@ -1,0 +1,83 @@
+import { test, expect } from '@playwright/test';
+import { execSync } from 'node:child_process';
+
+const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:5000';
+const systemChromium = process.env.PLAYWRIGHT_CHROMIUM_PATH || (() => {
+  try {
+    return execSync('command -v chromium', { encoding: 'utf8' }).trim();
+  } catch {
+    return undefined;
+  }
+})();
+
+if (systemChromium) {
+  test.use({ launchOptions: { executablePath: systemChromium } });
+}
+
+async function loginAndOpenCalculator(page) {
+  if (!process.env.APP_PASSWORD) throw new Error('APP_PASSWORD is required for the signed-in browser test');
+  await page.goto(baseURL);
+  await page.locator('input[type="password"]').fill(process.env.APP_PASSWORD);
+  await page.getByRole('button', { name: 'כניסה' }).click();
+  await expect(page.locator('.heb-input')).toBeVisible();
+}
+
+test('automatic Hebrew keyboard maps physical keys and preserves calculator editing', async ({ page, context }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await loginAndOpenCalculator(page);
+
+  const textarea = page.locator('.heb-input');
+  const automaticKeyboard = page.getByRole('checkbox', { name: 'מקלדת עברית אוטומטית' });
+  await expect(automaticKeyboard).toBeChecked();
+
+  await textarea.focus();
+  await page.keyboard.press('KeyT');
+  await page.keyboard.press('KeyF');
+  await page.keyboard.press('KeyP');
+  await expect(textarea).toHaveValue('אכפ');
+  await expect(page.locator('.primary-num')).toHaveText('101');
+
+  await textarea.press('Space');
+  await textarea.press('Digit1');
+  await expect(textarea).toHaveValue('אכפ 1');
+  await textarea.press('Backspace');
+  await expect(textarea).toHaveValue('אכפ ');
+  await textarea.press('Backspace');
+  await expect(textarea).toHaveValue('אכפ');
+
+  await textarea.fill('שלום');
+  await textarea.evaluate(element => element.setSelectionRange(2, 2));
+  await page.keyboard.press('KeyF');
+  await expect(textarea).toHaveValue('שלכום');
+
+  await textarea.fill('שלום');
+  await textarea.evaluate(element => element.setSelectionRange(1, 3));
+  await page.keyboard.press('KeyT');
+  await expect(textarea).toHaveValue('שאם');
+
+  await textarea.fill('שלום');
+  await textarea.press('Control+A');
+  expect(await textarea.evaluate(element => [element.selectionStart, element.selectionEnd])).toEqual([0, 4]);
+  await page.keyboard.press('KeyT');
+  await expect(textarea).toHaveValue('א');
+  await textarea.press('Control+Z');
+  await expect(textarea).toHaveValue('שלום');
+
+  await textarea.fill('');
+  await page.keyboard.insertText('ש');
+  await expect(textarea).toHaveValue('ש');
+
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: baseURL });
+  await page.evaluate(() => navigator.clipboard.writeText('shalom'));
+  await textarea.fill('');
+  await textarea.press('Control+V');
+  await expect(textarea).toHaveValue('shalom');
+
+  await page.locator('.keyboard-toggle').click();
+  await expect(automaticKeyboard).not.toBeChecked();
+  await page.reload();
+  await expect(automaticKeyboard).not.toBeChecked();
+  await textarea.fill('');
+  await textarea.press('KeyT');
+  await expect(textarea).toHaveValue('t');
+});

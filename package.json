@@ -9,9 +9,9 @@
     "dev:backend": "node server/index.js",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test tests/gematria.test.js tests/tanach.test.js",
+    "test": "node --test tests/gematria.test.js tests/hebrewKeyboard.test.js tests/tanach.test.js",
     "test:api": "node --test tests/api.test.js",
-    "test:browser": "playwright test tests/tanach-browser.spec.js --reporter=line",
+    "test:browser": "playwright test tests/calculator-keyboard.spec.js tests/tanach-browser.spec.js --workers=1 --reporter=line",
     "import:tanach": "node scripts/import-tanach.js"
   },
   "dependencies": {

@@ -1,0 +1,71 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  ISRAELI_HEBREW_KEYBOARD,
+  getMappedHebrewCharacter,
+  insertAtSelection,
+} from '../src/utils/hebrewKeyboard.js';
+
+function keyboardEvent(overrides = {}) {
+  return {
+    code: 'KeyT',
+    key: 't',
+    ctrlKey: false,
+    metaKey: false,
+    altKey: false,
+    shiftKey: false,
+    isComposing: false,
+    ...overrides,
+  };
+}
+
+test('standard Israeli mapping includes every normal Hebrew and final letter position', () => {
+  assert.deepEqual(ISRAELI_HEBREW_KEYBOARD, {
+    KeyQ: '/', KeyW: '\'', KeyE: 'ק', KeyR: 'ר', KeyT: 'א', KeyY: 'ט', KeyU: 'ו', KeyI: 'ן', KeyO: 'ם', KeyP: 'פ',
+    BracketLeft: ']', BracketRight: '[',
+    KeyA: 'ש', KeyS: 'ד', KeyD: 'ג', KeyF: 'כ', KeyG: 'ע', KeyH: 'י', KeyJ: 'ח', KeyK: 'ל', KeyL: 'ך', Semicolon: 'ף', Quote: ',',
+    KeyZ: 'ז', KeyX: 'ס', KeyC: 'ב', KeyV: 'ה', KeyB: 'נ', KeyN: 'מ', KeyM: 'צ', Comma: 'ת', Period: 'ץ', Slash: '.',
+  });
+});
+
+test('physical English letter and Hebrew punctuation positions map to Hebrew', () => {
+  assert.equal(getMappedHebrewCharacter(keyboardEvent({ code: 'KeyT', key: 't' })), 'א');
+  assert.equal(getMappedHebrewCharacter(keyboardEvent({ code: 'KeyI', key: 'i' })), 'ן');
+  assert.equal(getMappedHebrewCharacter(keyboardEvent({ code: 'KeyL', key: 'l' })), 'ך');
+  assert.equal(getMappedHebrewCharacter(keyboardEvent({ code: 'Semicolon', key: ';' })), 'ף');
+  assert.equal(getMappedHebrewCharacter(keyboardEvent({ code: 'Comma', key: ',' })), 'ת');
+  assert.equal(getMappedHebrewCharacter(keyboardEvent({ code: 'Period', key: '.' })), 'ץ');
+  assert.equal(getMappedHebrewCharacter(keyboardEvent({ code: 'Slash', key: '/' })), '.');
+});
+
+test('shifted letter keys retain their Hebrew mapping', () => {
+  assert.equal(getMappedHebrewCharacter(keyboardEvent({ code: 'KeyT', key: 'T', shiftKey: true })), 'א');
+  assert.equal(getMappedHebrewCharacter(keyboardEvent({ code: 'KeyL', key: 'L', shiftKey: true })), 'ך');
+  assert.equal(getMappedHebrewCharacter(keyboardEvent({ code: 'Semicolon', key: ':', shiftKey: true })), null);
+});
+
+test('normal editing, Hebrew input, composition, shortcuts, and virtual keyboards remain native', () => {
+  assert.equal(getMappedHebrewCharacter(keyboardEvent({ code: 'Space', key: ' ' })), null);
+  assert.equal(getMappedHebrewCharacter(keyboardEvent({ code: 'Digit1', key: '1' })), null);
+  assert.equal(getMappedHebrewCharacter(keyboardEvent({ code: 'Backspace', key: 'Backspace' })), null);
+  assert.equal(getMappedHebrewCharacter(keyboardEvent({ code: 'Delete', key: 'Delete' })), null);
+  assert.equal(getMappedHebrewCharacter(keyboardEvent({ code: 'Enter', key: 'Enter' })), null);
+  assert.equal(getMappedHebrewCharacter(keyboardEvent({ code: 'ArrowLeft', key: 'ArrowLeft' })), null);
+  assert.equal(getMappedHebrewCharacter(keyboardEvent({ code: 'Home', key: 'Home' })), null);
+  assert.equal(getMappedHebrewCharacter(keyboardEvent({ code: 'End', key: 'End' })), null);
+  assert.equal(getMappedHebrewCharacter(keyboardEvent({ code: 'KeyT', key: 'א' })), null);
+  assert.equal(getMappedHebrewCharacter(keyboardEvent({ isComposing: true })), null);
+  assert.equal(getMappedHebrewCharacter(keyboardEvent({ ctrlKey: true })), null);
+  assert.equal(getMappedHebrewCharacter(keyboardEvent({ metaKey: true })), null);
+  assert.equal(getMappedHebrewCharacter(keyboardEvent(), { enabled: false }), null);
+  assert.equal(getMappedHebrewCharacter(keyboardEvent(), { supportsPhysicalKeyboard: false }), null);
+});
+
+test('mapped input inserts at a caret and replaces the selected range', () => {
+  assert.deepEqual(insertAtSelection('שלום', 2, 2, 'כ'), {
+    value: 'שלכום', selectionStart: 3, selectionEnd: 3,
+  });
+  assert.deepEqual(insertAtSelection('שלום', 1, 3, 'א'), {
+    value: 'שאם', selectionStart: 2, selectionEnd: 2,
+  });
+});
