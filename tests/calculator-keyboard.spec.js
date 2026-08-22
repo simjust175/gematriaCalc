@@ -38,6 +38,22 @@ test('automatic Hebrew keyboard maps physical keys and preserves calculator edit
   await page.keyboard.press('KeyK');
   await expect(textarea).toHaveValue('חעלעל');
   await expect(page.locator('.primary-num')).toHaveText('208');
+  const resultCards = page.locator('.result-grid > .result-card');
+  await expect(resultCards).toHaveCount(3);
+  await expect(page.locator('.calculation-actions .save-btn')).toBeVisible();
+  await expect(page.locator('.result-grid .save-btn')).toHaveCount(0);
+  const desktopResultLayout = await page.locator('.result-grid').evaluate((grid) => {
+    const cards = [...grid.children];
+    const cardBoxes = cards.map((card) => card.getBoundingClientRect());
+    return {
+      columns: getComputedStyle(grid).gridTemplateColumns.trim().split(/\s+/).length,
+      widths: cardBoxes.map(({ width }) => width),
+      heights: cardBoxes.map(({ height }) => height),
+    };
+  });
+  expect(desktopResultLayout.columns).toBe(3);
+  expect(Math.max(...desktopResultLayout.widths) - Math.min(...desktopResultLayout.widths)).toBeLessThanOrEqual(1);
+  expect(Math.max(...desktopResultLayout.heights) - Math.min(...desktopResultLayout.heights)).toBeLessThanOrEqual(1);
 
   await textarea.press('Space');
   await textarea.press('Digit1');

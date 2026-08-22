@@ -43,18 +43,8 @@
         <transition name="results-fade">
           <div v-if="hasInput" class="results-area">
 
-            <!-- ── PRIMARY RESULT: גימטריה מלאה ─────────── -->
-            <div class="result-card result-card--primary">
-              <div class="primary-result-content">
-                <div class="result-label">גימטריה מלאה</div>
-                <div class="result-value-row">
-                  <span class="result-num primary-num">{{ result.fullGematria }}</span>
-                  <span class="result-divider">·</span>
-                  <span class="result-heb primary-heb">{{ result.fullHebrewNumber }}</span>
-                </div>
-              </div>
-
-              <!-- Save button belongs to the full calculation card -->
+            <!-- ── CALCULATION ACTION ──────────────────────── -->
+            <div class="calculation-actions">
               <div class="save-row">
                 <button
                   class="save-btn"
@@ -75,14 +65,24 @@
               </div>
             </div>
 
-            <!-- ── ROSHEI TEIVOT: two equal calculation cards ── -->
-            <div class="result-secondary-grid">
-              <div class="result-card result-card--secondary">
+            <!-- ── THREE PARALLEL RESULTS ──────────────────── -->
+            <div class="result-grid">
+              <div class="result-card">
+                <div class="primary-result-content">
+                  <div class="result-label">גימטריה מלאה</div>
+                  <div class="result-value-row">
+                    <span class="result-num primary-num">{{ result.fullGematria }}</span>
+                    <span class="result-divider">·</span>
+                    <span class="result-heb primary-heb">{{ result.fullHebrewNumber }}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="result-card">
                 <div class="result-label">ראשי תיבות</div>
                 <div class="roshei-letters">{{ result.initials }}</div>
               </div>
-              <div class="result-card result-card--secondary">
-                <div class="result-label">גימטריה ר"ת</div>
+              <div class="result-card">
+                <div class="result-label">גימטריית ר"ת</div>
                 <div class="result-value-row roshei-value">
                   <span class="result-num secondary-num">{{ result.initialsGematria }}</span>
                   <span class="result-divider">·</span>
@@ -471,22 +471,14 @@ async function saveEntry() {
   border-radius: var(--radius);
   padding: 18px 22px;
   box-shadow: 0 2px 10px rgba(26,39,68,0.05);
-}
-
-/* Primary gematria — most prominent */
-.result-card--primary {
-  background: linear-gradient(135deg, #FFFBF2 0%, #FFF8EC 100%);
-  border-color: #E8D89A;
-  padding: 18px 22px;
-  box-shadow: 0 2px 12px rgba(192, 152, 64, 0.08);
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
+  flex-direction: column;
+  min-height: 138px;
 }
 
 .primary-result-content {
   min-width: 0;
+  flex: 1;
 }
 
 .result-label {
@@ -510,8 +502,8 @@ async function saveEntry() {
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
-.primary-num { color: #C09840; font-size: 2.35rem; }
-.secondary-num { color: #1A2744; font-size: 2.05rem; }
+.primary-num,
+.secondary-num { color: var(--navy); font-size: 2.05rem; }
 
 .result-divider {
   font-size: 1.4rem;
@@ -524,18 +516,14 @@ async function saveEntry() {
   font-weight: 600;
   color: var(--navy);
 }
-.primary-heb  { font-size: 2rem; }
+.primary-heb,
 .secondary-heb { font-size: 1.8rem; }
 
-/* ── Two equal secondary calculation cards ───────────────────────────────── */
-.result-secondary-grid {
+/* ── Three equal calculation cards ───────────────────────────────────────── */
+.result-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
-}
-
-.result-card--secondary {
-  padding: 18px 20px;
 }
 
 .roshei-letters {
@@ -543,11 +531,18 @@ async function saveEntry() {
   font-weight: 700;
   color: var(--navy);
   margin-top: 2px;
+  overflow-wrap: anywhere;
 }
 
 .roshei-value { align-items: baseline; }
 
 /* ── Save row ────────────────────────────────────────────────────────────── */
+.calculation-actions {
+  display: flex;
+  justify-content: flex-start;
+  min-height: 32px;
+}
+
 .save-row {
   display: flex;
   align-items: center;
@@ -592,9 +587,13 @@ async function saveEntry() {
 .save-error { font-size: 0.82rem; color: #D32F2F; }
 
 @media (max-width: 480px) {
-  .result-secondary-grid { grid-template-columns: 1fr; }
-  .result-card--primary { gap: 12px; }
+  .result-grid { grid-template-columns: 1fr; }
+  .result-card { min-height: 0; }
   .save-btn { padding-inline: 10px; }
+}
+
+@media (min-width: 481px) and (max-width: 900px) {
+  .result-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 /* ── Word breakdown ──────────────────────────────────────────────────────── */
