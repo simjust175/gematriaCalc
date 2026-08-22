@@ -14,6 +14,7 @@
       <main class="main-content">
         <GimForm v-if="currentPage === 'calculator'" />
         <SavedLibrary v-else-if="currentPage === 'library'" />
+        <TanachReader v-else-if="currentPage === 'tanach'" />
       </main>
     </template>
   </div>
@@ -24,6 +25,7 @@ import { ref, onMounted } from 'vue';
 import AppBar        from '@/components/AppBar.vue';
 import GimForm       from '@/components/GimForm.vue';
 import SavedLibrary  from '@/components/SavedLibrary.vue';
+import TanachReader   from '@/components/TanachReader.vue';
 import LoginScreen   from '@/components/LoginScreen.vue';
 
 // 'checking' | 'authenticated' | 'unauthenticated'

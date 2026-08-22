@@ -11,6 +11,14 @@
       <nav class="header-nav">
         <button
           class="nav-btn"
+          :class="{ active: currentPage === 'tanach' }"
+          @click="$emit('navigate', 'tanach')"
+        >
+          <span class="mdi mdi-book-open-page-variant-outline nav-icon"></span>
+          תנ״ך
+        </button>
+        <button
+          class="nav-btn"
           :class="{ active: currentPage === 'library' }"
           @click="$emit('navigate', 'library')"
         >

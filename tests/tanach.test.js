@@ -1,0 +1,38 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { computeAll } from '../src/composables/useGematria.js';
+import { createTanachCursor, tanachRangeText } from '../src/composables/useTanachCursor.js';
+
+const GENESIS_1_1 = 'בְּרֵאשִׁ֖ית בָּרָ֣א אֱלֹהִ֑ים אֵ֥ת הַשָּׁמַ֖יִם וְאֵ֥ת הָאָֽרֶץ׃';
+
+test('Genesis 1:1 cursor preserves display text and counts only Hebrew letters', () => {
+  const cursor = createTanachCursor(GENESIS_1_1);
+  assert.equal(cursor.displayText, GENESIS_1_1);
+  assert.equal(cursor.count, 28);
+  assert.equal(cursor.letters[0].character, 'ב');
+  assert.equal(cursor.letters[0].value, 2);
+  assert.equal(cursor.range(0, 27).gematria, 2701);
+  assert.equal(computeAll(cursor.range(0, 27).text).fullGematria, 2701);
+});
+
+test('prefix-sum ranges match the Genesis 1:1 acceptance values', () => {
+  const cursor = createTanachCursor(GENESIS_1_1);
+  assert.equal(cursor.range(0, 5).gematria, 913);
+  assert.equal(cursor.range(0, 8).gematria, 1116);
+  assert.equal(computeAll(cursor.range(0, 5).text).normalizedText, 'בראשית');
+  assert.equal(computeAll(cursor.range(0, 8).text).normalizedText, 'בראשית ברא');
+});
+
+test('cursor navigation indices skip punctuation, whitespace, niqqud, and cantillation', () => {
+  const cursor = createTanachCursor('בְּ רֵ֖א־שִׁית׃');
+  assert.deepEqual(cursor.letters.map(letter => letter.character), [...'בראשית']);
+  assert.equal(cursor.tokens.filter(token => token.letterIndex != null).length, 6);
+  assert.equal(cursor.letterAtDisplayIndex(0), 0);
+  assert.equal(tanachRangeText('בְּ רֵ֖א־שִׁית׃', 1, 3).replace(/[\u0591-\u05C7]/g, ''), 'רֵא־ש'.replace(/[\u0591-\u05C7]/g, ''));
+});
+
+test('range order is normalized and indices are clamped', () => {
+  const cursor = createTanachCursor('אבג');
+  assert.equal(cursor.range(2, 0).text, 'אבג');
+  assert.equal(cursor.range(-10, 99).gematria, 6);
+});

@@ -6,6 +6,7 @@ import express from 'express';
 import session from 'express-session';
 import { pool } from './db.js';
 import { computeAll, normalize } from '../src/composables/useGematria.js';
+import { createTanachCursor } from '../src/composables/useTanachCursor.js';
 
 export const app = express();
 
@@ -75,6 +76,171 @@ function requireAuth(req, res, next) {
 }
 
 // ── Protected API routes ─────────────────────────────────────────────────────
+
+/** GET /api/tanach/books — canonical 24-book navigation and source metadata. */
+app.get('/api/tanach/books', requireAuth, async (_req, res) => {
+  try {
+    const [booksResult, sourceResult, countResult] = await Promise.all([
+      pool.query(
+        `SELECT slug, canonical_order, segment_order, canonical_name, hebrew_name,
+                english_name, chapter_count
+         FROM tanach_books
+         ORDER BY canonical_order, segment_order`
+      ),
+      pool.query(
+        `SELECT name, version, build, published_at, attribution, license, source_url, imported_at
+         FROM tanach_sources ORDER BY imported_at DESC LIMIT 1`
+      ),
+      pool.query('SELECT COUNT(*)::int AS verse_count FROM tanach_verses'),
+    ]);
+    const canonicalMap = new Map();
+    for (const segment of booksResult.rows) {
+      if (!canonicalMap.has(segment.canonical_order)) {
+        canonicalMap.set(segment.canonical_order, {
+          order: segment.canonical_order,
+          name: segment.canonical_name,
+          segments: [],
+        });
+      }
+      canonicalMap.get(segment.canonical_order).segments.push(segment);
+    }
+    res.json({
+      books: booksResult.rows,
+      canonicalBooks: [...canonicalMap.values()],
+      source: sourceResult.rows[0] || null,
+      stats: {
+        canonicalBooks: canonicalMap.size,
+        sourceSegments: booksResult.rowCount,
+        verses: countResult.rows[0].verse_count,
+      },
+    });
+  } catch (err) {
+    console.error('/api/tanach/books error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** GET /api/tanach/verses?book=Genesis&chapter=1 */
+app.get('/api/tanach/verses', requireAuth, async (req, res) => {
+  try {
+    const book = typeof req.query.book === 'string' ? req.query.book : '';
+    const chapter = Number(req.query.chapter);
+    if (!book || !Number.isInteger(chapter) || chapter < 1) {
+      return res.status(400).json({ error: 'invalid_reference' });
+    }
+    const result = await pool.query(
+      `SELECT v.book_slug, b.hebrew_name AS book_name, v.chapter, v.verse, v.display_text,
+              CHAR_LENGTH(REPLACE(v.normalized_text, ' ', '')) AS letter_count
+       FROM tanach_verses v
+       JOIN tanach_books b ON b.slug = v.book_slug
+       WHERE v.book_slug = $1 AND v.chapter = $2
+       ORDER BY v.verse`,
+      [book, chapter]
+    );
+    if (!result.rowCount) return res.status(404).json({ error: 'reference_not_found' });
+    res.json({ verses: result.rows });
+  } catch (err) {
+    console.error('/api/tanach/verses error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** GET /api/tanach/verse?book=Genesis&chapter=1&verse=1 */
+app.get('/api/tanach/verse', requireAuth, async (req, res) => {
+  try {
+    const book = typeof req.query.book === 'string' ? req.query.book : '';
+    const chapter = Number(req.query.chapter);
+    const verse = Number(req.query.verse);
+    if (!book || !Number.isInteger(chapter) || chapter < 1 || !Number.isInteger(verse) || verse < 1) {
+      return res.status(400).json({ error: 'invalid_reference' });
+    }
+    const result = await pool.query(
+      `SELECT v.book_slug, b.hebrew_name AS book_name, b.chapter_count, v.chapter, v.verse,
+              v.display_text, v.normalized_text, s.attribution
+       FROM tanach_verses v
+       JOIN tanach_books b ON b.slug = v.book_slug
+       JOIN tanach_sources s ON s.id = v.source_id
+       WHERE v.book_slug = $1 AND v.chapter = $2 AND v.verse = $3`,
+      [book, chapter, verse]
+    );
+    if (!result.rowCount) return res.status(404).json({ error: 'reference_not_found' });
+    res.json({ verse: result.rows[0] });
+  } catch (err) {
+    console.error('/api/tanach/verse error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** GET /api/tanach/search?q=...&limit=20 */
+app.get('/api/tanach/search', requireAuth, async (req, res) => {
+  try {
+    const query = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+    const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 50);
+    if (query.length < 2) return res.json({ results: [] });
+    const namesResult = await pool.query(
+      'SELECT slug, hebrew_name, canonical_name, chapter_count FROM tanach_books ORDER BY LENGTH(hebrew_name) DESC'
+    );
+    const cleanQuery = query.replace(/[״׳"']/g, '');
+    const namedCandidates = namesResult.rows.flatMap(book => ([
+      { slug: book.slug, name: book.hebrew_name.replace(/[״׳"']/g, ''), chapterCount: book.chapter_count },
+      { slug: book.slug, name: book.canonical_name.replace(/[״׳"']/g, ''), chapterCount: book.chapter_count },
+    ]));
+    const matchedName = namedCandidates
+      .filter(candidate => cleanQuery === candidate.name || cleanQuery.startsWith(`${candidate.name} `))
+      .sort((a, b) => b.name.length - a.name.length)[0]?.name;
+    if (matchedName) {
+      const matchingSlugs = [...new Set(
+        namedCandidates.filter(candidate => candidate.name === matchedName).map(candidate => candidate.slug)
+      )];
+      const maximumChapter = Math.max(
+        ...namedCandidates
+          .filter(candidate => candidate.name === matchedName)
+          .map(candidate => candidate.chapterCount)
+      );
+      const remainder = cleanQuery.slice(matchedName.length).trim();
+      const referenceParts = remainder.split(/[\s:.,]+/).filter(Boolean);
+      const parseReferenceNumber = value => !value ? null : /^\d+$/.test(value)
+        ? Number(value)
+        : computeAll(value)?.fullGematria;
+      const chapter = parseReferenceNumber(referenceParts[0]);
+      const verse = parseReferenceNumber(referenceParts[1]);
+      if (chapter && chapter <= maximumChapter && referenceParts.length <= 2) {
+        const referenceResult = await pool.query(
+          `SELECT v.book_slug, b.hebrew_name AS book_name, v.chapter, v.verse, v.display_text
+           FROM tanach_verses v
+           JOIN tanach_books b ON b.slug = v.book_slug
+           WHERE v.book_slug = ANY($1::text[])
+             AND v.chapter = $2
+             AND ($3::int IS NULL OR v.verse = $3)
+           ORDER BY b.canonical_order, b.segment_order
+           LIMIT $4`,
+          [matchingSlugs, chapter, verse, limit]
+        );
+        return res.json({ results: referenceResult.rows });
+      }
+    }
+    const normalizedQuery = normalize(query);
+    const result = await pool.query(
+      `SELECT v.book_slug, b.hebrew_name AS book_name, v.chapter, v.verse, v.display_text
+       FROM tanach_verses v
+       JOIN tanach_books b ON b.slug = v.book_slug
+       WHERE b.hebrew_name ILIKE $1
+          OR b.canonical_name ILIKE $1
+          OR b.english_name ILIKE $1
+          OR ($2 <> '' AND (
+            to_tsvector('simple', v.normalized_text) @@ plainto_tsquery('simple', $2)
+            OR v.normalized_text ILIKE $3
+          ))
+       ORDER BY b.canonical_order, b.segment_order, v.chapter, v.verse
+       LIMIT $4`,
+      [`%${query}%`, normalizedQuery, `%${normalizedQuery}%`, limit]
+    );
+    res.json({ results: result.rows });
+  } catch (err) {
+    console.error('/api/tanach/search error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 /**
  * GET /api/matches
@@ -200,8 +366,9 @@ app.get('/api/matches', requireAuth, async (req, res) => {
 app.post('/api/entries', requireAuth, async (req, res) => {
   let client;
   try {
-    const { originalText } = req.body;
-    const calculated = computeAll(typeof originalText === 'string' ? originalText : '');
+    const { originalText, tanachContext } = req.body;
+    let canonicalOriginalText = typeof originalText === 'string' ? originalText : '';
+    let calculated = computeAll(canonicalOriginalText);
 
     if (!calculated) {
       return res.status(400).json({ error: 'missing_fields' });
@@ -209,6 +376,43 @@ app.post('/api/entries', requireAuth, async (req, res) => {
 
     client = await pool.connect();
     await client.query('BEGIN');
+
+    let verifiedContext = null;
+    if (tanachContext != null) {
+      const bookSlug = typeof tanachContext.bookSlug === 'string' ? tanachContext.bookSlug : '';
+      const chapter = Number(tanachContext.chapter);
+      const verse = Number(tanachContext.verse);
+      const start = Number(tanachContext.start);
+      const end = Number(tanachContext.end);
+      if (!bookSlug || !Number.isInteger(chapter) || !Number.isInteger(verse)
+          || !Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'invalid_tanach_context' });
+      }
+      const verseResult = await client.query(
+        `SELECT v.display_text, b.hebrew_name
+         FROM tanach_verses v JOIN tanach_books b ON b.slug = v.book_slug
+         WHERE v.book_slug = $1 AND v.chapter = $2 AND v.verse = $3`,
+        [bookSlug, chapter, verse]
+      );
+      if (!verseResult.rowCount) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'invalid_tanach_context' });
+      }
+      const cursor = createTanachCursor(verseResult.rows[0].display_text);
+      const canonicalRange = cursor.range(start, end);
+      if (end >= cursor.count || normalize(canonicalRange.text) !== calculated.normalizedText) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'tanach_range_mismatch' });
+      }
+      // Tanach provenance is authoritative: persist and derive calculations from
+      // the local pointed/cantillated corpus, never from a client display variant.
+      canonicalOriginalText = canonicalRange.text;
+      calculated = computeAll(canonicalOriginalText);
+      verifiedContext = {
+        bookSlug, bookLabel: verseResult.rows[0].hebrew_name, chapter, verse, start, end,
+      };
+    }
 
     const exists = await client.query(
       'SELECT id FROM saved_entries WHERE normalized_text = $1',
@@ -221,18 +425,25 @@ app.post('/api/entries', requireAuth, async (req, res) => {
 
     const entryRes = await client.query(
       `INSERT INTO saved_entries
-         (original_text, normalized_text, full_gematria, full_gematria_hebrew,
-          initials, initials_gematria, initials_gematria_hebrew)
-       VALUES ($1,$2,$3,$4,$5,$6,$7)
+          (original_text, normalized_text, full_gematria, full_gematria_hebrew,
+           initials, initials_gematria, initials_gematria_hebrew,
+           tanach_book_slug, tanach_book_label, tanach_chapter, tanach_verse, tanach_start, tanach_end)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
        RETURNING id`,
       [
-        originalText,
+        canonicalOriginalText,
         calculated.normalizedText,
         calculated.fullGematria,
         calculated.fullHebrewNumber,
         calculated.initials,
         calculated.initialsGematria,
         calculated.initialsHebrewNumber,
+        verifiedContext?.bookSlug || null,
+        verifiedContext?.bookLabel || null,
+        verifiedContext?.chapter || null,
+        verifiedContext?.verse || null,
+        verifiedContext?.start ?? null,
+        verifiedContext?.end ?? null,
       ]
     );
     const entryId = entryRes.rows[0].id;
@@ -272,7 +483,9 @@ app.get('/api/entries', requireAuth, async (req, res) => {
       const r = await pool.query(
         `SELECT se.id, se.original_text, se.normalized_text, se.full_gematria,
                 se.full_gematria_hebrew, se.initials, se.initials_gematria,
-                se.initials_gematria_hebrew, se.created_at,
+                 se.initials_gematria_hebrew, se.created_at,
+                 se.tanach_book_slug, se.tanach_book_label, se.tanach_chapter,
+                 se.tanach_verse, se.tanach_start, se.tanach_end,
                 COALESCE(json_agg(sw ORDER BY sw.position) FILTER (WHERE sw.id IS NOT NULL), '[]') AS words
          FROM saved_entries se
          LEFT JOIN saved_words sw ON sw.entry_id = se.id
@@ -286,7 +499,9 @@ app.get('/api/entries', requireAuth, async (req, res) => {
       const r = await pool.query(
         `SELECT se.id, se.original_text, se.normalized_text, se.full_gematria,
                 se.full_gematria_hebrew, se.initials, se.initials_gematria,
-                se.initials_gematria_hebrew, se.created_at,
+                 se.initials_gematria_hebrew, se.created_at,
+                 se.tanach_book_slug, se.tanach_book_label, se.tanach_chapter,
+                 se.tanach_verse, se.tanach_start, se.tanach_end,
                 COALESCE(json_agg(sw ORDER BY sw.position) FILTER (WHERE sw.id IS NOT NULL), '[]') AS words
          FROM saved_entries se
          LEFT JOIN saved_words sw ON sw.entry_id = se.id
@@ -303,7 +518,9 @@ app.get('/api/entries', requireAuth, async (req, res) => {
       const r = await pool.query(
         `SELECT se.id, se.original_text, se.normalized_text, se.full_gematria,
                 se.full_gematria_hebrew, se.initials, se.initials_gematria,
-                se.initials_gematria_hebrew, se.created_at,
+                 se.initials_gematria_hebrew, se.created_at,
+                 se.tanach_book_slug, se.tanach_book_label, se.tanach_chapter,
+                 se.tanach_verse, se.tanach_start, se.tanach_end,
                 COALESCE(json_agg(sw ORDER BY sw.position) FILTER (WHERE sw.id IS NOT NULL), '[]') AS words
          FROM saved_entries se
          LEFT JOIN saved_words sw ON sw.entry_id = se.id

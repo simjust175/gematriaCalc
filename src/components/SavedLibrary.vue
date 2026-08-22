@@ -61,6 +61,10 @@
         <div class="entry-header" @click="toggleExpand(entry.id)">
           <div class="entry-main-info">
             <div class="entry-text">{{ entry.original_text }}</div>
+            <div v-if="entry.tanach_book_slug" class="tanach-reference">
+              <span class="mdi mdi-book-open-page-variant-outline"></span>
+              {{ formatTanachReference(entry) }}
+            </div>
             <div class="entry-gematria">
               <span class="gematria-num">{{ entry.full_gematria }}</span>
               <span class="gematria-dot">·</span>
@@ -89,6 +93,11 @@
 
         <!-- Expanded detail -->
         <div class="entry-detail" v-if="expandedId === entry.id">
+          <div v-if="entry.tanach_book_slug" class="detail-row detail-reference">
+            <span class="detail-label">מקור בתנ״ך:</span>
+            <span class="detail-value">{{ formatTanachReference(entry) }}</span>
+            <span class="detail-gematria">אותיות {{ entry.tanach_start + 1 }}–{{ entry.tanach_end + 1 }}</span>
+          </div>
           <div class="detail-row">
             <span class="detail-label">ראשי תיבות:</span>
             <span class="detail-value">{{ entry.initials }}</span>
@@ -142,7 +151,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { getWordBreakdown } from '@/composables/useGematria.js';
+import { getWordBreakdown, toHebrewNumber } from '@/composables/useGematria.js';
 
 const entries = ref([]);
 const total = ref(0);
@@ -221,6 +230,10 @@ function formatDate(iso) {
 
 function getEntryBreakdown(text) {
   return getWordBreakdown(text);
+}
+
+function formatTanachReference(entry) {
+  return `${entry.tanach_book_label} ${toHebrewNumber(entry.tanach_chapter)}:${toHebrewNumber(entry.tanach_verse)}`;
 }
 
 onMounted(() => fetchEntries());
@@ -337,6 +350,18 @@ onMounted(() => fetchEntries());
   text-align: right;
   word-break: break-all;
 }
+.tanach-reference {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--gold-light);
+  color: #80601d;
+  font-size: .72rem;
+  font-weight: 600;
+}
 .entry-gematria {
   display: flex;
   align-items: center;
@@ -404,6 +429,10 @@ onMounted(() => fetchEntries());
   align-items: center;
   gap: 8px;
   font-size: 0.88rem;
+}
+.detail-reference {
+  border-bottom: 1px solid #eee9e0;
+  padding-bottom: 12px;
 }
 .detail-label {
   color: var(--text-secondary);

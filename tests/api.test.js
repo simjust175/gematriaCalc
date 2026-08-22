@@ -15,6 +15,7 @@ import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 import request from 'supertest';
 import { computeAll, toHebrewNumber } from '../src/composables/useGematria.js';
+import { createTanachCursor } from '../src/composables/useTanachCursor.js';
 
 // Set required env vars before importing the app
 process.env.SESSION_SECRET  = 'test-session-secret-for-api-tests';
@@ -305,6 +306,84 @@ test('GET /api/entries returns 401 after logout', async () => {
     .get('/api/entries')
     .set('Cookie', cookie);
   assert.equal(res.status, 401);
+});
+
+// ── Complete Tanach corpus and range context ──────────────────────────────────
+
+test('Tanach routes require authentication', async () => {
+  const res = await request(app).get('/api/tanach/books');
+  assert.equal(res.status, 401);
+});
+
+test('Tanach navigation exposes 24 canonical books and verified Genesis 1:1', async () => {
+  const agent = request.agent(app);
+  await agent.post('/api/auth/login').send({ password: 'correct-test-password-12345' });
+
+  const booksRes = await agent.get('/api/tanach/books');
+  assert.equal(booksRes.status, 200);
+  assert.equal(booksRes.body.canonicalBooks.length, 24);
+  assert.equal(booksRes.body.books.length, 39);
+  assert.equal(booksRes.body.stats.verses, 23213);
+  assert.equal(booksRes.body.source.version, 'UXLC 2.5');
+  assert.equal(booksRes.body.source.build, '27.6');
+
+  const chapterRes = await agent.get('/api/tanach/verses').query({ book: 'Genesis', chapter: 1 });
+  assert.equal(chapterRes.status, 200);
+  assert.equal(chapterRes.body.verses.length, 31);
+  assert.equal(chapterRes.body.verses[0].letter_count, 28);
+
+  const verseRes = await agent.get('/api/tanach/verse').query({ book: 'Genesis', chapter: 1, verse: 1 });
+  assert.equal(verseRes.status, 200);
+  assert.equal(computeAll(verseRes.body.verse.display_text).fullGematria, 2701);
+
+  const searchRes = await agent.get('/api/tanach/search').query({ q: 'בראשית ברא' });
+  assert.equal(searchRes.status, 200);
+  assert.ok(searchRes.body.results.some(row => row.book_slug === 'Genesis' && row.chapter === 1 && row.verse === 1));
+
+  const referenceSearch = await agent.get('/api/tanach/search').query({ q: 'בראשית א א' });
+  assert.equal(referenceSearch.status, 200);
+  assert.equal(referenceSearch.body.results[0].book_slug, 'Genesis');
+  assert.equal(referenceSearch.body.results[0].chapter, 1);
+  assert.equal(referenceSearch.body.results[0].verse, 1);
+});
+
+test('Tanach save context is verified and returned by the saved library API', async () => {
+  const agent = request.agent(app);
+  await agent.post('/api/auth/login').send({ password: 'correct-test-password-12345' });
+  const verseRes = await agent.get('/api/tanach/verse').query({ book: 'Genesis', chapter: 1, verse: 1 });
+  const originalText = verseRes.body.verse.display_text;
+  const canonicalRangeText = createTanachCursor(originalText).range(0, 27).text;
+  let savedId;
+
+  try {
+    const forged = await agent.post('/api/entries').send({
+      originalText: 'שמע',
+      tanachContext: { bookSlug: 'Genesis', chapter: 1, verse: 1, start: 0, end: 0 },
+    });
+    assert.equal(forged.status, 400);
+    assert.equal(forged.body.error, 'tanach_range_mismatch');
+
+    const save = await agent.post('/api/entries').send({
+      // A normalization-equivalent display variant is accepted, but the server
+      // must persist canonical pointed text from the referenced corpus range.
+      originalText: computeAll(originalText).normalizedText,
+      tanachContext: { bookSlug: 'Genesis', chapter: 1, verse: 1, start: 0, end: 27 },
+    });
+    assert.equal(save.status, 200);
+    savedId = save.body.id;
+
+    const list = await agent.get('/api/entries').query({ search: 'בראשית ברא', limit: 20 });
+    const entry = list.body.entries.find(row => row.id === savedId);
+    assert.ok(entry);
+    assert.equal(entry.original_text, canonicalRangeText);
+    assert.equal(entry.tanach_book_label, 'בראשית');
+    assert.equal(entry.tanach_chapter, 1);
+    assert.equal(entry.tanach_verse, 1);
+    assert.equal(entry.tanach_start, 0);
+    assert.equal(entry.tanach_end, 27);
+  } finally {
+    if (savedId) await agent.delete(`/api/entries/${savedId}`);
+  }
 });
 
 // ── No cross-session data leakage ─────────────────────────────────────────────

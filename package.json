@@ -9,8 +9,9 @@
     "dev:backend": "node server/index.js",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test tests/gematria.test.js",
-    "test:api": "node --test tests/api.test.js"
+    "test": "node --test tests/gematria.test.js tests/tanach.test.js",
+    "test:api": "node --test tests/api.test.js",
+    "import:tanach": "node scripts/import-tanach.js"
   },
   "dependencies": {
     "@mdi/font": "7.4.47",
