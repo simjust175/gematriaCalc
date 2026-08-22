@@ -38,9 +38,10 @@ test('automatic Hebrew keyboard maps physical keys and preserves calculator edit
   await page.keyboard.press('KeyK');
   await expect(textarea).toHaveValue('חעלעל');
   await expect(page.locator('.primary-num')).toHaveText('208');
-  const resultCards = page.locator('.result-grid > .result-card');
-  await expect(resultCards).toHaveCount(3);
-  await expect(page.locator('.calculation-actions .save-btn')).toBeVisible();
+  const resultSections = page.locator('.result-panel .result-section');
+  await expect(page.locator('.result-panel')).toHaveCount(1);
+  await expect(resultSections).toHaveCount(3);
+  await expect(page.locator('.result-panel-toolbar .save-btn')).toBeVisible();
   await expect(page.locator('.result-grid .save-btn')).toHaveCount(0);
   const desktopResultLayout = await page.locator('.result-grid').evaluate((grid) => {
     const cards = [...grid.children];

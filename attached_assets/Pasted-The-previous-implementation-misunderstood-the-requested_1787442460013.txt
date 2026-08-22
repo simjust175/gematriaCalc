@@ -1,0 +1,190 @@
+The previous implementation misunderstood the requested "one row" layout.
+
+Do NOT use three large standalone cards.
+
+Replace the current three separate result cards with ONE unified horizontal result panel containing three equal internal sections.
+
+TARGET
+
+Conceptually:
+
+גימטריה מלאה	ראשי תיבות	גימטריית ר״ת
+223 · רכג	ג	3 · ג
+
+All three values should live inside ONE rounded container.
+
+Use subtle vertical divider lines between the three sections.
+
+The result should feel like one compact calculation summary, not three dashboard cards.
+
+SIZE
+
+The unified result panel should be approximately:
+
+105–125px tall on desktop
+full available calculator width
+compact internal padding
+no unnecessary blank vertical space
+
+Do not recreate three 200px-high cards.
+
+POSITION
+
+Move the result panel DIRECTLY underneath the main text input.
+
+Reduce the current excessive vertical gap.
+
+Desired page flow:
+
+INPUT
+
+small normal spacing
+
+UNIFIED 3-PART RESULT BAR
+
+small normal spacing
+
+MATCHES / WORD BREAKDOWN
+
+The input and calculation results should visually feel connected.
+
+THREE EQUAL SECTIONS
+
+Inside the single panel:
+
+Section 1
+
+גימטריה מלאה
+
+223 · רכג
+
+Section 2
+
+ראשי תיבות
+
+ג
+
+Section 3
+
+גימטריית ר״ת
+
+3 · ג
+
+Use exact RTL ordering appropriate to the existing app.
+
+Each section gets equal width.
+
+VISUAL HIERARCHY
+
+All three calculations are equal in importance.
+
+Use:
+
+same label styling
+same result font scale
+same vertical alignment
+equal width
+same visual weight
+
+Do NOT make גימטריה מלאה dramatically stronger.
+
+The decimal + Hebrew representation should remain visually clear.
+
+ONE CONTAINER, NOT THREE CARDS
+
+This is important.
+
+There should be:
+
+ONE outer rounded border.
+
+Inside:
+
+three columns separated only by subtle dividers.
+
+Do NOT render:
+
+three independently bordered/shadowed cards.
+
+The desired effect is a clean professional calculation strip.
+
+SAVE BUTTON
+
+The current שמור button is floating between sections.
+
+Fix this.
+
+Save applies to the WHOLE current calculation.
+
+Integrate a compact:
+
+שמור + bookmark icon
+
+into the unified calculation panel in a small non-intrusive position.
+
+Preferred:
+
+small action in the upper/left edge of the unified panel, clearly separate from the three values but still inside the same overall component.
+
+OR use a compact header/action area inside the unified panel if that fits the current component better.
+
+Do NOT:
+
+make a fourth equally large column
+attach Save only to גימטריה מלאה
+leave Save floating outside by itself
+significantly increase panel height for Save
+
+When saved, preserve the existing כבר שמור / saved state.
+
+SPACING
+
+The current page has too much empty vertical space.
+
+Tighten specifically:
+
+input → results
+results → next content section
+
+Do not globally compress the whole application.
+
+We want comfortable breathing room, not large dead areas.
+
+RESPONSIVE
+
+Desktop:
+
+ONE horizontal panel with three equal sections.
+
+Tablet:
+
+keep three sections horizontally if comfortably readable.
+
+Mobile:
+
+the unified component may stack its sections vertically or use an appropriate 1 + 2 arrangement.
+
+Do not force three unreadably narrow columns on phones.
+
+PRESERVE
+
+Do NOT change:
+
+gematria logic
+Hebrew numeral logic
+ראשי תיבות
+גימטריית ר״ת
+automatic Hebrew keyboard
+save behavior/database
+matching
+word breakdown
+Tanach
+navigation
+palette
+fonts
+
+This is a visual layout correction only.
+
+Final visual principle
+
+One calculation. One compact panel. Three equal results.

@@ -43,50 +43,51 @@
         <transition name="results-fade">
           <div v-if="hasInput" class="results-area">
 
-            <!-- ── CALCULATION ACTION ──────────────────────── -->
-            <div class="calculation-actions">
-              <div class="save-row">
-                <button
-                  class="save-btn"
-                  :class="{
-                    'save-btn--saved': saveStatus === 'saved' || matches.isAlreadySaved,
-                    'save-btn--loading': saveStatus === 'loading',
-                  }"
-                  :disabled="saveStatus === 'loading' || matches.isAlreadySaved"
-                  @click="saveEntry"
-                >
-                  <span v-if="matches.isAlreadySaved" class="mdi mdi-bookmark-check-outline"></span>
-                  <span v-else-if="saveStatus === 'loading'" class="mdi mdi-loading mdi-spin"></span>
-                  <span v-else-if="saveStatus === 'saved'" class="mdi mdi-bookmark-check-outline"></span>
-                  <span v-else class="mdi mdi-bookmark-outline"></span>
-                  {{ matches.isAlreadySaved ? 'כבר שמור' : saveStatus === 'saved' ? 'נשמר' : 'שמור' }}
-                </button>
-                <span v-if="saveError" class="save-error">{{ saveError }}</span>
-              </div>
-            </div>
-
-            <!-- ── THREE PARALLEL RESULTS ──────────────────── -->
-            <div class="result-grid">
-              <div class="result-card">
-                <div class="primary-result-content">
-                  <div class="result-label">גימטריה מלאה</div>
-                  <div class="result-value-row">
-                    <span class="result-num primary-num">{{ result.fullGematria }}</span>
-                    <span class="result-divider">·</span>
-                    <span class="result-heb primary-heb">{{ result.fullHebrewNumber }}</span>
-                  </div>
+            <!-- ── UNIFIED CALCULATION SUMMARY ─────────────── -->
+            <div class="result-panel">
+              <div class="result-panel-toolbar">
+                <div class="save-row">
+                  <button
+                    class="save-btn"
+                    :class="{
+                      'save-btn--saved': saveStatus === 'saved' || matches.isAlreadySaved,
+                      'save-btn--loading': saveStatus === 'loading',
+                    }"
+                    :disabled="saveStatus === 'loading' || matches.isAlreadySaved"
+                    @click="saveEntry"
+                  >
+                    <span v-if="matches.isAlreadySaved" class="mdi mdi-bookmark-check-outline"></span>
+                    <span v-else-if="saveStatus === 'loading'" class="mdi mdi-loading mdi-spin"></span>
+                    <span v-else-if="saveStatus === 'saved'" class="mdi mdi-bookmark-check-outline"></span>
+                    <span v-else class="mdi mdi-bookmark-outline"></span>
+                    {{ matches.isAlreadySaved ? 'כבר שמור' : saveStatus === 'saved' ? 'נשמר' : 'שמור' }}
+                  </button>
+                  <span v-if="saveError" class="save-error">{{ saveError }}</span>
                 </div>
               </div>
-              <div class="result-card">
-                <div class="result-label">ראשי תיבות</div>
-                <div class="roshei-letters">{{ result.initials }}</div>
-              </div>
-              <div class="result-card">
-                <div class="result-label">גימטריית ר"ת</div>
-                <div class="result-value-row roshei-value">
-                  <span class="result-num secondary-num">{{ result.initialsGematria }}</span>
-                  <span class="result-divider">·</span>
-                  <span class="result-heb secondary-heb">{{ result.initialsHebrewNumber }}</span>
+
+              <div class="result-grid">
+                <div class="result-section">
+                  <div class="primary-result-content">
+                    <div class="result-label">גימטריה מלאה</div>
+                    <div class="result-value-row">
+                      <span class="result-num primary-num">{{ result.fullGematria }}</span>
+                      <span class="result-divider">·</span>
+                      <span class="result-heb primary-heb">{{ result.fullHebrewNumber }}</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="result-section">
+                  <div class="result-label">ראשי תיבות</div>
+                  <div class="roshei-letters">{{ result.initials }}</div>
+                </div>
+                <div class="result-section">
+                  <div class="result-label">גימטריית ר"ת</div>
+                  <div class="result-value-row roshei-value">
+                    <span class="result-num secondary-num">{{ result.initialsGematria }}</span>
+                    <span class="result-divider">·</span>
+                    <span class="result-heb secondary-heb">{{ result.initialsHebrewNumber }}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -464,21 +465,25 @@ async function saveEntry() {
 .results-fade-enter-from,
 .results-fade-leave-to { opacity: 0; transform: translateY(6px); }
 
-/* ── Result cards ───────────────────────────────────────────────────────── */
-.result-card {
+/* ── Unified calculation summary ─────────────────────────────────────────── */
+.result-panel {
   background: #fff;
   border: 1.5px solid var(--border);
   border-radius: var(--radius);
-  padding: 18px 22px;
   box-shadow: 0 2px 10px rgba(26,39,68,0.05);
+  overflow: hidden;
+  padding: 10px 0 14px;
+}
+
+.result-panel-toolbar {
+  min-height: 27px;
+  padding: 0 16px;
   display: flex;
-  flex-direction: column;
-  min-height: 138px;
+  justify-content: flex-end;
 }
 
 .primary-result-content {
   min-width: 0;
-  flex: 1;
 }
 
 .result-label {
@@ -487,66 +492,70 @@ async function saveEntry() {
   letter-spacing: 0.07em;
   color: var(--text-secondary);
   text-transform: uppercase;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .result-value-row {
   display: flex;
   align-items: baseline;
-  gap: 10px;
+  gap: 7px;
 }
 
 .result-num {
-  font-size: 2.8rem;
+  font-size: 1.95rem;
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 .primary-num,
-.secondary-num { color: var(--navy); font-size: 2.05rem; }
+.secondary-num { color: var(--navy); }
 
 .result-divider {
-  font-size: 1.4rem;
+  font-size: 1.2rem;
   color: #D4C9B0;
   font-weight: 300;
 }
 
 .result-heb {
-  font-size: 1.8rem;
+  font-size: 1.5rem;
   font-weight: 600;
   color: var(--navy);
 }
 .primary-heb,
-.secondary-heb { font-size: 1.8rem; }
+.secondary-heb { font-size: 1.5rem; }
 
-/* ── Three equal calculation cards ───────────────────────────────────────── */
+/* ── Three equal summary sections ────────────────────────────────────────── */
 .result-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+}
+
+.result-section {
+  min-width: 0;
+  min-height: 61px;
+  padding: 4px 20px 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.result-section + .result-section {
+  border-inline-start: 1px solid var(--border);
 }
 
 .roshei-letters {
-  font-size: 2.05rem;
+  font-size: 1.95rem;
+  line-height: 1;
   font-weight: 700;
   color: var(--navy);
-  margin-top: 2px;
   overflow-wrap: anywhere;
 }
 
 .roshei-value { align-items: baseline; }
 
-/* ── Save row ────────────────────────────────────────────────────────────── */
-.calculation-actions {
-  display: flex;
-  justify-content: flex-start;
-  min-height: 32px;
-}
-
 .save-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   flex: 0 0 auto;
 }
 
@@ -554,12 +563,12 @@ async function saveEntry() {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 7px 12px;
+  padding: 4px 8px;
   border-radius: 8px;
   border: 1px solid #C09840;
   background: rgba(192, 152, 64, 0.1);
   color: #A07C2E;
-  font-size: 0.86rem;
+  font-size: 0.76rem;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
@@ -587,13 +596,21 @@ async function saveEntry() {
 .save-error { font-size: 0.82rem; color: #D32F2F; }
 
 @media (max-width: 480px) {
+  .result-panel { padding-bottom: 0; }
   .result-grid { grid-template-columns: 1fr; }
-  .result-card { min-height: 0; }
+  .result-section { min-height: 0; padding: 14px 18px; }
+  .result-section + .result-section {
+    border-inline-start: none;
+    border-top: 1px solid var(--border);
+  }
   .save-btn { padding-inline: 10px; }
 }
 
-@media (min-width: 481px) and (max-width: 900px) {
-  .result-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 481px) and (max-width: 640px) {
+  .result-section { padding-inline: 13px; }
+  .result-num,
+  .roshei-letters { font-size: 1.7rem; }
+  .result-heb { font-size: 1.25rem; }
 }
 
 /* ── Word breakdown ──────────────────────────────────────────────────────── */
