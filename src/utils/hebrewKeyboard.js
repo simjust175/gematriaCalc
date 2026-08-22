@@ -58,16 +58,15 @@ const HEBREW_CHARACTER = /[\u0590-\u05FF]/u;
  */
 export function getMappedHebrewCharacter(event, {
   enabled = true,
-  supportsPhysicalKeyboard = true,
 } = {}) {
   if (
     !enabled
-    || !supportsPhysicalKeyboard
     || event.isComposing
     || event.ctrlKey
     || event.metaKey
     || event.altKey
     || !event.code
+    || event.code === 'Unidentified'
     || HEBREW_CHARACTER.test(event.key || '')
   ) {
     return null;
@@ -93,10 +92,4 @@ export function insertAtSelection(value, selectionStart, selectionEnd, text) {
   const nextValue = `${value.slice(0, start)}${text}${value.slice(end)}`;
   const caret = start + text.length;
   return { value: nextValue, selectionStart: caret, selectionEnd: caret };
-}
-
-/** Avoid physical-key conversion on touch-only virtual keyboard environments. */
-export function supportsPhysicalKeyboardMapping() {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return true;
-  return window.matchMedia('(pointer: fine)').matches;
 }

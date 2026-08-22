@@ -44,7 +44,7 @@ test('shifted letter keys retain their Hebrew mapping', () => {
   assert.equal(getMappedHebrewCharacter(keyboardEvent({ code: 'Semicolon', key: ':', shiftKey: true })), null);
 });
 
-test('normal editing, Hebrew input, composition, shortcuts, and virtual keyboards remain native', () => {
+test('normal editing, Hebrew input, composition, shortcuts, and unidentified virtual keys remain native', () => {
   assert.equal(getMappedHebrewCharacter(keyboardEvent({ code: 'Space', key: ' ' })), null);
   assert.equal(getMappedHebrewCharacter(keyboardEvent({ code: 'Digit1', key: '1' })), null);
   assert.equal(getMappedHebrewCharacter(keyboardEvent({ code: 'Backspace', key: 'Backspace' })), null);
@@ -58,7 +58,7 @@ test('normal editing, Hebrew input, composition, shortcuts, and virtual keyboard
   assert.equal(getMappedHebrewCharacter(keyboardEvent({ ctrlKey: true })), null);
   assert.equal(getMappedHebrewCharacter(keyboardEvent({ metaKey: true })), null);
   assert.equal(getMappedHebrewCharacter(keyboardEvent(), { enabled: false }), null);
-  assert.equal(getMappedHebrewCharacter(keyboardEvent(), { supportsPhysicalKeyboard: false }), null);
+  assert.equal(getMappedHebrewCharacter(keyboardEvent({ code: 'Unidentified', key: 'j' })), null);
 });
 
 test('mapped input inserts at a caret and replaces the selected range', () => {

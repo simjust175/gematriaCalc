@@ -31,19 +31,21 @@ test('automatic Hebrew keyboard maps physical keys and preserves calculator edit
   await expect(automaticKeyboard).toBeChecked();
 
   await textarea.focus();
-  await page.keyboard.press('KeyT');
-  await page.keyboard.press('KeyF');
-  await page.keyboard.press('KeyP');
-  await expect(textarea).toHaveValue('אכפ');
-  await expect(page.locator('.primary-num')).toHaveText('101');
+  await page.keyboard.press('KeyJ');
+  await page.keyboard.press('KeyG');
+  await page.keyboard.press('KeyK');
+  await page.keyboard.press('KeyG');
+  await page.keyboard.press('KeyK');
+  await expect(textarea).toHaveValue('חעלעל');
+  await expect(page.locator('.primary-num')).toHaveText('208');
 
   await textarea.press('Space');
   await textarea.press('Digit1');
-  await expect(textarea).toHaveValue('אכפ 1');
+  await expect(textarea).toHaveValue('חעלעל 1');
   await textarea.press('Backspace');
-  await expect(textarea).toHaveValue('אכפ ');
+  await expect(textarea).toHaveValue('חעלעל ');
   await textarea.press('Backspace');
-  await expect(textarea).toHaveValue('אכפ');
+  await expect(textarea).toHaveValue('חעלעל');
 
   await textarea.fill('שלום');
   await textarea.evaluate(element => element.setSelectionRange(2, 2));

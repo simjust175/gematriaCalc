@@ -176,7 +176,6 @@ import { useLiveMatching } from '@/composables/useLiveMatching.js';
 import {
   getMappedHebrewCharacter,
   insertAtSelection,
-  supportsPhysicalKeyboardMapping,
 } from '@/utils/hebrewKeyboard.js';
 import MatchPanel from './MatchPanel.vue';
 
@@ -244,18 +243,28 @@ function restoreCaretAfterMappedInput(textarea, selectionStart, selectionEnd) {
 function onCalculatorKeydown(event) {
   const mappedCharacter = getMappedHebrewCharacter(event, {
     enabled: automaticHebrewKeyboard.value,
-    supportsPhysicalKeyboard: supportsPhysicalKeyboardMapping(),
   });
   if (!mappedCharacter) return;
 
   event.preventDefault();
   const textarea = event.currentTarget;
+  const valueBeforeInsertion = textarea.value;
+  const selectionStartBeforeInsertion = textarea.selectionStart;
+  const selectionEndBeforeInsertion = textarea.selectionEnd;
 
   // execCommand creates a native editable-text transaction, preserving the
   // browser's undo/redo stack and letting Vue's normal v-model input flow run.
-  const insertedNatively = typeof document !== 'undefined'
+  const nativeInsertionAccepted = typeof document !== 'undefined'
     && typeof document.execCommand === 'function'
     && document.execCommand('insertText', false, mappedCharacter);
+
+  // Some embedded browsers report success from execCommand without changing a
+  // textarea. Only trust it after observing the text or caret actually move.
+  const insertedNatively = nativeInsertionAccepted && (
+    textarea.value !== valueBeforeInsertion
+    || textarea.selectionStart !== selectionStartBeforeInsertion
+    || textarea.selectionEnd !== selectionEndBeforeInsertion
+  );
 
   if (insertedNatively) {
     nextTick(() => {
