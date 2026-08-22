@@ -14,7 +14,7 @@
           :class="{ active: currentPage === 'tanach' }"
           @click="$emit('navigate', 'tanach')"
         >
-          <span class="mdi mdi-book-open-page-variant-outline nav-icon"></span>
+          <span class="mdi mdi-book-open-page-variant-outline nav-icon" aria-hidden="true"></span>
           תנ״ך
         </button>
         <button
@@ -22,7 +22,7 @@
           :class="{ active: currentPage === 'library' }"
           @click="$emit('navigate', 'library')"
         >
-          <span class="mdi mdi-bookshelf nav-icon"></span>
+          <span class="mdi mdi-bookshelf nav-icon" aria-hidden="true"></span>
           שמורים
         </button>
         <button
@@ -30,11 +30,11 @@
           :class="{ active: currentPage === 'calculator' }"
           @click="$emit('navigate', 'calculator')"
         >
-          <span class="mdi mdi-calculator-variant nav-icon"></span>
+          <span class="mdi mdi-calculator-variant nav-icon" aria-hidden="true"></span>
           מחשבון
         </button>
         <button class="nav-btn logout-btn" @click="$emit('logout')" title="יציאה">
-          <span class="mdi mdi-logout nav-icon"></span>
+          <span class="mdi mdi-logout nav-icon" aria-hidden="true"></span>
         </button>
       </nav>
     </div>

@@ -1,23 +1,8 @@
 import { test, expect } from '@playwright/test';
-import { execSync } from 'node:child_process';
-
-const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:5000';
-const systemChromium = process.env.PLAYWRIGHT_CHROMIUM_PATH || (() => {
-  try {
-    return execSync('command -v chromium', { encoding: 'utf8' }).trim();
-  } catch {
-    return undefined;
-  }
-})();
-
-if (systemChromium) {
-  test.use({ launchOptions: { executablePath: systemChromium } });
-}
 
 async function loginAndOpenTanach(page) {
-  if (!process.env.APP_PASSWORD) throw new Error('APP_PASSWORD is required for the signed-in browser test');
-  await page.goto(baseURL);
-  await page.locator('input[type="password"]').fill(process.env.APP_PASSWORD);
+  await page.goto('/');
+  await page.locator('input[type="password"]').fill(e2ePassword);
   await page.getByRole('button', { name: 'כניסה' }).click();
   await page.getByRole('button', { name: 'תנ״ך' }).click();
   await expect(page.locator('.verse-display')).toBeVisible();
@@ -40,6 +25,7 @@ async function selectedLetterCount(page) {
 }
 
 test('Genesis 1:1 drag selection updates live in both directions', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-chromium');
   await page.setViewportSize({ width: 1440, height: 1000 });
   await loginAndOpenTanach(page);
 
@@ -87,7 +73,8 @@ test('Genesis 1:1 drag selection updates live in both directions', async ({ page
   await expect.poll(() => selectedLetterCount(page)).toBe(4);
 });
 
-test('Tanach selection remains readable without horizontal scrolling on mobile', async ({ page }) => {
+test('Tanach selection remains readable without horizontal scrolling on mobile', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile-chromium');
   await page.setViewportSize({ width: 390, height: 844 });
   await loginAndOpenTanach(page);
   const first = await centerOfLetter(page, 0);
@@ -135,3 +122,5 @@ test('Parashah navigation and search preserve context across chapter boundaries'
   await selectors.first().selectOption('book:Exodus');
   await expect(page.locator('.verse-toolbar h2')).toContainText('שמות א:א');
 });
+
+const e2ePassword = process.env.E2E_APP_PASSWORD || 'tanach-browser-test-password';

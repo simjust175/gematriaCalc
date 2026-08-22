@@ -27,10 +27,30 @@
 1. Run the development server:
 
    ```bash
-   npm run serve
+   npm run dev
    ```
 
-2. Open http://localhost:8080 in your browser.
+2. Open http://localhost:5000 in your browser.
+
+### Validation
+
+```bash
+npm test          # gematria and Tanach cursor logic
+npm run test:api  # authenticated API integration tests
+npm run test:e2e  # signed-in Tanach reader journey in desktop and mobile Chromium
+```
+
+Install the Playwright browser once before the browser validation:
+
+```bash
+npx playwright install chromium
+```
+
+The browser suite starts Vite and Express on isolated local ports, copies the
+Tanach corpus into a temporary PostgreSQL schema, and removes that schema after
+the run. It signs in through the real login form with test-only credentials and
+keeps every protected API behind the normal session authentication middleware.
+It requires the configured PostgreSQL database with the imported Tanach corpus.
 
 ### Contributing
 
