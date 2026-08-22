@@ -1,0 +1,1085 @@
+#11 — Add Complete Tanach Mode
+What & Why
+
+Add תנ״ך as a first-class section of the existing Hebrew Gematria application.
+
+Users should be able to browse the complete Hebrew Tanach, select any ספר / פרק / פסוק, move an accessible cursor through the canonical Hebrew text, and watch the gematria accumulate instantly as the cursor moves through additional letters.
+
+The currently selected Tanach range should behave like live calculator input:
+
+full gematria
+Hebrew-number representation
+ראשי תיבות
+gematria of ראשי תיבות
+word breakdown
+letter breakdown
+existing saved-match detection
+ability to save the selected range
+
+Do this WITHOUT changing or rebuilding the existing מחשבון or שמורים functionality.
+
+TANACH CORPUS
+
+Use the Unicode/XML Leningrad Codex from Tanach.us as the authoritative Hebrew corpus.
+
+Pin the importer specifically to:
+
+UXLC version: 2.5
+Build: 27.6
+Technical build timestamp: 31 Mar 2026 12:00
+Requested public citation:
+UXLC 2.5 (27.6), Tanach.us Inc., Apr 2026
+Published SHA-256 for Tanach.xml.zip:
+
+1bc6e006f43d3b18f2f718cefa3aa4774cac2c54092c28d173dd61996c43a050
+
+The source permits the biblical Hebrew text to be copied without restriction.
+
+Document in the repository:
+
+source URL/location
+UXLC version
+build
+SHA-256
+license/reuse statement
+required/requested attribution
+
+Do not silently import whatever version happens to be current in the future.
+
+The import should be reproducible.
+
+SOURCE STRUCTURE / JEWISH CANON
+
+UXLC contains:
+
+39 source book/division files
+929 chapters
+23,213 verses
+
+The application should preserve BOTH concepts:
+
+Canonical Jewish structure
+
+Maintain the traditional 24-book Tanach grouping in metadata.
+
+Familiar navigation divisions
+
+Also preserve the familiar UXLC/source divisions needed for navigation, such as:
+
+שמואל א׳
+שמואל ב׳
+מלכים א׳
+מלכים ב׳
+הושע
+יואל
+עמוס
+etc.
+
+Do NOT destructively merge source divisions.
+
+For example, תרי עשר may belong to one canonical parent grouping while individual books such as הושע and יואל remain independently navigable.
+
+Validation must confirm:
+
+24 canonical parent books
+39 imported source divisions
+929 chapters
+23,213 verse records
+CRITICAL — QERE / KETIV
+
+UXLC distinguishes normal text and קרי/כתיב variants.
+
+Do NOT accidentally concatenate both alternatives and count them as though they are sequential words.
+
+Preserve:
+
+ordinary word text
+כתיב
+קרי
+
+when present.
+
+For this initial Tanach reader, use a single consistent resolved-reading policy for:
+
+displayed reading text
+cursor positions
+gematria
+word breakdown
+ראשי תיבות
+search
+saving
+matching
+
+Prefer the normal קרי / reading form when a qere exists, while preserving the כתיב as structured metadata for possible future support.
+
+Most importantly:
+
+Never count both קרי and כתיב simultaneously.
+
+Add tests using actual UXLC qere/ketiv examples proving that alternative readings are never double-counted.
+
+DONE LOOKS LIKE
+תנ״ך appears beside מחשבון and שמורים as an equally prominent main section.
+The entire Hebrew Tanach is stored locally/persistently after import.
+Production use has NO dependency on a third-party API for ordinary verse browsing.
+Corpus import is repeatable and idempotent.
+Running the importer multiple times does not create duplicate books, chapters, or verses.
+Pointed/cantillated Hebrew can be preserved for display.
+Calculation works only from actual Hebrew letters.
+Desktop closely follows the supplied three-column visual reference.
+Tablet and mobile reorganize cleanly without horizontal scrolling.
+Search works without loading the entire Tanach corpus into the browser.
+Cursor movement is immediate.
+Running gematria updates immediately.
+Existing saved matching works from the currently selected Tanach range.
+A Tanach range can be saved with its source reference.
+Existing calculator/library behavior and tests remain intact.
+1. MAIN NAVIGATION
+
+Add:
+
+תנ״ך
+
+to the existing main navigation alongside:
+
+מחשבון
+שמורים
+
+Use a tasteful book icon consistent with the existing icon system.
+
+It should look like a main product section, not a secondary utility.
+
+2. DESKTOP LAYOUT
+
+Use the supplied mockup as the visual target.
+
+Create a three-column desktop experience.
+
+LEFT — TANACH NAVIGATOR
+
+Include:
+
+Heading
+
+תנ״ך
+
+Search
+
+Placeholder approximately:
+
+חפש ספר, פרק, פסוק או טקסט...
+
+Navigation
+
+Allow selection of:
+
+ספר
+פרק
+פסוק
+
+Display the verses of the current chapter beneath.
+
+Example:
+
+1
+בראשית ברא אלהים את השמים ואת הארץ
+
+2
+והארץ היתה תהו ובהו...
+
+3
+ויאמר אלהים יהי אור...
+
+The active verse should use the existing subtle gold/warm selected state.
+
+Provide appropriate previous/next navigation.
+
+3. CENTRAL TANACH READER
+
+The center is the main working area.
+
+Show a clear reference such as:
+
+בראשית › פרק א׳
+
+and:
+
+פסוק 1 מתוך 31
+
+Provide:
+
+קודם
+הבא
+
+where appropriate.
+
+4. HEBREW VERSE DISPLAY
+
+Show the canonical Hebrew verse in large, highly readable Hebrew typography.
+
+Example:
+
+בראשית ברא אלהים את השמים ואת הארץ
+
+This is NOT an editable textarea.
+
+It is canonical Tanach text.
+
+It should visually read like normal Hebrew text while allowing each Hebrew letter to participate in cursor positioning.
+
+Preserve RTL correctly.
+
+5. GEMATRIA CURSOR — CORE FEATURE
+
+This is the central new feature.
+
+The user must be able to move a cursor through the actual Hebrew LETTERS of the verse.
+
+As the cursor moves forward, continuously calculate the gematria from the current START POSITION through the CURRENT LETTER.
+
+Spaces and formatting characters must not contribute.
+
+Example using בראשית א׳:א:
+
+Cursor on first:
+
+ב
+
+Gematria:
+
+2
+
+Move through the complete first word:
+
+בראשית
+
+Gematria:
+
+913
+
+Move through:
+
+בראשית ברא
+
+Gematria:
+
+1116
+
+Continue to the end:
+
+2701
+
+Everything must update immediately.
+
+6. VISUAL CURSOR / RANGE
+
+Clearly show what is currently counted.
+
+Use two visual states:
+
+Counted range
+
+Letters between the active range start and current cursor receive a very subtle warm background/highlight.
+
+Current letter
+
+The exact current cursor letter receives a stronger gold highlight.
+
+Do NOT render every individual letter as a visibly boxed button.
+
+The verse must continue looking like natural Hebrew text.
+
+7. CURSOR MOVEMENT
+
+Support:
+
+Mouse
+
+Click a Hebrew letter to position the cursor there.
+
+Touch
+
+Tap a Hebrew letter.
+
+Keyboard
+
+When the Tanach reader has focus:
+
+ArrowLeft advances to the NEXT Hebrew letter in Hebrew reading order.
+ArrowRight moves to the PREVIOUS Hebrew letter.
+
+Skip:
+
+spaces
+punctuation
+ניקוד
+טעמים
+maqaf
+sof pasuk
+combining marks
+
+Also provide small visible previous/next-letter controls so keyboard shortcuts are not required.
+
+8. UNICODE / NIKUD / TAAMIM
+
+This must be handled carefully.
+
+Displayed Hebrew may contain:
+
+base Hebrew letter
+ניקוד
+cantillation marks
+
+The cursor is attached to the BASE HEBREW LETTER.
+
+Do not allow the cursor to stop on Unicode combining marks.
+
+Preserve the original display string separately from the normalized/calculation representation.
+
+Do not damage visual Hebrew merely to simplify calculation.
+
+9. RANGE START
+
+Default:
+
+Counting starts at the first countable Hebrew letter of the selected verse.
+
+Add a simple action:
+
+התחל מכאן
+
+The current cursor letter becomes the new range start.
+
+After this:
+
+gematria is calculated only from that selected starting letter through the current cursor.
+
+Also provide:
+
+אפס התחלה
+
+or another clear equivalent to restore the beginning of the verse as the starting point.
+
+Do NOT implement complicated document-editor selection behavior.
+
+10. FAST CALCULATION ENGINE
+
+Cursor movement must feel instantaneous.
+
+When a verse is loaded, derive a local representation containing approximately:
+
+original display text
+resolved qere/ketiv reading representation
+countable Hebrew letters
+display/grapheme → Hebrew-letter mapping
+Hebrew-letter → display mapping
+letter values
+word boundaries
+prefix gematria sums
+
+Use prefix sums so arbitrary range totals can be calculated efficiently.
+
+Conceptually:
+
+rangeTotal = prefix[end] - prefix[start - 1]
+
+Do NOT query the server every time the cursor advances by one letter.
+
+11. CALCULATION RULES
+
+Reuse the EXISTING tested Gematria engine.
+
+Standard values remain:
+
+א 1
+ב 2
+ג 3
+ד 4
+ה 5
+ו 6
+ז 7
+ח 8
+ט 9
+
+י 10
+כ / ך 20
+ל 30
+מ / ם 40
+נ / ן 50
+ס 60
+ע 70
+פ / ף 80
+צ / ץ 90
+
+ק 100
+ר 200
+ש 300
+ת 400
+
+Ignore for calculation:
+
+whitespace
+line breaks
+punctuation
+maqaf
+sof pasuk
+גרש
+גרשיים
+ניקוד
+טעמים
+all combining marks
+
+Do not duplicate this mapping in a second unrelated implementation if the existing utility can be reused.
+
+12. CALCULATION RESULT CARDS
+
+For the CURRENT RANGE show the same three outputs already used in מחשבון:
+
+Full-width
+
+גימטריה מלאה
+
+numeric + Hebrew representation
+
+Two equal cards beneath
+
+ראשי תיבות
+
+and:
+
+גימטריית ר״ת
+
+Maintain the current design principle:
+
+All three are important related outputs.
+
+Do NOT turn גימטריה מלאה into an enormous hero card compared with the other two.
+
+13. CURRENT CURSOR SUMMARY
+
+Use the compact right-hand panel from the supplied mockup.
+
+Show information such as:
+
+Reference
+
+בראשית א׳:א
+
+Current letter
+
+Prominently display the active Hebrew letter.
+
+Cursor
+
+Example:
+
+אות 11 מתוך 28
+
+Range
+
+Example:
+
+11 אותיות בטווח
+
+Current letter value
+
+Example:
+
+ערך האות: 1
+
+Current range gematria
+
+Numeric + Hebrew representation.
+
+Keep this useful and compact.
+
+Do not expose debugging/internal values.
+
+14. ראשי תיבות FOR THE CURRENT RANGE
+
+Run the currently counted range through the same existing ראשי תיבות logic.
+
+The result updates automatically when:
+
+cursor moves
+start position changes
+
+Display:
+
+ראשי תיבות text
+gematria of ראשי תיבות
+Hebrew-number representation
+
+Reuse existing calculation functions wherever possible.
+
+15. WORD BREAKDOWN
+
+Under the result cards show:
+
+פירוט מילים
+
+Show words contained/partially contained in the current selected range appropriately.
+
+Each word shows:
+
+Hebrew word
+numeric gematria
+Hebrew-number representation
+
+Use the same expandable pattern as מחשבון.
+
+When expanded, show individual letter values.
+
+Do not duplicate this UI unnecessarily if an existing reusable component can be extracted safely.
+
+16. TANACH SEARCH
+
+Support at minimum:
+
+Book search
+
+בראשית
+
+Reference navigation
+
+Examples conceptually:
+
+בראשית א
+
+בראשית א א
+
+and sensible Hebrew-reference variations.
+
+Text search
+
+Example:
+
+ברא אלהים
+
+Return bounded/paginated results.
+
+Do NOT load the entire Tanach into the client just to search.
+
+Use indexed database queries appropriate to PostgreSQL.
+
+17. LIVE SAVED MATCHING
+
+The selected Tanach range should feed into the EXISTING live matching system.
+
+Do NOT create a new Tanach-specific matching engine.
+
+Existing match types remain:
+
+גימטריה מלאה
+ראשי תיבות
+גימטריית ר״ת
+existing word-within-saved-phrase behavior
+
+Existing match-reason badges remain clear.
+
+As the cursor moves and the current range changes, matches should update just as they do while typing in מחשבון.
+
+Preserve existing stale-request protection.
+
+Do not allow match results to obscure the Hebrew reader.
+
+18. SAVE TANACH RANGE
+
+Allow the user to press:
+
+שמור
+
+for the currently selected Tanach range.
+
+Reuse the existing server-derived save flow.
+
+Store the normal saved fields:
+
+original text
+normalized text
+full gematria
+Hebrew representation as appropriate
+ראשי תיבות
+ראשי תיבות gematria
+words
+createdAt
+
+Also add nullable Tanach context:
+
+canonical book
+source division/book
+chapter
+verse
+range start letter index
+range end letter index
+source/version identifier if appropriate
+
+If only part of a verse is selected:
+
+save only that selected Hebrew range as the actual saved Gematria text.
+
+But preserve its source context.
+
+Example display in שמורים:
+
+בראשית א׳:א
+
+Ordinary user-created saved entries must remain completely unaffected.
+
+19. SAVED LIBRARY
+
+For Tanach-derived entries, display their source reference subtly.
+
+Example:
+
+שמע ישראל...
+
+בראשית א׳:א
+
+Do not make ordinary saved entries show empty Tanach fields.
+
+Maintain backwards compatibility with all existing rows.
+
+20. DATABASE STRUCTURE
+
+Adapt naming to the existing PostgreSQL schema.
+
+Conceptually we need:
+
+Tanach canonical group
+id
+canonicalOrder
+nameHe
+category
+Source/navigation division
+id
+canonicalBookId
+sourceOrder
+nameHe
+sourceIdentifier
+Verse
+id
+sourceBookId
+chapter
+verse
+original/display text
+resolved reading text as appropriate
+structured qere/ketiv data where applicable
+source metadata
+
+Create a unique constraint equivalent to:
+
+source book + chapter + verse
+
+Add indexes for:
+
+chapter lookup
+verse navigation
+reference search
+Hebrew text search
+
+Do NOT create a database row for every Hebrew letter.
+
+Letter-level representations should be derived when a verse is loaded.
+
+21. IMPORTER
+
+Build a dedicated, repeatable corpus import command/script.
+
+Requirements:
+
+pinned UXLC archive/version
+verify archive hash before import where practical
+parse XML deterministically
+preserve source metadata
+preserve pointed/cantillated text
+preserve qere/ketiv distinctions
+upsert safely
+no duplicates
+safe to rerun
+performs corpus integrity checks
+exits/report failure if validation does not pass
+
+Do not make this happen during every application startup.
+
+Large corpus ingestion should be an explicit import/seed process.
+
+22. DATA VALIDATION
+
+Before claiming import succeeded verify:
+
+24 canonical parent books
+39 UXLC/source divisions
+929 chapters
+23,213 verse records
+no duplicate source-book/chapter/verse identifiers
+no empty required Hebrew verse text
+canonical ordering exists
+בראשית א׳:א resolves correctly
+
+Report the actual observed counts.
+
+Do not merely assume them.
+
+23. KNOWN GEMATRIA ACCEPTANCE TEST
+
+Use:
+
+בראשית ברא אלהים את השמים ואת הארץ
+
+Expected standard Gematria word values:
+
+בראשית = 913
+ברא = 203
+אלהים = 86
+את = 401
+השמים = 395
+ואת = 407
+הארץ = 296
+
+Full verse:
+
+2701
+
+Countable Hebrew letters:
+
+28
+
+Cursor acceptance sequence:
+
+First letter:
+
+ב = 2
+
+After completing:
+
+בראשית = 913
+
+After completing:
+
+בראשית ברא = 1116
+
+At the end:
+
+2701
+
+Spaces must not alter the value.
+
+Nikud/taamim must not alter the value.
+
+24. RESPONSIVE DESIGN
+Desktop
+
+Follow the supplied mockup closely:
+
+left Tanach navigator
+central reader/calculation area
+right cursor/range summary
+Tablet
+
+Collapse intelligently into approximately two logical regions.
+
+Mobile
+
+Do NOT squeeze three columns together.
+
+Use a natural sequence such as:
+
+Tanach navigation/reference
+Hebrew verse
+cursor controls
+calculation cards
+cursor/range information
+word breakdown
+matches
+
+Navigator can become:
+
+collapsible section
+drawer
+other simple mobile pattern
+
+No horizontal scrolling.
+
+Hebrew text must remain comfortably readable.
+
+25. VISUAL DIRECTION
+
+Use the attached Tanach mockup as the primary visual reference for:
+
+layout
+density
+spacing
+proportions
+Hebrew reader prominence
+three-column structure
+subtle gold highlight
+selected verse styling
+cursor information hierarchy
+
+But do NOT blindly copy text/numerical inaccuracies from a generated mockup.
+
+The existing application remains the source of truth for:
+
+colors
+typography
+components
+icons
+borders
+radius
+calculations
+Hebrew numeral conversion
+saved matching
+
+The new section should clearly belong to the SAME application.
+
+26. ACCESSIBILITY
+
+Cursor navigation must be usable by keyboard.
+
+Use normal focus states.
+
+Make visible controls semantically correct buttons.
+
+Provide an appropriate accessible description of the current cursor/range.
+
+Use aria-live carefully for relevant changing calculated results without making rapid arrow-key navigation unbearably verbose.
+
+Touch targets must be appropriate on mobile/tablet.
+
+27. TESTS
+
+Add focused automated coverage.
+
+Import/data
+
+Test:
+
+expected counts
+idempotent rerun
+no duplicate verses
+canonical grouping
+source grouping
+valid בראשית א׳:א
+qere/ketiv handling
+Cursor
+
+Test:
+
+first Hebrew letter selected correctly
+next/previous navigation
+click position
+spaces skipped
+punctuation skipped
+ניקוד skipped
+טעמים skipped
+Unicode combining marks skipped
+arbitrary range start
+reset range start
+Gematria
+
+Test:
+
+first ב = 2
+בראשית = 913
+בראשית ברא = 1116
+full בראשית א׳:א = 2701
+28 countable letters
+ראשי תיבות
+
+Verify range-based ראשי תיבות and gematria update correctly.
+
+Search/navigation
+
+Test:
+
+books
+chapters
+verses
+reference lookup
+Hebrew text query
+previous/next
+Save
+
+Test:
+
+saving full verse
+saving partial range
+persisted source context
+ordinary saved entries unaffected
+Matching
+
+Test current Tanach range against existing:
+
+full gematria match
+ראשי תיבות match
+גימטריית ר״ת match
+word match where supported
+stale response handling
+Regression
+
+ALL current calculator, saved-library, authentication, database, API, and matching tests must continue to pass.
+
+28. IMPLEMENTATION ORDER
+Phase A — Architecture/data audit
+
+Inspect current:
+
+Vue structure
+routing
+AppBar
+gematria utilities
+matching composables
+server routes
+PostgreSQL schema
+tests
+
+Identify reuse opportunities.
+
+Do not make unrelated refactors.
+
+Phase B — Corpus importer
+
+Implement and validate UXLC importer.
+
+Phase C — Persistence/API
+
+Add Tanach storage and bounded retrieval/search endpoints.
+
+Phase D — Navigation UI
+
+Build:
+
+תנ״ך route
+book/chapter/verse navigation
+search
+chapter verse list
+Phase E — Cursor engine
+
+Build/test:
+
+Unicode Hebrew-letter mapping
+prefix sums
+click positioning
+keyboard movement
+highlighting
+custom range start
+Phase F — Calculations
+
+Wire selected range into existing:
+
+gematria
+Hebrew numeral
+ראשי תיבות
+ראשי תיבות gematria
+words/letters
+Phase G — Matching
+
+Reuse current live matching.
+
+Phase H — Saving
+
+Save source-aware Tanach ranges.
+
+Phase I — Visual/responsive polish
+
+Bring implementation close to attached reference on:
+
+desktop
+tablet
+mobile
+Phase J — Full verification
+
+Run complete automated suite and manually execute the acceptance flow below.
+
+29. MANUAL ACCEPTANCE FLOW
+
+Verify all of this manually:
+
+Open תנ״ך.
+Select בראשית.
+Select chapter א׳.
+Select verse א׳.
+Correct canonical Hebrew verse appears.
+Cursor begins on ב.
+Running gematria = 2.
+Move through בראשית.
+Running gematria = 913.
+Advance across the space.
+Space contributes nothing.
+Finish ברא.
+Running gematria = 1116.
+Continue to end of verse.
+Final gematria = 2701.
+Countable letter count = 28.
+Hebrew numeral representation displays.
+ראשי תיבות updates according to the active range.
+גימטריית ר״ת updates.
+Word breakdown updates.
+Letter expansion works.
+Existing saved matching updates with the range.
+Click another Hebrew letter.
+Cursor moves correctly.
+Use arrow controls.
+Cursor skips ניקוד/טעמים/spacing.
+Set current letter as new starting point.
+Range highlight and gematria change correctly.
+Reset starting position.
+Save current range.
+Open שמורים.
+Saved text and Tanach reference are present.
+Return to תנ״ך.
+Navigate to another verse.
+Cursor state resets appropriately.
+Search a Hebrew phrase and open a result.
+Refresh the app.
+Corpus remains available without another import.
+מחשבון still behaves exactly as before.
+שמורים still behaves exactly as before.
+OUT OF SCOPE
+
+Do NOT add in this phase:
+
+English translation
+other translations
+AI-generated Tanach content
+runtime scraping
+complicated freeform browser-style text selection
+cross-verse range selection
+multi-chapter selection
+user accounts
+changes to existing shared authentication/session behavior
+alternate gematria systems
+a separate Tanach matching engine
+replacement of Vue
+replacement of Vuetify
+replacement of Express
+replacement of PostgreSQL
+FINAL REPORT REQUIRED
+
+At completion report:
+
+exact UXLC source/archive used
+hash verification result
+version/build
+license/attribution documentation added
+canonical parent count
+source division count
+chapter count
+verse count
+how qere/ketiv is represented and resolved
+schema/migrations added
+API endpoints added
+cursor architecture
+Unicode/nikud/taamim handling
+prefix-sum calculation approach
+search implementation
+matching integration
+Tanach save-context implementation
+בראשית א׳:א acceptance results
+automated test results
+existing regression test results
+desktop/tablet/mobile verification
+any genuine remaining limitations
+
+Do not report the feature as complete unless the corpus import, cursor behavior, calculations, saving, matching, and regression tests have actually been verified.
