@@ -23,7 +23,7 @@
           <input
             v-model="searchQuery"
             type="search"
-            placeholder="חפש ספר או טקסט..."
+            placeholder="חפש ספר, פרשה או טקסט..."
             aria-label="חיפוש בתנ״ך"
             @input="scheduleSearch"
           />
@@ -32,11 +32,13 @@
         <div v-if="searchQuery.trim().length >= 2" class="search-results">
           <button
             v-for="item in searchResults"
-            :key="`${item.book_slug}-${item.chapter}-${item.verse}`"
+            :key="item.type === 'parsha' ? `parsha-${item.parsha_id}` : `${item.type || 'verse'}-${item.book_slug}-${item.chapter}-${item.verse}`"
+            :class="{ 'search-result--navigation': item.type }"
             @click="openSearchResult(item)"
           >
-            <strong>{{ item.book_name }} {{ toHebrewNumber(item.chapter) }}:{{ toHebrewNumber(item.verse) }}</strong>
-            <span>{{ item.display_text }}</span>
+            <strong>{{ item.label || `${item.book_name} ${toHebrewNumber(item.chapter)}:${toHebrewNumber(item.verse)}` }}</strong>
+            <span v-if="item.display_text">{{ item.display_text }}</span>
+            <small v-else>{{ item.book_name }} {{ toHebrewNumber(item.chapter) }}:{{ toHebrewNumber(item.verse) }}</small>
           </button>
           <div v-if="!searchLoading && searchResults.length === 0" class="empty-search">לא נמצאו תוצאות</div>
         </div>
@@ -44,22 +46,27 @@
         <template v-else>
           <div class="reference-selectors">
             <label>
-              <span>ספר</span>
-              <select v-model="selectedBookSlug" @change="onBookChange">
+              <span>ניווט</span>
+              <select :value="navigationValue" @change="onNavigationChange">
                 <optgroup
                   v-for="canonical in canonicalBooks"
                   :key="canonical.order"
                   :label="canonical.name"
                 >
-                  <option v-for="segment in canonical.segments" :key="segment.slug" :value="segment.slug">
+                  <option v-for="segment in canonical.segments" :key="segment.slug" :value="`book:${segment.slug}`">
                     {{ segment.hebrew_name }}
+                  </option>
+                </optgroup>
+                <optgroup label="פרשיות התורה">
+                  <option v-for="parsha in parshiot" :key="parsha.id" :value="`parsha:${parsha.id}`">
+                    פרשת {{ parsha.name_he }}
                   </option>
                 </optgroup>
               </select>
             </label>
             <label>
               <span>פרק</span>
-              <select v-model.number="selectedChapter" @change="loadChapter()">
+              <select v-model.number="selectedChapter" @change="onChapterChange">
                 <option v-for="chapter in selectedBook?.chapter_count || 1" :key="chapter" :value="chapter">
                   {{ toHebrewNumber(chapter) }}
                 </option>
@@ -86,6 +93,7 @@
           <header class="verse-toolbar">
             <div>
               <h2>{{ referenceLabel }}</h2>
+              <span v-if="activeParsha" class="parsha-context">פרשת {{ activeParsha.name_he }}</span>
               <span>פסוק {{ selectedVerseNumber }} מתוך {{ verses.length }}</span>
             </div>
             <div class="verse-nav">
@@ -227,12 +235,14 @@ import MatchPanel from './MatchPanel.vue';
 
 const canonicalBooks = ref([]);
 const books = ref([]);
+const parshiot = ref([]);
 const verses = ref([]);
 const source = ref(null);
 const stats = ref({});
 const selectedBookSlug = ref('Genesis');
 const selectedChapter = ref(1);
 const selectedVerseNumber = ref(1);
+const selectedParshaId = ref('');
 const anchorLetterIndex = ref(0);
 const focusLetterIndex = ref(0);
 const isDragging = ref(false);
@@ -245,8 +255,10 @@ const saveStatus = ref('idle');
 const saveError = ref('');
 const verseDisplay = ref(null);
 let searchTimer;
+let isChangingReference = false;
 
 const selectedBook = computed(() => books.value.find(book => book.slug === selectedBookSlug.value));
+const selectedParsha = computed(() => parshiot.value.find(parsha => parsha.id === selectedParshaId.value) || null);
 const selectedVerse = computed(() => verses.value.find(verse => verse.verse === selectedVerseNumber.value));
 const cursor = computed(() => createTanachCursor(selectedVerse.value?.display_text || ''));
 const cursorIndex = computed(() => focusLetterIndex.value);
@@ -266,6 +278,15 @@ const progress = computed(() => cursor.value.count ? Math.round(((cursorIndex.va
 const referenceLabel = computed(() => selectedBook.value
   ? `${selectedBook.value.hebrew_name} ${toHebrewNumber(selectedChapter.value)}:${toHebrewNumber(selectedVerseNumber.value)}`
   : '');
+const activeParsha = computed(() => selectedParsha.value && isWithinParsha(
+  selectedParsha.value,
+  selectedBookSlug.value,
+  selectedChapter.value,
+  selectedVerseNumber.value
+) ? selectedParsha.value : null);
+const navigationValue = computed(() => selectedParshaId.value
+  ? `parsha:${selectedParshaId.value}`
+  : `book:${selectedBookSlug.value}`);
 const { matches } = useLiveMatching(result);
 
 watch(selectedVerse, () => {
@@ -277,6 +298,10 @@ watch(selectedVerse, () => {
   nextTick(() => verseDisplay.value?.focus());
 });
 
+watch([selectedBookSlug, selectedChapter, selectedVerseNumber], () => {
+  if (!isChangingReference) clearParshaIfOutsideRange();
+});
+
 async function loadBooks() {
   loadingBooks.value = true;
   try {
@@ -286,6 +311,7 @@ async function loadBooks() {
     if (!data.books?.length) throw new Error('מאגר התנ״ך טרם נטען');
     books.value = data.books;
     canonicalBooks.value = data.canonicalBooks;
+    parshiot.value = data.parshiot || [];
     source.value = data.source;
     stats.value = data.stats;
     if (!books.value.some(book => book.slug === selectedBookSlug.value)) {
@@ -312,9 +338,59 @@ async function loadChapter(preferredVerse = 1) {
     : verses.value[0]?.verse || 1;
 }
 
-function onBookChange() {
+function clearParshaIfOutsideRange() {
+  if (selectedParshaId.value && !activeParsha.value) selectedParshaId.value = '';
+}
+
+async function onChapterChange() {
+  isChangingReference = true;
+  await loadChapter();
+  isChangingReference = false;
+  clearParshaIfOutsideRange();
+}
+
+function compareReference(bookSlug, chapter, verse) {
+  const book = books.value.find(item => item.slug === bookSlug);
+  if (!book) return null;
+  return [book.canonical_order, book.segment_order, Number(chapter), Number(verse)];
+}
+
+function isWithinParsha(parsha, bookSlug, chapter, verse) {
+  const current = compareReference(bookSlug, chapter, verse);
+  const start = compareReference(parsha.start_book_slug, parsha.start_chapter, parsha.start_verse);
+  const end = compareReference(parsha.end_book_slug, parsha.end_chapter, parsha.end_verse);
+  if (!current || !start || !end) return false;
+  const compare = (left, right) => {
+    for (let index = 0; index < left.length; index += 1) {
+      if (left[index] !== right[index]) return left[index] - right[index];
+    }
+    return 0;
+  };
+  return compare(current, start) >= 0 && compare(current, end) <= 0;
+}
+
+async function onNavigationChange(event) {
+  const [kind, value] = event.target.value.split(':', 2);
+  if (kind === 'parsha') {
+    await openParsha(value);
+    return;
+  }
+  selectedParshaId.value = '';
+  selectedBookSlug.value = value;
   selectedChapter.value = 1;
-  loadChapter();
+  await loadChapter();
+}
+
+async function openParsha(id) {
+  const parsha = parshiot.value.find(item => item.id === id);
+  if (!parsha) return;
+  isChangingReference = true;
+  selectedParshaId.value = parsha.id;
+  selectedBookSlug.value = parsha.start_book_slug;
+  selectedChapter.value = parsha.start_chapter;
+  await loadChapter(parsha.start_verse);
+  isChangingReference = false;
+  clearParshaIfOutsideRange();
 }
 
 function selectVerse(verse) {
@@ -330,18 +406,24 @@ async function moveVerse(delta) {
   }
   const nextChapter = selectedChapter.value + delta;
   if (nextChapter >= 1 && nextChapter <= (selectedBook.value?.chapter_count || 1)) {
+    isChangingReference = true;
     selectedChapter.value = nextChapter;
     await loadChapter(delta < 0 ? Number.MAX_SAFE_INTEGER : 1);
     if (delta < 0) selectedVerseNumber.value = verses.value.at(-1)?.verse || 1;
+    isChangingReference = false;
+    clearParshaIfOutsideRange();
     return;
   }
   const bookIndex = books.value.findIndex(book => book.slug === selectedBookSlug.value);
   const adjacentBook = books.value[bookIndex + delta];
   if (adjacentBook) {
+    isChangingReference = true;
     selectedBookSlug.value = adjacentBook.slug;
     selectedChapter.value = delta > 0 ? 1 : adjacentBook.chapter_count;
     await loadChapter();
     if (delta < 0) selectedVerseNumber.value = verses.value.at(-1)?.verse || 1;
+    isChangingReference = false;
+    clearParshaIfOutsideRange();
   }
 }
 
@@ -438,6 +520,13 @@ async function runSearch() {
 }
 
 async function openSearchResult(item) {
+  if (item.type === 'parsha') {
+    await openParsha(item.parsha_id);
+    searchQuery.value = '';
+    searchResults.value = [];
+    return;
+  }
+  selectedParshaId.value = '';
   selectedBookSlug.value = item.book_slug;
   selectedChapter.value = item.chapter;
   await loadChapter(item.verse);
@@ -461,6 +550,7 @@ async function saveRange() {
           verse: selectedVerseNumber.value,
           start: rangeStart.value,
           end: rangeEnd.value,
+          parshaId: activeParsha.value?.id,
         },
       }),
     });
@@ -507,6 +597,9 @@ onMounted(loadBooks);
 .search-results { overflow-y: auto; padding: 0 9px 10px; }
 .search-results button { display: flex; width: 100%; flex-direction: column; gap: 3px; border: 0; border-bottom: 1px solid #eee; background: none; padding: 9px; text-align: right; cursor: pointer; font: inherit; }
 .search-results button span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; font-family: "Noto Serif Hebrew", "Times New Roman", serif; font-size: .76rem; color: var(--text-secondary); }
+.search-results button small { color: var(--text-secondary); font-size: .72rem; }
+.search-results button.search-result--navigation { background: #fffdf7; }
+.search-results button.search-result--navigation strong { color: #80601d; }
 .empty-search { padding: 22px; text-align: center; color: var(--text-secondary); }
 .reference-selectors { display: grid; grid-template-columns: 1fr 80px; gap: 8px; padding: 0 12px 10px; }
 .reference-selectors label { display: flex; flex-direction: column; gap: 3px; font-size: .68rem; color: var(--text-secondary); }
@@ -521,6 +614,7 @@ onMounted(loadBooks);
 .verse-card { padding: 22px 24px 25px; min-height: 340px; }
 .verse-toolbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 15px; }
 .verse-toolbar h2 { font-size: 1rem; color: var(--navy); margin-bottom: 2px; }
+.verse-toolbar > div:first-child > .parsha-context { display: inline-flex; margin-top: 6px; padding: 3px 8px; border-radius: 999px; background: var(--gold-light); color: #80601d; font-size: .7rem; font-weight: 700; }
 .verse-nav { display: flex; gap: 7px; }
 .verse-nav button { border: 1px solid var(--border); border-radius: 7px; background: white; color: var(--navy); padding: 7px 11px; font: inherit; font-size: .76rem; cursor: pointer; }
 .verse-display { padding: 50px 18px 28px; text-align: center; font-family: "Noto Serif Hebrew", "Times New Roman", serif; font-size: clamp(1.8rem, 3.55vw, 2.9rem); line-height: 1.9; color: #152038; outline: none; user-select: none; -webkit-user-select: none; touch-action: pan-y; }

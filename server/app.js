@@ -7,6 +7,7 @@ import session from 'express-session';
 import { pool } from './db.js';
 import { computeAll, normalize } from '../src/composables/useGematria.js';
 import { createTanachCursor } from '../src/composables/useTanachCursor.js';
+import { parshaSearchKey } from './tanachParshiot.js';
 
 export const app = express();
 
@@ -80,7 +81,7 @@ function requireAuth(req, res, next) {
 /** GET /api/tanach/books — canonical 24-book navigation and source metadata. */
 app.get('/api/tanach/books', requireAuth, async (_req, res) => {
   try {
-    const [booksResult, sourceResult, countResult] = await Promise.all([
+    const [booksResult, sourceResult, countResult, parshiotResult] = await Promise.all([
       pool.query(
         `SELECT slug, canonical_order, segment_order, canonical_name, hebrew_name,
                 english_name, chapter_count
@@ -92,6 +93,17 @@ app.get('/api/tanach/books', requireAuth, async (_req, res) => {
          FROM tanach_sources ORDER BY imported_at DESC LIMIT 1`
       ),
       pool.query('SELECT COUNT(*)::int AS verse_count FROM tanach_verses'),
+      pool.query(
+        `SELECT p.id, p.canonical_order, p.name_he,
+                p.start_book_slug, p.start_chapter, p.start_verse,
+                p.end_book_slug, p.end_chapter, p.end_verse,
+                start_book.hebrew_name AS start_book_name,
+                end_book.hebrew_name AS end_book_name
+         FROM tanach_parshiot p
+         JOIN tanach_books start_book ON start_book.slug = p.start_book_slug
+         JOIN tanach_books end_book ON end_book.slug = p.end_book_slug
+         ORDER BY p.canonical_order`
+      ),
     ]);
     const canonicalMap = new Map();
     for (const segment of booksResult.rows) {
@@ -107,6 +119,7 @@ app.get('/api/tanach/books', requireAuth, async (_req, res) => {
     res.json({
       books: booksResult.rows,
       canonicalBooks: [...canonicalMap.values()],
+      parshiot: parshiotResult.rows,
       source: sourceResult.rows[0] || null,
       stats: {
         canonicalBooks: canonicalMap.size,
@@ -177,10 +190,20 @@ app.get('/api/tanach/search', requireAuth, async (req, res) => {
     const query = typeof req.query.q === 'string' ? req.query.q.trim() : '';
     const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 50);
     if (query.length < 2) return res.json({ results: [] });
-    const namesResult = await pool.query(
-      'SELECT slug, hebrew_name, canonical_name, chapter_count FROM tanach_books ORDER BY LENGTH(hebrew_name) DESC'
-    );
+    const [namesResult, parshiotResult] = await Promise.all([
+      pool.query(
+        'SELECT slug, hebrew_name, canonical_name, chapter_count FROM tanach_books ORDER BY LENGTH(hebrew_name) DESC'
+      ),
+      pool.query(
+        `SELECT p.id, p.name_he, p.start_book_slug AS book_slug,
+                start_book.hebrew_name AS book_name, p.start_chapter AS chapter, p.start_verse AS verse
+         FROM tanach_parshiot p
+         JOIN tanach_books start_book ON start_book.slug = p.start_book_slug
+         ORDER BY p.canonical_order`
+      ),
+    ]);
     const cleanQuery = query.replace(/[״׳"']/g, '');
+    const queryParshaKey = parshaSearchKey(cleanQuery);
     const namedCandidates = namesResult.rows.flatMap(book => ([
       { slug: book.slug, name: book.hebrew_name.replace(/[״׳"']/g, ''), chapterCount: book.chapter_count },
       { slug: book.slug, name: book.canonical_name.replace(/[״׳"']/g, ''), chapterCount: book.chapter_count },
@@ -198,6 +221,32 @@ app.get('/api/tanach/search', requireAuth, async (req, res) => {
           .map(candidate => candidate.chapterCount)
       );
       const remainder = cleanQuery.slice(matchedName.length).trim();
+      if (!remainder) {
+        const bookChoices = matchingSlugs.map(slug => {
+          const book = namesResult.rows.find(row => row.slug === slug);
+          return {
+            type: 'book',
+            book_slug: book.slug,
+            book_name: book.hebrew_name,
+            chapter: 1,
+            verse: 1,
+            label: `ספר ${book.hebrew_name}`,
+          };
+        });
+        const parshaChoices = parshiotResult.rows
+          .filter(parsha => parshaSearchKey(parsha.name_he).includes(queryParshaKey))
+          .map(parsha => ({
+            type: 'parsha',
+            parsha_id: parsha.id,
+            parsha_name: parsha.name_he,
+            book_slug: parsha.book_slug,
+            book_name: parsha.book_name,
+            chapter: parsha.chapter,
+            verse: parsha.verse,
+            label: `פרשת ${parsha.name_he}`,
+          }));
+        return res.json({ results: [...bookChoices, ...parshaChoices].slice(0, limit) });
+      }
       const referenceParts = remainder.split(/[\s:.,]+/).filter(Boolean);
       const parseReferenceNumber = value => !value ? null : /^\d+$/.test(value)
         ? Number(value)
@@ -219,6 +268,19 @@ app.get('/api/tanach/search', requireAuth, async (req, res) => {
         return res.json({ results: referenceResult.rows });
       }
     }
+    const parshaChoices = parshiotResult.rows
+      .filter(parsha => parshaSearchKey(parsha.name_he).includes(queryParshaKey))
+      .map(parsha => ({
+        type: 'parsha',
+        parsha_id: parsha.id,
+        parsha_name: parsha.name_he,
+        book_slug: parsha.book_slug,
+        book_name: parsha.book_name,
+        chapter: parsha.chapter,
+        verse: parsha.verse,
+        label: `פרשת ${parsha.name_he}`,
+      }));
+    if (parshaChoices.length) return res.json({ results: parshaChoices.slice(0, limit) });
     const normalizedQuery = normalize(query);
     const result = await pool.query(
       `SELECT v.book_slug, b.hebrew_name AS book_name, v.chapter, v.verse, v.display_text
@@ -409,8 +471,31 @@ app.post('/api/entries', requireAuth, async (req, res) => {
       // the local pointed/cantillated corpus, never from a client display variant.
       canonicalOriginalText = canonicalRange.text;
       calculated = computeAll(canonicalOriginalText);
+      const parshaId = typeof tanachContext.parshaId === 'string' ? tanachContext.parshaId : null;
+      let parsha = null;
+      if (parshaId) {
+        const parshaResult = await client.query(
+          `SELECT p.id, p.name_he
+           FROM tanach_parshiot p
+           JOIN tanach_books start_book ON start_book.slug = p.start_book_slug
+           JOIN tanach_books end_book ON end_book.slug = p.end_book_slug
+           JOIN tanach_books current_book ON current_book.slug = $2
+           WHERE p.id = $1
+             AND (current_book.canonical_order, current_book.segment_order, $3::int, $4::int)
+               >= (start_book.canonical_order, start_book.segment_order, p.start_chapter, p.start_verse)
+             AND (current_book.canonical_order, current_book.segment_order, $3::int, $4::int)
+               <= (end_book.canonical_order, end_book.segment_order, p.end_chapter, p.end_verse)`,
+          [parshaId, bookSlug, chapter, verse]
+        );
+        if (!parshaResult.rowCount) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: 'invalid_tanach_context' });
+        }
+        parsha = { id: parshaResult.rows[0].id, name: parshaResult.rows[0].name_he };
+      }
       verifiedContext = {
         bookSlug, bookLabel: verseResult.rows[0].hebrew_name, chapter, verse, start, end,
+        parshaId: parsha?.id || null, parshaName: parsha?.name || null,
       };
     }
 
@@ -427,8 +512,8 @@ app.post('/api/entries', requireAuth, async (req, res) => {
       `INSERT INTO saved_entries
           (original_text, normalized_text, full_gematria, full_gematria_hebrew,
            initials, initials_gematria, initials_gematria_hebrew,
-           tanach_book_slug, tanach_book_label, tanach_chapter, tanach_verse, tanach_start, tanach_end)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+            tanach_book_slug, tanach_book_label, tanach_chapter, tanach_verse, tanach_start, tanach_end, parsha_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
        RETURNING id`,
       [
         canonicalOriginalText,
@@ -444,6 +529,7 @@ app.post('/api/entries', requireAuth, async (req, res) => {
         verifiedContext?.verse || null,
         verifiedContext?.start ?? null,
         verifiedContext?.end ?? null,
+        verifiedContext?.parshaId || null,
       ]
     );
     const entryId = entryRes.rows[0].id;
@@ -485,7 +571,8 @@ app.get('/api/entries', requireAuth, async (req, res) => {
                 se.full_gematria_hebrew, se.initials, se.initials_gematria,
                  se.initials_gematria_hebrew, se.created_at,
                  se.tanach_book_slug, se.tanach_book_label, se.tanach_chapter,
-                 se.tanach_verse, se.tanach_start, se.tanach_end,
+                 se.tanach_verse, se.tanach_start, se.tanach_end, se.parsha_id,
+                 (SELECT name_he FROM tanach_parshiot WHERE id = se.parsha_id) AS parsha_name,
                 COALESCE(json_agg(sw ORDER BY sw.position) FILTER (WHERE sw.id IS NOT NULL), '[]') AS words
          FROM saved_entries se
          LEFT JOIN saved_words sw ON sw.entry_id = se.id
@@ -501,7 +588,8 @@ app.get('/api/entries', requireAuth, async (req, res) => {
                 se.full_gematria_hebrew, se.initials, se.initials_gematria,
                  se.initials_gematria_hebrew, se.created_at,
                  se.tanach_book_slug, se.tanach_book_label, se.tanach_chapter,
-                 se.tanach_verse, se.tanach_start, se.tanach_end,
+                 se.tanach_verse, se.tanach_start, se.tanach_end, se.parsha_id,
+                 (SELECT name_he FROM tanach_parshiot WHERE id = se.parsha_id) AS parsha_name,
                 COALESCE(json_agg(sw ORDER BY sw.position) FILTER (WHERE sw.id IS NOT NULL), '[]') AS words
          FROM saved_entries se
          LEFT JOIN saved_words sw ON sw.entry_id = se.id
@@ -520,7 +608,8 @@ app.get('/api/entries', requireAuth, async (req, res) => {
                 se.full_gematria_hebrew, se.initials, se.initials_gematria,
                  se.initials_gematria_hebrew, se.created_at,
                  se.tanach_book_slug, se.tanach_book_label, se.tanach_chapter,
-                 se.tanach_verse, se.tanach_start, se.tanach_end,
+                 se.tanach_verse, se.tanach_start, se.tanach_end, se.parsha_id,
+                 (SELECT name_he FROM tanach_parshiot WHERE id = se.parsha_id) AS parsha_name,
                 COALESCE(json_agg(sw ORDER BY sw.position) FILTER (WHERE sw.id IS NOT NULL), '[]') AS words
          FROM saved_entries se
          LEFT JOIN saved_words sw ON sw.entry_id = se.id

@@ -9,7 +9,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
-import { pool, initDb } from '../server/db.js';
+import { pool, initDb, seedTanachParshiot } from '../server/db.js';
 import { normalize } from '../src/composables/useGematria.js';
 
 const exec = promisify(execFile);
@@ -159,6 +159,7 @@ async function main() {
         );
         verseCount += rows.length;
       }
+      await seedTanachParshiot(client);
       const genesis = await client.query(
         `SELECT display_text FROM tanach_verses WHERE book_slug = 'Genesis' AND chapter = 1 AND verse = 1`
       );

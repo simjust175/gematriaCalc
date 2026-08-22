@@ -323,6 +323,18 @@ test('Tanach navigation exposes 24 canonical books and verified Genesis 1:1', as
   assert.equal(booksRes.status, 200);
   assert.equal(booksRes.body.canonicalBooks.length, 24);
   assert.equal(booksRes.body.books.length, 39);
+  assert.equal(booksRes.body.parshiot.length, 54);
+  assert.deepEqual(
+    booksRes.body.parshiot.map(parsha => parsha.canonical_order),
+    Array.from({ length: 54 }, (_, index) => index + 1)
+  );
+  const lechLecha = booksRes.body.parshiot.find(parsha => parsha.id === 'lech-lecha');
+  assert.ok(lechLecha);
+  assert.equal(lechLecha.name_he, 'לך לך');
+  assert.deepEqual(
+    [lechLecha.start_book_slug, lechLecha.start_chapter, lechLecha.start_verse],
+    ['Genesis', 12, 1]
+  );
   assert.equal(booksRes.body.stats.verses, 23213);
   assert.equal(booksRes.body.source.version, 'UXLC 2.5');
   assert.equal(booksRes.body.source.build, '27.6');
@@ -345,6 +357,33 @@ test('Tanach navigation exposes 24 canonical books and verified Genesis 1:1', as
   assert.equal(referenceSearch.body.results[0].book_slug, 'Genesis');
   assert.equal(referenceSearch.body.results[0].chapter, 1);
   assert.equal(referenceSearch.body.results[0].verse, 1);
+
+  const parshaSearch = await agent.get('/api/tanach/search').query({ q: 'לך לך' });
+  assert.equal(parshaSearch.status, 200);
+  assert.deepEqual(parshaSearch.body.results[0], {
+    type: 'parsha',
+    parsha_id: 'lech-lecha',
+    parsha_name: 'לך לך',
+    book_slug: 'Genesis',
+    book_name: 'בראשית',
+    chapter: 12,
+    verse: 1,
+    label: 'פרשת לך לך',
+  });
+
+  const ambiguousSearch = await agent.get('/api/tanach/search').query({ q: 'בראשית' });
+  assert.ok(ambiguousSearch.body.results.some(item => item.type === 'book' && item.label === 'ספר בראשית'));
+  assert.ok(ambiguousSearch.body.results.some(item => item.type === 'parsha' && item.label === 'פרשת בראשית'));
+
+  for (const parsha of booksRes.body.parshiot) {
+    for (const endpoint of [
+      { book: parsha.start_book_slug, chapter: parsha.start_chapter, verse: parsha.start_verse },
+      { book: parsha.end_book_slug, chapter: parsha.end_chapter, verse: parsha.end_verse },
+    ]) {
+      const endpointRes = await agent.get('/api/tanach/verse').query(endpoint);
+      assert.equal(endpointRes.status, 200, `${parsha.name_he} boundary must exist in UXLC`);
+    }
+  }
 });
 
 test('Tanach save context is verified and returned by the saved library API', async () => {
@@ -367,7 +406,7 @@ test('Tanach save context is verified and returned by the saved library API', as
       // A normalization-equivalent display variant is accepted, but the server
       // must persist canonical pointed text from the referenced corpus range.
       originalText: computeAll(originalText).normalizedText,
-      tanachContext: { bookSlug: 'Genesis', chapter: 1, verse: 1, start: 0, end: 27 },
+      tanachContext: { bookSlug: 'Genesis', chapter: 1, verse: 1, start: 0, end: 27, parshaId: 'bereshit' },
     });
     assert.equal(save.status, 200);
     savedId = save.body.id;
@@ -381,6 +420,8 @@ test('Tanach save context is verified and returned by the saved library API', as
     assert.equal(entry.tanach_verse, 1);
     assert.equal(entry.tanach_start, 0);
     assert.equal(entry.tanach_end, 27);
+    assert.equal(entry.parsha_id, 'bereshit');
+    assert.equal(entry.parsha_name, 'בראשית');
   } finally {
     if (savedId) await agent.delete(`/api/entries/${savedId}`);
   }

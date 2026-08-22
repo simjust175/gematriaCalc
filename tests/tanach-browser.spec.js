@@ -103,3 +103,35 @@ test('Tanach selection remains readable without horizontal scrolling on mobile',
   }));
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
 });
+
+test('Parashah navigation and search preserve context across chapter boundaries', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await loginAndOpenTanach(page);
+
+  await page.locator('.search-wrap input').fill('לך לך');
+  await page.getByRole('button', { name: /פרשת לך לך/ }).click();
+  await expect(page.locator('.verse-toolbar h2')).toContainText('בראשית יב:א');
+  await expect(page.locator('.parsha-context')).toHaveText('פרשת לך לך');
+
+  const selectors = page.locator('.reference-selectors select');
+  await selectors.first().selectOption('parsha:vayetze');
+  await expect(page.locator('.verse-toolbar h2')).toContainText('בראשית כח:י');
+  await expect(page.locator('.parsha-context')).toHaveText('פרשת ויצא');
+
+  await selectors.nth(1).selectOption('31');
+  await expect(page.locator('.verse-list button')).toHaveCount(54);
+  await page.locator('.verse-list button').last().click();
+  await expect(page.locator('.verse-toolbar h2')).toContainText('בראשית לא:נד');
+  await page.getByRole('button', { name: /הבא/ }).click();
+  await expect(page.locator('.verse-toolbar h2')).toContainText('בראשית לב:א');
+  await expect(page.locator('.parsha-context')).toHaveText('פרשת ויצא');
+
+  await page.getByRole('button', { name: /הבא/ }).click();
+  await page.getByRole('button', { name: /הבא/ }).click();
+  await page.getByRole('button', { name: /הבא/ }).click();
+  await expect(page.locator('.verse-toolbar h2')).toContainText('בראשית לב:ד');
+  await expect(page.locator('.parsha-context')).toHaveCount(0);
+
+  await selectors.first().selectOption('book:Exodus');
+  await expect(page.locator('.verse-toolbar h2')).toContainText('שמות א:א');
+});

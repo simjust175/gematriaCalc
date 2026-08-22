@@ -233,7 +233,8 @@ function getEntryBreakdown(text) {
 }
 
 function formatTanachReference(entry) {
-  return `${entry.tanach_book_label} ${toHebrewNumber(entry.tanach_chapter)}:${toHebrewNumber(entry.tanach_verse)}`;
+  const reference = `${entry.tanach_book_label} ${toHebrewNumber(entry.tanach_chapter)}:${toHebrewNumber(entry.tanach_verse)}`;
+  return entry.parsha_name ? `${reference} · פרשת ${entry.parsha_name}` : reference;
 }
 
 onMounted(() => fetchEntries());
@@ -341,6 +342,7 @@ onMounted(() => fetchEntries());
   cursor: pointer;
   gap: 12px;
 }
+.entry-card:not(.expanded) .entry-header { padding-block: 8px; gap: 10px; }
 .entry-main-info { flex: 1; min-width: 0; }
 .entry-text {
   font-size: 1.15rem;
@@ -350,6 +352,7 @@ onMounted(() => fetchEntries());
   text-align: right;
   word-break: break-all;
 }
+.entry-card:not(.expanded) .entry-text { margin-bottom: 2px; line-height: 1.15; }
 .tanach-reference {
   display: inline-flex;
   align-items: center;
@@ -362,21 +365,25 @@ onMounted(() => fetchEntries());
   font-size: .72rem;
   font-weight: 600;
 }
+.entry-card:not(.expanded) .tanach-reference { margin-bottom: 2px; padding-block: 1px; font-size: .68rem; line-height: 1.1; }
 .entry-gematria {
   display: flex;
   align-items: center;
   gap: 6px;
 }
+.entry-card:not(.expanded) .entry-gematria { gap: 5px; line-height: 1.05; }
 .gematria-num {
   font-size: 1.35rem;
   font-weight: 700;
   color: var(--gold);
 }
+.entry-card:not(.expanded) .gematria-num { font-size: 1.15rem; }
 .gematria-dot { color: #CCC; }
 .gematria-heb {
   font-size: 0.9rem;
   color: var(--text-secondary);
 }
+.entry-card:not(.expanded) .gematria-heb { font-size: .82rem; }
 
 .entry-initials {
   display: flex;
@@ -387,13 +394,16 @@ onMounted(() => fetchEntries());
   color: var(--text-secondary);
   font-size: 0.78rem;
 }
+.entry-card:not(.expanded) .entry-initials { margin-top: 2px; gap: 3px; font-size: .7rem; line-height: 1.1; }
 .entry-initials strong {
   color: var(--navy);
   font-size: 0.9rem;
 }
+.entry-card:not(.expanded) .entry-initials strong { font-size: .82rem; }
 .initials-gematria-label {
   margin-right: 7px;
 }
+.entry-card:not(.expanded) .initials-gematria-label { margin-right: 4px; }
 
 .entry-actions {
   display: flex;

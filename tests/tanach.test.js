@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { computeAll } from '../src/composables/useGematria.js';
 import { createTanachCursor, normalizeTanachSelection, tanachRangeText } from '../src/composables/useTanachCursor.js';
+import { TANACH_PARSHIOT } from '../server/tanachParshiot.js';
 
 const GENESIS_1_1 = 'בְּרֵאשִׁ֖ית בָּרָ֣א אֱלֹהִ֑ים אֵ֥ת הַשָּׁמַ֖יִם וְאֵ֥ת הָאָֽרֶץ׃';
 
@@ -51,4 +52,20 @@ test('visual selection includes whitespace between selected Hebrew graphemes onl
   const space = cursor.tokens.find(token => token.text === ' ');
   assert.equal(space.previousLetterIndex, 0);
   assert.equal(space.nextLetterIndex, 1);
+});
+
+test('canonical Torah portion metadata contains 54 individually ordered portions', () => {
+  assert.equal(TANACH_PARSHIOT.length, 54);
+  assert.deepEqual(TANACH_PARSHIOT.map(parsha => parsha.canonicalOrder), Array.from({ length: 54 }, (_, index) => index + 1));
+  assert.deepEqual(
+    TANACH_PARSHIOT.slice(0, 3).map(parsha => parsha.nameHe),
+    ['בראשית', 'נח', 'לך לך']
+  );
+  assert.deepEqual(
+    TANACH_PARSHIOT.slice(-3).map(parsha => parsha.nameHe),
+    ['וילך', 'האזינו', 'וזאת הברכה']
+  );
+  assert.deepEqual(TANACH_PARSHIOT.find(parsha => parsha.id === 'lech-lecha').start, {
+    bookSlug: 'Genesis', chapter: 12, verse: 1,
+  });
 });

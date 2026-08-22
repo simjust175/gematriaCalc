@@ -1,11 +1,53 @@
 import pg from 'pg';
 import { computeAll } from '../src/composables/useGematria.js';
+import { TANACH_PARSHIOT } from './tanachParshiot.js';
 const { Pool } = pg;
 
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 });
+
+export async function seedTanachParshiot(db = pool) {
+  const availableBooks = await db.query(
+    `SELECT COUNT(*)::int AS count FROM tanach_books
+     WHERE slug = ANY($1::text[])`,
+    [['Genesis', 'Exodus', 'Leviticus', 'Numbers', 'Deuteronomy']]
+  );
+  if (availableBooks.rows[0].count !== 5) return false;
+
+  for (const parsha of TANACH_PARSHIOT) {
+    const boundaries = [parsha.start, parsha.end];
+    for (const boundary of boundaries) {
+      const verse = await db.query(
+        `SELECT 1 FROM tanach_verses
+         WHERE book_slug = $1 AND chapter = $2 AND verse = $3`,
+        [boundary.bookSlug, boundary.chapter, boundary.verse]
+      );
+      if (!verse.rowCount) {
+        throw new Error(`Parashah boundary missing from imported corpus: ${parsha.nameHe}`);
+      }
+    }
+
+    await db.query(
+      `INSERT INTO tanach_parshiot
+         (id, canonical_order, name_he, start_book_slug, start_chapter, start_verse,
+          end_book_slug, end_chapter, end_verse)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       ON CONFLICT (id) DO UPDATE SET canonical_order = EXCLUDED.canonical_order,
+         name_he = EXCLUDED.name_he, start_book_slug = EXCLUDED.start_book_slug,
+         start_chapter = EXCLUDED.start_chapter, start_verse = EXCLUDED.start_verse,
+         end_book_slug = EXCLUDED.end_book_slug, end_chapter = EXCLUDED.end_chapter,
+         end_verse = EXCLUDED.end_verse`,
+      [
+        parsha.id, parsha.canonicalOrder, parsha.nameHe,
+        parsha.start.bookSlug, parsha.start.chapter, parsha.start.verse,
+        parsha.end.bookSlug, parsha.end.chapter, parsha.end.verse,
+      ]
+    );
+  }
+  return true;
+}
 
 export async function initDb() {
   await pool.query(`
@@ -74,13 +116,29 @@ export async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_tanach_verses_search
       ON tanach_verses USING GIN (to_tsvector('simple', normalized_text));
 
+    CREATE TABLE IF NOT EXISTS tanach_parshiot (
+      id TEXT PRIMARY KEY,
+      canonical_order INTEGER NOT NULL UNIQUE CHECK (canonical_order BETWEEN 1 AND 54),
+      name_he TEXT NOT NULL UNIQUE,
+      start_book_slug TEXT NOT NULL REFERENCES tanach_books(slug),
+      start_chapter INTEGER NOT NULL CHECK (start_chapter > 0),
+      start_verse INTEGER NOT NULL CHECK (start_verse > 0),
+      end_book_slug TEXT NOT NULL REFERENCES tanach_books(slug),
+      end_chapter INTEGER NOT NULL CHECK (end_chapter > 0),
+      end_verse INTEGER NOT NULL CHECK (end_verse > 0)
+    );
+    CREATE INDEX IF NOT EXISTS idx_tanach_parshiot_order ON tanach_parshiot(canonical_order);
+
     ALTER TABLE saved_entries ADD COLUMN IF NOT EXISTS tanach_book_slug TEXT;
     ALTER TABLE saved_entries ADD COLUMN IF NOT EXISTS tanach_book_label TEXT;
     ALTER TABLE saved_entries ADD COLUMN IF NOT EXISTS tanach_chapter INTEGER;
     ALTER TABLE saved_entries ADD COLUMN IF NOT EXISTS tanach_verse INTEGER;
     ALTER TABLE saved_entries ADD COLUMN IF NOT EXISTS tanach_start INTEGER;
     ALTER TABLE saved_entries ADD COLUMN IF NOT EXISTS tanach_end INTEGER;
+    ALTER TABLE saved_entries ADD COLUMN IF NOT EXISTS parsha_id TEXT REFERENCES tanach_parshiot(id);
   `);
+
+  await seedTanachParshiot();
 
   // Backfill derived ראשי תיבות data for entries created before these fields
   // became part of the saved-entry contract.
