@@ -66,9 +66,15 @@ externalPort = 5000
 localPort = 5001
 externalPort = 3001
 
+[[ports]]
+localPort = 5055
+externalPort = 3003
+
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 180000
 
 [deployment]
-deploymentTarget = "cloudrun"
+deploymentTarget = "autoscale"
+run = ["bash", "-c", "NODE_ENV=production node server/index.js"]
+build = ["npm", "run", "build"]
