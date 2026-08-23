@@ -233,6 +233,11 @@ import { createTanachCursor, normalizeTanachSelection } from '@/composables/useT
 import { useLiveMatching } from '@/composables/useLiveMatching.js';
 import MatchPanel from './MatchPanel.vue';
 
+const props = defineProps({
+  openReference: { type: Object, default: null },
+});
+const emit = defineEmits(['referenceConsumed']);
+
 const canonicalBooks = ref([]);
 const books = ref([]);
 const parshiot = ref([]);
@@ -256,6 +261,9 @@ const saveError = ref('');
 const verseDisplay = ref(null);
 let searchTimer;
 let isChangingReference = false;
+let chapterRequestId = 0;
+let chapterController = null;
+let lastExternalReferenceId = null;
 
 const selectedBook = computed(() => books.value.find(book => book.slug === selectedBookSlug.value));
 const selectedParsha = computed(() => parshiot.value.find(parsha => parsha.id === selectedParshaId.value) || null);
@@ -287,7 +295,14 @@ const activeParsha = computed(() => selectedParsha.value && isWithinParsha(
 const navigationValue = computed(() => selectedParshaId.value
   ? `parsha:${selectedParshaId.value}`
   : `book:${selectedBookSlug.value}`);
-const { matches } = useLiveMatching(result);
+const matchContext = computed(() => ({
+  bookSlug: selectedBookSlug.value,
+  chapter: selectedChapter.value,
+  verse: selectedVerseNumber.value,
+  start: rangeStart.value,
+  end: rangeEnd.value,
+}));
+const { matches } = useLiveMatching(result, { context: matchContext });
 
 watch(selectedVerse, () => {
   anchorLetterIndex.value = 0;
@@ -318,6 +333,7 @@ async function loadBooks() {
       selectedBookSlug.value = books.value[0].slug;
     }
     await loadChapter();
+    if (props.openReference) await openExternalReference(props.openReference);
   } catch (error) {
     loadError.value = error.message;
   } finally {
@@ -326,16 +342,67 @@ async function loadBooks() {
 }
 
 async function loadChapter(preferredVerse = 1) {
-  const response = await fetch(`/api/tanach/verses?book=${encodeURIComponent(selectedBookSlug.value)}&chapter=${selectedChapter.value}`);
-  if (!response.ok) {
-    loadError.value = 'לא ניתן לטעון את הפרק';
-    return;
+  const requestId = ++chapterRequestId;
+  chapterController?.abort();
+  const controller = new AbortController();
+  chapterController = controller;
+  const bookSlug = selectedBookSlug.value;
+  const chapter = selectedChapter.value;
+  try {
+    const response = await fetch(
+      `/api/tanach/verses?book=${encodeURIComponent(bookSlug)}&chapter=${chapter}`,
+      { signal: controller.signal }
+    );
+    if (!response.ok) throw new Error('לא ניתן לטעון את הפרק');
+    const data = await response.json();
+    if (requestId !== chapterRequestId || controller.signal.aborted) return false;
+    verses.value = data.verses;
+    selectedVerseNumber.value = verses.value.some(item => item.verse === preferredVerse)
+      ? preferredVerse
+      : verses.value[0]?.verse || 1;
+    loadError.value = '';
+    return true;
+  } catch (error) {
+    if (error?.name !== 'AbortError' && requestId === chapterRequestId) {
+      loadError.value = error.message || 'לא ניתן לטעון את הפרק';
+    }
+    return false;
+  } finally {
+    if (chapterController === controller) chapterController = null;
   }
-  const data = await response.json();
-  verses.value = data.verses;
-  selectedVerseNumber.value = verses.value.some(item => item.verse === preferredVerse)
-    ? preferredVerse
-    : verses.value[0]?.verse || 1;
+}
+
+async function openExternalReference(reference) {
+  const requestKey = reference?.requestId
+    ?? `${reference?.bookSlug}:${reference?.chapter}:${reference?.verse}:${reference?.start}:${reference?.end}`;
+  if (!reference || requestKey === lastExternalReferenceId) return;
+  const chapter = Number(reference.chapter);
+  const verse = Number(reference.verse);
+  const start = Number(reference.start);
+  const end = Number(reference.end);
+  if (!books.value.some(book => book.slug === reference.bookSlug)
+      || !Number.isInteger(chapter) || !Number.isInteger(verse)
+      || !Number.isInteger(start) || !Number.isInteger(end)
+      || chapter < 1 || verse < 1 || start < 0 || end < start) return;
+
+  isChangingReference = true;
+  selectedParshaId.value = '';
+  selectedBookSlug.value = reference.bookSlug;
+  selectedChapter.value = chapter;
+  const loaded = await loadChapter(verse);
+  isChangingReference = false;
+  if (!loaded) return;
+  await nextTick();
+  if (selectedVerseNumber.value !== verse || end >= cursor.value.count) return;
+  anchorLetterIndex.value = start;
+  focusLetterIndex.value = end;
+  saveStatus.value = 'idle';
+  saveError.value = '';
+  lastExternalReferenceId = requestKey;
+  await nextTick();
+  verseDisplay.value?.focus({ preventScroll: true });
+  verseDisplay.value?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  emit('referenceConsumed', reference.requestId);
 }
 
 function clearParshaIfOutsideRange() {
@@ -507,6 +574,10 @@ function scheduleSearch() {
   if (searchQuery.value.trim().length < 2) return;
   searchTimer = setTimeout(runSearch, 250);
 }
+
+watch(() => props.openReference, (reference) => {
+  if (reference && !loadingBooks.value) openExternalReference(reference);
+});
 
 async function runSearch() {
   searchLoading.value = true;

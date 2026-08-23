@@ -14,7 +14,7 @@
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 import request from 'supertest';
-import { computeAll, toHebrewNumber } from '../src/composables/useGematria.js';
+import { computeAll, normalize, toHebrewNumber } from '../src/composables/useGematria.js';
 import { createTanachCursor } from '../src/composables/useTanachCursor.js';
 
 // Set required env vars before importing the app
@@ -313,6 +313,8 @@ test('GET /api/entries returns 401 after logout', async () => {
 test('Tanach routes require authentication', async () => {
   const res = await request(app).get('/api/tanach/books');
   assert.equal(res.status, 401);
+  const gematriaRes = await request(app).get('/api/tanach/gematria-matches?value=913');
+  assert.equal(gematriaRes.status, 401);
 });
 
 test('Tanach navigation exposes 24 canonical books and verified Genesis 1:1', async () => {
@@ -338,6 +340,7 @@ test('Tanach navigation exposes 24 canonical books and verified Genesis 1:1', as
   assert.equal(booksRes.body.stats.verses, 23213);
   assert.equal(booksRes.body.source.version, 'UXLC 2.5');
   assert.equal(booksRes.body.source.build, '27.6');
+  assert.equal(booksRes.body.source.representation_version, 2);
 
   const chapterRes = await agent.get('/api/tanach/verses').query({ book: 'Genesis', chapter: 1 });
   assert.equal(chapterRes.status, 200);
@@ -424,6 +427,141 @@ test('Tanach save context is verified and returned by the saved library API', as
     assert.equal(entry.parsha_name, 'בראשית');
   } finally {
     if (savedId) await agent.delete(`/api/entries/${savedId}`);
+  }
+});
+
+test('Tanach gematria discovery validates, paginates, filters, and preserves canonical order', async () => {
+  const agent = request.agent(app);
+  await agent.post('/api/auth/login').send({ password: 'correct-test-password-12345' });
+
+  for (const query of [
+    { value: 0 },
+    { value: 100001 },
+    { value: 913, type: 'unknown' },
+    { value: 913, page: 0 },
+    { value: 913, limit: 0 },
+  ]) {
+    const invalid = await agent.get('/api/tanach/gematria-matches').query(query);
+    assert.equal(invalid.status, 400);
+  }
+
+  const first = await agent.get('/api/tanach/gematria-matches').query({
+    value: 913,
+    type: 'whole_word',
+    page: 1,
+    limit: 2,
+  });
+  assert.equal(first.status, 200);
+  assert.equal(first.body.target, 913);
+  assert.equal(first.body.page, 1);
+  assert.equal(first.body.limit, 2);
+  assert.ok(first.body.counts.all >= first.body.counts.whole_word);
+  assert.ok(first.body.results.every(item => item.type === 'whole_word'));
+  assert.ok(first.body.results.some(item => (
+    item.bookSlug === 'Genesis' && item.chapter === 1 && item.verse === 1
+      && item.start === 0 && item.end === 5 && normalize(item.text) === 'בראשית'
+  )));
+
+  if (first.body.hasMore) {
+    const second = await agent.get('/api/tanach/gematria-matches').query({
+      value: 913,
+      type: 'whole_word',
+      page: 2,
+      limit: 2,
+    });
+    assert.equal(second.status, 200);
+    const keys = new Set(first.body.results.map(item => (
+      `${item.bookSlug}:${item.chapter}:${item.verse}:${item.start}:${item.end}`
+    )));
+    assert.ok(second.body.results.every(item => !keys.has(
+      `${item.bookSlug}:${item.chapter}:${item.verse}:${item.start}:${item.end}`
+    )));
+  }
+});
+
+test('qere representation is identical across discovery, exact opening data, and occurrence saves', async () => {
+  const agent = request.agent(app);
+  await agent.post('/api/auth/login').send({ password: 'correct-test-password-12345' });
+  const target = computeAll('צואתם').fullGematria;
+  const wanted = new Map([
+    ['Kings_2:18:27', null],
+    ['Isaiah:36:12', null],
+  ]);
+  // UXLC 2.5 canonical positions for the two qere occurrences. Requesting
+  // distant pages also verifies that server pagination does not rescan or lose
+  // exact ranges after the first target scan.
+  for (const page of [146, 158]) {
+    const response = await agent.get('/api/tanach/gematria-matches').query({
+      value: target,
+      type: 'all',
+      page,
+      limit: 50,
+    });
+    assert.equal(response.status, 200);
+    for (const item of response.body.results) {
+      const key = `${item.bookSlug}:${item.chapter}:${item.verse}`;
+      if (wanted.has(key) && normalize(item.text) === 'צואתם') wanted.set(key, item);
+    }
+  }
+
+  const kings = wanted.get('Kings_2:18:27');
+  const isaiah = wanted.get('Isaiah:36:12');
+  assert.ok(kings, 'pointed qere must be discoverable in Kings II 18:27');
+  assert.ok(isaiah, 'the same pointed qere must be discoverable in Isaiah 36:12');
+  assert.doesNotMatch(kings.text, /[ck]/i);
+
+  const savedIds = [];
+  try {
+    const saveKings = await agent.post('/api/entries').send({
+      originalText: kings.text,
+      tanachContext: {
+        bookSlug: kings.bookSlug,
+        chapter: kings.chapter,
+        verse: kings.verse,
+        start: kings.start,
+        end: kings.end,
+      },
+    });
+    assert.equal(saveKings.status, 200);
+    savedIds.push(saveKings.body.id);
+
+    const duplicateKings = await agent.post('/api/entries').send({
+      originalText: kings.text,
+      tanachContext: {
+        bookSlug: kings.bookSlug,
+        chapter: kings.chapter,
+        verse: kings.verse,
+        start: kings.start,
+        end: kings.end,
+      },
+    });
+    assert.equal(duplicateKings.status, 409);
+
+    const saveIsaiah = await agent.post('/api/entries').send({
+      originalText: isaiah.text,
+      tanachContext: {
+        bookSlug: isaiah.bookSlug,
+        chapter: isaiah.chapter,
+        verse: isaiah.verse,
+        start: isaiah.start,
+        end: isaiah.end,
+      },
+    });
+    assert.equal(saveIsaiah.status, 200);
+    savedIds.push(saveIsaiah.body.id);
+
+    const exactMatchState = await agent.get('/api/matches').query({
+      normalizedText: kings.text,
+      bookSlug: kings.bookSlug,
+      chapter: kings.chapter,
+      verse: kings.verse,
+      start: kings.start,
+      end: kings.end,
+    });
+    assert.equal(exactMatchState.status, 200);
+    assert.equal(exactMatchState.body.isAlreadySaved, true);
+  } finally {
+    for (const id of savedIds) await agent.delete(`/api/entries/${id}`);
   }
 });
 

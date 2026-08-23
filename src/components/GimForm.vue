@@ -92,6 +92,11 @@
               </div>
             </div>
 
+            <TanachGematriaMatches
+              :target="result.fullGematria"
+              @open="emit('openTanach', $event)"
+            />
+
             <!-- ── WORD BREAKDOWN ─────────────────────────── -->
             <div class="breakdown-section" v-if="result.words.length > 1 || result.words[0]?.letters.length > 1">
               <div class="section-label">פירוט מילים</div>
@@ -173,6 +178,9 @@ import {
   insertAtSelection,
 } from '@/utils/hebrewKeyboard.js';
 import MatchPanel from './MatchPanel.vue';
+import TanachGematriaMatches from './TanachGematriaMatches.vue';
+
+const emit = defineEmits(['openTanach']);
 
 const AUTOMATIC_HEBREW_KEYBOARD_PREFERENCE = 'gimatria.automatic-hebrew-keyboard';
 

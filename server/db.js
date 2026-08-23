@@ -1,6 +1,7 @@
 import pg from 'pg';
 import { computeAll } from '../src/composables/useGematria.js';
 import { TANACH_PARSHIOT } from './tanachParshiot.js';
+import { UXLC_REPRESENTATION_VERSION } from './uxlcText.js';
 const { Pool } = pg;
 
 export const pool = new Pool({
@@ -60,8 +61,7 @@ export async function initDb() {
       initials TEXT NOT NULL,
       initials_gematria INTEGER NOT NULL,
       initials_gematria_hebrew TEXT NOT NULL,
-      created_at TIMESTAMPTZ DEFAULT NOW(),
-      UNIQUE(normalized_text)
+      created_at TIMESTAMPTZ DEFAULT NOW()
     );
 
     CREATE TABLE IF NOT EXISTS saved_words (
@@ -86,6 +86,7 @@ export async function initDb() {
       attribution TEXT NOT NULL,
       license TEXT NOT NULL,
       source_url TEXT NOT NULL,
+      representation_version INTEGER NOT NULL DEFAULT 1,
       imported_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
@@ -136,6 +137,13 @@ export async function initDb() {
     ALTER TABLE saved_entries ADD COLUMN IF NOT EXISTS tanach_start INTEGER;
     ALTER TABLE saved_entries ADD COLUMN IF NOT EXISTS tanach_end INTEGER;
     ALTER TABLE saved_entries ADD COLUMN IF NOT EXISTS parsha_id TEXT REFERENCES tanach_parshiot(id);
+    ALTER TABLE tanach_sources ADD COLUMN IF NOT EXISTS representation_version INTEGER NOT NULL DEFAULT 1;
+    ALTER TABLE saved_entries DROP CONSTRAINT IF EXISTS saved_entries_normalized_text_key;
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_saved_entries_manual_text_unique
+      ON saved_entries(normalized_text) WHERE tanach_book_slug IS NULL;
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_saved_entries_tanach_occurrence_unique
+      ON saved_entries(tanach_book_slug, tanach_chapter, tanach_verse, tanach_start, tanach_end)
+      WHERE tanach_book_slug IS NOT NULL;
   `);
 
   await seedTanachParshiot();
@@ -170,4 +178,15 @@ export async function initDb() {
   }
 
   console.log('Database initialized');
+}
+
+export async function needsTanachRepresentationImport(db = pool) {
+  const result = await db.query(
+    `SELECT COUNT(*)::int AS verse_count,
+            COALESCE(MIN(s.representation_version), 1)::int AS representation_version
+     FROM tanach_verses v
+     JOIN tanach_sources s ON s.id = v.source_id`
+  );
+  const row = result.rows[0];
+  return row.verse_count > 0 && row.representation_version < UXLC_REPRESENTATION_VERSION;
 }

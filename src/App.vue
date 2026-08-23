@@ -12,9 +12,13 @@
     <template v-else>
       <AppBar :currentPage="currentPage" @navigate="currentPage = $event" @logout="onLogout" />
       <main class="main-content">
-        <GimForm v-if="currentPage === 'calculator'" />
+        <GimForm v-if="currentPage === 'calculator'" @open-tanach="openTanachDiscovery" />
         <SavedLibrary v-else-if="currentPage === 'library'" />
-        <TanachReader v-else-if="currentPage === 'tanach'" />
+        <TanachReader
+          v-else-if="currentPage === 'tanach'"
+          :open-reference="pendingTanachReference"
+          @reference-consumed="consumeTanachReference"
+        />
       </main>
     </template>
   </div>
@@ -31,6 +35,8 @@ import LoginScreen   from '@/components/LoginScreen.vue';
 // 'checking' | 'authenticated' | 'unauthenticated'
 const authState  = ref('checking');
 const currentPage = ref('calculator');
+const pendingTanachReference = ref(null);
+let tanachReferenceRequestId = 0;
 
 onMounted(async () => {
   try {
@@ -46,10 +52,29 @@ function onLogin() {
   authState.value = 'authenticated';
 }
 
+function openTanachDiscovery(result) {
+  pendingTanachReference.value = {
+    bookSlug: result.bookSlug,
+    chapter: result.chapter,
+    verse: result.verse,
+    start: result.start,
+    end: result.end,
+    requestId: ++tanachReferenceRequestId,
+  };
+  currentPage.value = 'tanach';
+}
+
+function consumeTanachReference(requestId) {
+  if (pendingTanachReference.value?.requestId === requestId) {
+    pendingTanachReference.value = null;
+  }
+}
+
 async function onLogout() {
   await fetch('/api/auth/logout', { method: 'POST' });
   authState.value = 'unauthenticated';
   currentPage.value = 'calculator';
+  pendingTanachReference.value = null;
 }
 </script>
 

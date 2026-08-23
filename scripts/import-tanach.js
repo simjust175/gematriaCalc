@@ -10,6 +10,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { pool, initDb, seedTanachParshiot } from '../server/db.js';
+import {
+  resolveUxlcVerseText,
+  UXLC_REPRESENTATION_VERSION,
+} from '../server/uxlcText.js';
 import { normalize } from '../src/composables/useGematria.js';
 
 const exec = promisify(execFile);
@@ -75,28 +79,13 @@ const CANONICAL_NAMES = [
   'קהלת', 'איכה', 'אסתר', 'דניאל', 'עזרא–נחמיה', 'דברי הימים',
 ];
 
-function decodeXml(text) {
-  return text.replace(/&(?:amp|lt|gt|quot|apos);/g, entity => ({
-    '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&apos;': '\'',
-  }[entity]));
-}
-
-function verseText(inner) {
-  const words = [...inner.matchAll(/<w[^>]*>([\s\S]*?)<\/w>/g)]
-    .map(match => decodeXml(match[1].replace(/<[^>]+>/g, '').trim()))
-    .filter(Boolean);
-  return words.reduce((text, word) => (
-    !text ? word : /[־-]$/.test(text) ? `${text}${word}` : `${text} ${word}`
-  ), '');
-}
-
 function parseBook(xml, slug) {
   const rows = [];
   for (const chapterMatch of xml.matchAll(/<c n="(\d+)">([\s\S]*?)<\/c>/g)) {
     const chapter = Number(chapterMatch[1]);
     for (const verseMatch of chapterMatch[2].matchAll(/<v n="(\d+)">([\s\S]*?)<\/v>/g)) {
       const verse = Number(verseMatch[1]);
-      const displayText = verseText(verseMatch[2]);
+      const displayText = resolveUxlcVerseText(verseMatch[2]);
       if (!displayText || !normalize(displayText)) throw new Error(`${slug} ${chapter}:${verse} has no Hebrew text`);
       rows.push({ slug, chapter, verse, displayText, normalizedText: normalize(displayText) });
     }
@@ -123,10 +112,23 @@ async function main() {
     try {
       await client.query('BEGIN');
       await client.query(
-        `INSERT INTO tanach_sources (id, name, version, build, published_at, attribution, license, source_url)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-         ON CONFLICT (id) DO UPDATE SET imported_at = NOW(), attribution = EXCLUDED.attribution, license = EXCLUDED.license`,
-        [SOURCE.id, SOURCE.name, SOURCE.version, SOURCE.build, SOURCE.publishedAt, SOURCE.attribution, SOURCE.license, SOURCE.sourceUrl]
+        `INSERT INTO tanach_sources
+           (id, name, version, build, published_at, attribution, license, source_url, representation_version)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+         ON CONFLICT (id) DO UPDATE SET imported_at = NOW(),
+           attribution = EXCLUDED.attribution, license = EXCLUDED.license,
+           representation_version = EXCLUDED.representation_version`,
+        [
+          SOURCE.id,
+          SOURCE.name,
+          SOURCE.version,
+          SOURCE.build,
+          SOURCE.publishedAt,
+          SOURCE.attribution,
+          SOURCE.license,
+          SOURCE.sourceUrl,
+          UXLC_REPRESENTATION_VERSION,
+        ]
       );
 
       let verseCount = 0;

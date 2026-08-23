@@ -8,6 +8,10 @@ import { pool } from './db.js';
 import { computeAll, normalize } from '../src/composables/useGematria.js';
 import { createTanachCursor } from '../src/composables/useTanachCursor.js';
 import { parshaSearchKey } from './tanachParshiot.js';
+import {
+  parseGematriaSearchQuery,
+  searchTanachGematria,
+} from './tanachGematriaDiscovery.js';
 
 export const app = express();
 
@@ -89,7 +93,8 @@ app.get('/api/tanach/books', requireAuth, async (_req, res) => {
          ORDER BY canonical_order, segment_order`
       ),
       pool.query(
-        `SELECT name, version, build, published_at, attribution, license, source_url, imported_at
+        `SELECT name, version, build, published_at, attribution, license, source_url,
+                representation_version, imported_at
          FROM tanach_sources ORDER BY imported_at DESC LIMIT 1`
       ),
       pool.query('SELECT COUNT(*)::int AS verse_count FROM tanach_verses'),
@@ -304,6 +309,19 @@ app.get('/api/tanach/search', requireAuth, async (req, res) => {
   }
 });
 
+/** GET /api/tanach/gematria-matches — exact, within-verse gematria ranges. */
+app.get('/api/tanach/gematria-matches', requireAuth, async (req, res) => {
+  const parsed = parseGematriaSearchQuery(req.query);
+  if (parsed.error) return res.status(400).json({ error: parsed.error });
+
+  try {
+    res.json(await searchTanachGematria(pool, parsed));
+  } catch (err) {
+    console.error('/api/tanach/gematria-matches error:', err.message);
+    res.status(500).json({ error: 'tanach_gematria_search_failed' });
+  }
+});
+
 /**
  * GET /api/matches
  * Query: normalizedText
@@ -326,10 +344,31 @@ app.get('/api/matches', requireAuth, async (req, res) => {
     if (g > 0) {
       // Check if current phrase is already saved
       if (current?.normalizedText) {
-        const chk = await pool.query(
-          'SELECT id FROM saved_entries WHERE normalized_text = $1',
-          [current.normalizedText]
-        );
+        const hasTanachReference = typeof req.query.bookSlug === 'string' && req.query.bookSlug !== '';
+        let chk;
+        if (hasTanachReference) {
+          const chapter = Number(req.query.chapter);
+          const verse = Number(req.query.verse);
+          const start = Number(req.query.start);
+          const end = Number(req.query.end);
+          if (!Number.isInteger(chapter) || !Number.isInteger(verse)
+              || !Number.isInteger(start) || !Number.isInteger(end)
+              || chapter < 1 || verse < 1 || start < 0 || end < start) {
+            return res.status(400).json({ error: 'invalid_tanach_context' });
+          }
+          chk = await pool.query(
+            `SELECT id FROM saved_entries
+             WHERE tanach_book_slug = $1 AND tanach_chapter = $2
+               AND tanach_verse = $3 AND tanach_start = $4 AND tanach_end = $5`,
+            [req.query.bookSlug, chapter, verse, start, end]
+          );
+        } else {
+          chk = await pool.query(
+            `SELECT id FROM saved_entries
+             WHERE tanach_book_slug IS NULL AND normalized_text = $1`,
+            [current.normalizedText]
+          );
+        }
         isAlreadySaved = chk.rows.length > 0;
       }
 
@@ -499,10 +538,24 @@ app.post('/api/entries', requireAuth, async (req, res) => {
       };
     }
 
-    const exists = await client.query(
-      'SELECT id FROM saved_entries WHERE normalized_text = $1',
-      [calculated.normalizedText]
-    );
+    const exists = verifiedContext
+      ? await client.query(
+        `SELECT id FROM saved_entries
+         WHERE tanach_book_slug = $1 AND tanach_chapter = $2
+           AND tanach_verse = $3 AND tanach_start = $4 AND tanach_end = $5`,
+        [
+          verifiedContext.bookSlug,
+          verifiedContext.chapter,
+          verifiedContext.verse,
+          verifiedContext.start,
+          verifiedContext.end,
+        ]
+      )
+      : await client.query(
+        `SELECT id FROM saved_entries
+         WHERE tanach_book_slug IS NULL AND normalized_text = $1`,
+        [calculated.normalizedText]
+      );
     if (exists.rows.length > 0) {
       await client.query('ROLLBACK');
       return res.status(409).json({ error: 'already_saved', id: exists.rows[0].id });
@@ -546,6 +599,9 @@ app.post('/api/entries', requireAuth, async (req, res) => {
     res.json({ id: entryId, success: true });
   } catch (err) {
     if (client) await client.query('ROLLBACK').catch(() => {});
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'already_saved' });
+    }
     console.error('/api/entries POST error:', err.message);
     res.status(500).json({ error: err.message });
   } finally {

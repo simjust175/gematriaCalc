@@ -27,7 +27,9 @@ export function useLiveMatching(result, options = {}) {
     activeController = null;
   }
 
-  const stopWatching = watch(result, (newResult) => {
+  const context = options.context;
+  const watchSources = context ? [result, context] : [result];
+  const stopWatching = watch(watchSources, ([newResult, newContext]) => {
     cancelPendingRequest();
     const requestId = ++latestRequestId;
 
@@ -48,6 +50,13 @@ export function useLiveMatching(result, options = {}) {
         const params = new URLSearchParams({
           normalizedText: snapshot.normalizedText,
         });
+        if (newContext?.bookSlug) {
+          params.set('bookSlug', newContext.bookSlug);
+          params.set('chapter', String(newContext.chapter));
+          params.set('verse', String(newContext.verse));
+          params.set('start', String(newContext.start));
+          params.set('end', String(newContext.end));
+        }
         const response = await fetchImpl(`/api/matches?${params}`, {
           signal: controller.signal,
         });

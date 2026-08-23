@@ -14,6 +14,7 @@ import {
   computeAll,
 } from '../src/composables/useGematria.js';
 import { useLiveMatching } from '../src/composables/useLiveMatching.js';
+import { useTanachGematriaMatches } from '../src/composables/useTanachGematriaMatches.js';
 import { getMatchTypeMeta } from '../src/utils/matchTypes.js';
 
 // ── Individual letter values ─────────────────────────────────────────────────
@@ -206,6 +207,84 @@ test('live matching clears old reasons and ignores stale A → B → A responses
 
     assert.equal(live.matches.value.matches[0].id, 3);
     assert.equal(live.matches.value.isAlreadySaved, false);
+  } finally {
+    live.stop();
+  }
+});
+
+test('Tanach discovery clears stale targets, filters server-side, and appends pages', async () => {
+  const pending = [];
+  const fetchImpl = (url) => {
+    let resolve;
+    const promise = new Promise(done => { resolve = done; });
+    pending.push({ url: String(url), resolve });
+    return promise;
+  };
+  const flush = () => new Promise(resolve => setTimeout(resolve, 0));
+  const response = payload => ({ ok: true, json: async () => payload });
+  const target = ref(913);
+  const live = useTanachGematriaMatches(target, { fetchImpl, debounceMs: 0, limit: 2 });
+
+  try {
+    await flush();
+    assert.equal(pending.length, 1);
+    target.value = 1116;
+    assert.deepEqual(live.results.value, []);
+    await flush();
+    assert.equal(pending.length, 2);
+
+    pending[1].resolve(response({
+      target: 1116,
+      results: [{ bookSlug: 'Genesis', start: 0, end: 8 }],
+      counts: { all: 3, whole_word: 0, whole_phrase: 1, partial: 2 },
+      total: 3,
+      page: 1,
+      limit: 2,
+      hasMore: true,
+    }));
+    await flush();
+    assert.equal(live.results.value[0].end, 8);
+
+    pending[0].resolve(response({
+      target: 913,
+      results: [{ bookSlug: 'stale', start: 0, end: 5 }],
+      counts: { all: 1, whole_word: 1, whole_phrase: 0, partial: 0 },
+      total: 1,
+      page: 1,
+      limit: 2,
+      hasMore: false,
+    }));
+    await flush();
+    assert.equal(live.results.value[0].bookSlug, 'Genesis');
+
+    live.setFilter('partial');
+    assert.deepEqual(live.results.value, []);
+    await flush();
+    assert.match(pending[2].url, /type=partial/);
+    pending[2].resolve(response({
+      target: 1116,
+      results: [{ bookSlug: 'Genesis', start: 2, end: 9 }],
+      counts: { all: 3, whole_word: 0, whole_phrase: 1, partial: 2 },
+      total: 2,
+      page: 1,
+      limit: 2,
+      hasMore: true,
+    }));
+    await flush();
+
+    live.loadMore();
+    assert.match(pending[3].url, /page=2/);
+    pending[3].resolve(response({
+      target: 1116,
+      results: [{ bookSlug: 'Exodus', start: 4, end: 10 }],
+      counts: { all: 3, whole_word: 0, whole_phrase: 1, partial: 2 },
+      total: 2,
+      page: 2,
+      limit: 2,
+      hasMore: false,
+    }));
+    await flush();
+    assert.deepEqual(live.results.value.map(item => item.bookSlug), ['Genesis', 'Exodus']);
   } finally {
     live.stop();
   }
