@@ -5,3 +5,4 @@
 - [Tanach parashah citations](tanach-parashah-citations.md) — Validate portion ranges against UXLC’s Hebrew numbering, not English verse numbering
 - [UXLC representation upgrades](uxlc-representation-upgrades.md) — Pointed qere display is versioned; discovery cache follows corpus revisions
 - [Reliable browser tests](browser-tests-nix.md) — Use Nix Chromium, isolate saved data, and keep decorative icons out of accessible names
+- [Production startup readiness](production-startup-readiness.md) — Autoscale health checks need the app shell before corpus/database initialization completes

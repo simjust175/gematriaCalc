@@ -5,6 +5,14 @@
       <div class="login-subtitle">מחשבון אישי</div>
 
       <form class="login-form" @submit.prevent="doLogin">
+        <input
+          class="password-manager-username"
+          type="text"
+          name="username"
+          autocomplete="username"
+          aria-hidden="true"
+          tabindex="-1"
+        />
         <div class="field-wrap" :class="{ 'field-wrap--error': error }">
           <input
             ref="passwordInput"
@@ -112,6 +120,16 @@ async function doLogin() {
 }
 
 .login-form { display: flex; flex-direction: column; gap: 14px; }
+.password-manager-username {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
 
 .field-wrap {
   border: 1.5px solid var(--border);
