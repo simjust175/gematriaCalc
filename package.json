@@ -21,6 +21,7 @@
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "express-session": "^1.19.0",
+    "fflate": "^0.8.3",
     "pg": "^8.23.0",
     "roboto-fontface": "*",
     "supertest": "^7.2.2",

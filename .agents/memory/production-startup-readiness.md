@@ -16,4 +16,5 @@ browser session looking unauthenticated.
 **How to apply:** Keep the readiness boundary consistent when adding new
 startup work: root/static delivery must remain available, API routes must not
 run against a partially initialized corpus, and fatal initialization failures
-must still terminate the process.
+must still terminate the process. Startup migrations must use packaged Node
+dependencies rather than development-only system utilities.

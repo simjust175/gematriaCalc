@@ -3,12 +3,8 @@
  * Source: https://www.tanach.us/Books/Tanach.xml.zip
  * UXLC 2.5 (27.6), April 2026, Tanach.us Inc.
  */
-import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { promisify } from 'node:util';
+import { unzipSync } from 'fflate';
 import { pool, initDb, seedTanachParshiot } from '../server/db.js';
 import {
   resolveUxlcVerseText,
@@ -16,7 +12,6 @@ import {
 } from '../server/uxlcText.js';
 import { normalize } from '../src/composables/useGematria.js';
 
-const exec = promisify(execFile);
 const ARCHIVE_URL = 'https://www.tanach.us/Books/Tanach.xml.zip';
 const ARCHIVE_SHA256 = '1bc6e006f43d3b18f2f718cefa3aa4774cac2c54092c28d173dd61996c43a050';
 const SOURCE = {
@@ -95,18 +90,15 @@ function parseBook(xml, slug) {
 
 async function main() {
   await initDb();
-  const tempDir = await mkdtemp(join(tmpdir(), 'uxlc-'));
   try {
     const response = await fetch(ARCHIVE_URL);
     if (!response.ok) throw new Error(`Could not download UXLC (${response.status})`);
-    const archive = join(tempDir, 'Tanach.xml.zip');
     const archiveBytes = Buffer.from(await response.arrayBuffer());
     const archiveHash = createHash('sha256').update(archiveBytes).digest('hex');
     if (archiveHash !== ARCHIVE_SHA256) {
       throw new Error(`UXLC archive checksum mismatch (received ${archiveHash})`);
     }
-    await writeFile(archive, archiveBytes);
-    await exec('unzip', ['-q', archive, '-d', tempDir]);
+    const archiveFiles = unzipSync(archiveBytes);
 
     const client = await pool.connect();
     try {
@@ -134,8 +126,9 @@ async function main() {
       let verseCount = 0;
       for (const [slug, canonicalOrder, segmentOrder, _legacyGroup, hebrewName, englishName] of BOOKS) {
         const canonicalName = CANONICAL_NAMES[canonicalOrder - 1];
-        const xml = await readFile(join(tempDir, 'Books', `${slug}.xml`), 'utf8');
-        const rows = parseBook(xml, slug);
+        const file = archiveFiles[`Books/${slug}.xml`];
+        if (!file) throw new Error(`UXLC archive is missing Books/${slug}.xml`);
+        const rows = parseBook(Buffer.from(file).toString('utf8'), slug);
         const chapters = Math.max(...rows.map(row => row.chapter));
         await client.query(
           `INSERT INTO tanach_books (slug, canonical_order, segment_order, canonical_name, hebrew_name, english_name, source_filename, chapter_count)
@@ -178,7 +171,6 @@ async function main() {
       client.release();
     }
   } finally {
-    await rm(tempDir, { recursive: true, force: true });
     await pool.end();
   }
 }
