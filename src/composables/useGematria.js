@@ -10,12 +10,12 @@ export const LETTER_VALUES = {
   ק: 100, ר: 200, ש: 300, ת: 400,
 };
 
-// Ordered list for Hebrew numeral conversion (15 and 16 use special forms)
+// Values from 20 upward are composed greedily; 15 and 16 are handled only
+// when they are the final remainder so they cannot become reusable chunks.
 const HEBREW_NUMBER_MAP = [
   [400, 'ת'], [300, 'ש'], [200, 'ר'], [100, 'ק'],
   [90, 'צ'], [80, 'פ'], [70, 'ע'], [60, 'ס'], [50, 'נ'],
   [40, 'מ'], [30, 'ל'], [20, 'כ'],
-  [16, 'טז'], [15, 'טו'],              // avoid יו (16) and יה (15)
   [10, 'י'], [9, 'ט'], [8, 'ח'], [7, 'ז'], [6, 'ו'], [5, 'ה'],
   [4, 'ד'], [3, 'ג'], [2, 'ב'], [1, 'א'],
 ];
@@ -48,6 +48,16 @@ export function toHebrewNumber(n) {
   let result = '';
   let rem = n;
   for (const [val, letters] of HEBREW_NUMBER_MAP) {
+    if (val < 20) break;
+    while (rem >= val) { result += letters; rem -= val; }
+    if (rem === 0) break;
+  }
+  // Avoid the divine-name spellings יה and יו only for the final 15/16.
+  // They must not be treated as general chunks: 17 is יז, not טזא.
+  if (rem === 15) return result + 'טו';
+  if (rem === 16) return result + 'טז';
+  for (const [val, letters] of HEBREW_NUMBER_MAP) {
+    if (val >= 20) continue;
     while (rem >= val) { result += letters; rem -= val; }
     if (rem === 0) break;
   }

@@ -123,7 +123,21 @@ test('letter breakdown for שמע', () => {
 });
 
 // ── Hebrew number conversion ──────────────────────────────────────────────────
-test('toHebrewNumber: 21 = כא', () => { assert.equal(toHebrewNumber(21), 'כא'); });
+test('toHebrewNumber: handles the 14–21 boundary correctly', () => {
+  const expected = new Map([
+    [14, 'יד'],
+    [15, 'טו'],
+    [16, 'טז'],
+    [17, 'יז'],
+    [18, 'יח'],
+    [19, 'יט'],
+    [20, 'כ'],
+    [21, 'כא'],
+  ]);
+  for (const [value, hebrew] of expected) {
+    assert.equal(toHebrewNumber(value), hebrew, `${value} should be ${hebrew}`);
+  }
+});
 test('toHebrewNumber: 39 = לט', () => { assert.equal(toHebrewNumber(39), 'לט'); });
 test('toHebrewNumber: 132 = קלב', () => { assert.equal(toHebrewNumber(132), 'קלב'); });
 test('toHebrewNumber: 310 = שי', () => { assert.equal(toHebrewNumber(310), 'שי'); });
