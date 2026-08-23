@@ -1,0 +1,265 @@
+Add two focused filtering features to the existing תנ״ך results section:
+
+1. Search/filter within the current Tanach results
+2. A one-click פרשת השבוע filter
+
+Do NOT redesign the Tanach results area.
+
+Preserve the current cards, match highlighting, match-type filters, counts, pagination, and overall visual language.
+
+---
+
+# 1. SEARCH WITHIN TANACH RESULTS
+
+Add a compact search field directly above or alongside the existing result-filter chips.
+
+Hebrew placeholder:
+
+חפש בתוצאות — מילה, פסוק או מראה מקום...
+
+This search is specifically for filtering the CURRENT Tanach gematria results.
+
+It is NOT a new general Tanach search engine.
+
+The user should be able to search by:
+
+- Hebrew word/text appearing in the verse
+- sefer name
+- chapter/reference
+- where practical, complete textual reference
+
+Examples:
+
+ויאמר
+
+בראשית
+
+בראשית א
+
+The results should update as the user types.
+
+Use a small debounce, approximately 250–350ms.
+
+Normalize Hebrew appropriately so ניקוד / טעמים do not prevent sensible text matching.
+
+Do not alter the original displayed Tanach text.
+
+---
+
+# SEARCH + EXISTING FILTERS
+
+The search must work together with the existing filters:
+
+- הכל
+- מילה שלמה
+- צירוף שלם
+- חלק ממילה
+
+Example:
+
+If the user searches:
+
+ויאמר
+
+and then selects:
+
+מילה שלמה
+
+show only results that satisfy BOTH conditions.
+
+Filters should compose rather than reset one another.
+
+---
+
+# 2. CURRENT PARSHA BUTTON
+
+Add a prominent but compact quick-filter button:
+
+פרשת השבוע
+
+Place it in the same Tanach results toolbar as the search/filter controls.
+
+When clicked:
+
+show only the CURRENT gematria results that occur inside this week's weekly Torah portion.
+
+Do NOT perform a completely unrelated Tanach search.
+
+It is a FILTER on the current gematria result set.
+
+Example behavior:
+
+Current gematria result set = 15,290 matches
+
+Current weekly parsha contains 8 of those matches
+
+Click:
+
+פרשת השבוע
+
+→ display those 8 matching result cards.
+
+---
+
+# ACTIVE STATE
+
+When the פרשת השבוע filter is active:
+
+- give the button the existing selected/gold treatment
+- make it obvious that the result list is filtered
+- allow one-click deselection to return to all Tanach results
+
+Prefer showing the number of matching results when available, for example:
+
+פרשת השבוע · 8
+
+If there are no results in the current parsha, show a clean state such as:
+
+אין התאמות בפרשת השבוע
+
+Do not show an error.
+
+---
+
+# CURRENT PARSHA IDENTIFICATION
+
+Determine the current weekly parsha programmatically from the Hebrew/Jewish calendar.
+
+Do NOT maintain a manually hard-coded Gregorian date list.
+
+Important:
+
+The Israel and Diaspora/חו״ל Torah-reading schedules can occasionally differ.
+
+Structure this so the app can use:
+
+- ארץ ישראל
+- חו״ל
+
+If the application currently has no location/schedule preference, use one clearly defined default and keep it configurable rather than scattering assumptions through the code.
+
+The weekly-parsha calculation should identify the precise Torah range:
+
+- sefer
+- starting chapter/verse
+- ending chapter/verse
+- including double parshiyos correctly
+
+Then filter the existing Tanach matches against that range.
+
+---
+
+# PARSHA NAME
+
+Where useful, show the detected parsha name subtly.
+
+For example:
+
+פרשת השבוע  
+ראה
+
+or:
+
+פרשת ראה
+
+Do not make this visually dominant.
+
+The primary purpose is filtering results.
+
+---
+
+# SEARCH + PARSHA TOGETHER
+
+The search field, current-parsha filter, and existing match-type filters must all compose.
+
+For example:
+
+Current parsha enabled  
++ search "ויאמר"  
++ מילה שלמה selected
+
+→ show only results satisfying ALL three conditions.
+
+Removing one filter should preserve the others.
+
+---
+
+# PERFORMANCE
+
+There can be 15,000+ Tanach matches.
+
+Do not create an inefficient implementation that repeatedly renders or scans an unnecessarily huge result set in the browser.
+
+Inspect how Tanach results are currently generated and paginated.
+
+Where appropriate, extend the existing backend query/API to support parameters such as:
+
+- search text
+- match type
+- current-parsha range
+- page/limit
+
+Preserve pagination.
+
+Do not fetch thousands of additional verses merely to implement the filters.
+
+Ignore/cancel stale search responses when the user continues typing.
+
+---
+
+# UX
+
+Keep this compact.
+
+The Tanach section should approximately follow:
+
+תוצאות בתנ״ך
+
+[ חפש בתוצאות... ]  [ פרשת השבוע ]
+
+[ הכל ] [ מילה שלמה ] [ צירוף שלם ] [ חלק ממילה ]
+
+[result cards]
+
+On mobile, allow the controls to wrap naturally.
+
+No horizontal page scrolling.
+
+---
+
+# PRESERVE
+
+Do not change:
+
+- gematria calculations
+- calculator
+- saved-entry matching
+- Tanach match detection
+- highlighted matching text
+- existing result cards
+- current visual palette
+- existing match-type meanings
+
+This task only adds better navigation/filtering of the Tanach result set.
+
+---
+
+# TESTS
+
+Add tests for:
+
+1. Hebrew text search filters current results
+2. search ignores ניקוד appropriately
+3. search by sefer/reference works
+4. current-parsha filter returns only verses inside the detected parsha
+5. verse boundaries at the start/end of the parsha are correct
+6. double parshiyos are handled
+7. search + current-parsha filter compose correctly
+8. existing match-type filter + search compose correctly
+9. all three filters can operate simultaneously
+10. clearing search restores the appropriate result set
+11. disabling פרשת השבוע restores results without resetting other filters
+12. zero parsha matches produces a clean empty state
+13. pagination continues to work
+
+Run all existing tests as well and report any failures.
