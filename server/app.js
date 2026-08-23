@@ -12,12 +12,17 @@ import {
   parseGematriaSearchQuery,
   searchTanachGematria,
 } from './tanachGematriaDiscovery.js';
+import {
+  isApplicationReady,
+  requireApplicationReady,
+} from './readiness.js';
 
 export const app = express();
 
 // ── Middleware ───────────────────────────────────────────────────────────────
 
 app.use(express.json());
+app.use(requireApplicationReady);
 
 // Session — signed with SESSION_SECRET, httpOnly, sameSite strict.
 // No external CORS headers: all API access is same-origin through the Vite proxy.
@@ -36,6 +41,11 @@ app.use(session({
 }));
 
 // ── Public auth routes ───────────────────────────────────────────────────────
+
+/** GET /api/health — readiness signal for diagnostics and deployment checks. */
+app.get('/api/health', (_req, res) => {
+  res.json({ ready: isApplicationReady() });
+});
 
 /** POST /api/auth/login — validate APP_PASSWORD and create session. */
 app.post('/api/auth/login', (req, res) => {

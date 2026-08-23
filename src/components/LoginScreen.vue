@@ -61,7 +61,10 @@ async function doLogin() {
       password.value = '';
       passwordInput.value?.focus();
     } else if (res.status === 503) {
-      error.value = 'האפליקציה טרם הוגדרה — APP_PASSWORD חסר';
+      const response = await res.json().catch(() => ({}));
+      error.value = response.error === 'app_initializing'
+        ? 'האפליקציה עדיין עולה — נסה שוב בעוד רגע'
+        : 'האפליקציה טרם הוגדרה — APP_PASSWORD חסר';
     } else {
       error.value = 'שגיאה בהתחברות';
     }

@@ -31,6 +31,7 @@ import GimForm       from '@/components/GimForm.vue';
 import SavedLibrary  from '@/components/SavedLibrary.vue';
 import TanachReader   from '@/components/TanachReader.vue';
 import LoginScreen   from '@/components/LoginScreen.vue';
+import { resolveAuthentication } from '@/composables/useAuthentication.js';
 
 // 'checking' | 'authenticated' | 'unauthenticated'
 const authState  = ref('checking');
@@ -39,13 +40,7 @@ const pendingTanachReference = ref(null);
 let tanachReferenceRequestId = 0;
 
 onMounted(async () => {
-  try {
-    const res  = await fetch('/api/auth/check');
-    const data = await res.json();
-    authState.value = data.authenticated ? 'authenticated' : 'unauthenticated';
-  } catch {
-    authState.value = 'unauthenticated';
-  }
+  authState.value = await resolveAuthentication();
 });
 
 function onLogin() {
