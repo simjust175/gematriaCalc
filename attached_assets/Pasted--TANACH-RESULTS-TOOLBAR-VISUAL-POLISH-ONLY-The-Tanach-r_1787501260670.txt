@@ -1,0 +1,413 @@
+# TANACH RESULTS TOOLBAR — VISUAL POLISH ONLY
+
+The Tanach results feature is functionally working.
+
+Do NOT change:
+
+* search logic
+* current-parsha logic
+* filtering behavior
+* result counts
+* pagination
+* Tanach matching
+* API behavior
+* gematria logic
+* result cards
+* overall page structure
+
+This task is ONLY to improve the visual design and hierarchy of the Tanach filtering controls, especially:
+
+1. the search field
+2. the פרשת השבוע control
+3. the relationship between those controls and the existing match-type filter chips
+
+The current implementation works, but these controls still look like basic utility inputs rather than a polished part of the product.
+
+The goal is to make them feel intentional, premium, clean, and clearly organized without making the interface busier.
+
+---
+
+# CORE DESIGN IDEA
+
+There should be THREE levels of hierarchy:
+
+## Level 1 — Search
+
+The search field is the main filtering control.
+
+It should be the visually dominant control in this area.
+
+## Level 2 — פרשת השבוע
+
+This is a special intelligent shortcut/filter.
+
+It should feel more meaningful than an ordinary chip, but still secondary to Search.
+
+## Level 3 — Match-type filters
+
+The existing:
+
+* הכל
+* מילה שלמה
+* צירוף שלם
+* חלק ממילה
+
+remain compact utility filters.
+
+They should visually sit below the search/parsha row rather than competing with them.
+
+---
+
+# DESIRED LAYOUT
+
+On desktop, restructure the controls approximately like this:
+
+```text
+חיפוש בתוצאות
+
+[ 🔍  חפש מילה, פסוק או מראה מקום...                 ]   [ פרשת השבוע ]
+                                                              ואתחנן
+
+[ הכל 13,273 ] [ מילה שלמה 47 ] [ צירוף שלם 640 ] [ חלק ממילה 12,586 ]
+```
+
+Do not literally copy this ASCII layout.
+
+Use the existing RTL design system and spacing.
+
+The important hierarchy is:
+
+**Search + current parsha on the first row**
+
+**match-type chips on a second row**
+
+---
+
+# 1. SEARCH FIELD
+
+The current search field looks too generic and visually weak.
+
+Redesign it so it feels like a deliberate product control.
+
+## Visual requirements
+
+* approximately 44–50px high on desktop
+* comfortable internal padding
+* rounded corners matching the rest of the app
+* subtle border using the existing cream/gold/navy palette
+* very subtle shadow or depth if consistent with the current UI
+* clean off-white/white background
+* search icon clearly positioned on the RTL side
+* placeholder vertically centered
+* no cramped text
+* sufficient width to clearly feel like the primary control
+* smooth focus state
+
+Do NOT create a giant search box.
+
+It should remain elegant and restrained.
+
+---
+
+# SEARCH FOCUS STATE
+
+When focused:
+
+* slightly strengthen the gold border
+* optionally add a very soft gold focus ring
+* do not use harsh browser-default outlines
+* do not dramatically change background color
+
+The transition should feel polished.
+
+---
+
+# SEARCH PLACEHOLDER
+
+Use concise Hebrew.
+
+Preferred:
+
+חפש בתוצאות — מילה, פסוק או מראה מקום...
+
+Do not make the placeholder tiny or overly pale.
+
+It should remain readable while clearly being placeholder text.
+
+---
+
+# 2. פרשת השבוע CONTROL
+
+The current פרשת השבוע control looks too similar to the ordinary filter chips.
+
+Redesign it as a SPECIAL QUICK FILTER.
+
+It should visually communicate:
+
+"This is a useful shortcut related to the current week."
+
+---
+
+# PREFERRED PARSHA BUTTON STRUCTURE
+
+When the current parsha is known, display:
+
+**פרשת השבוע**
+
+and a small secondary line or secondary text with the actual parsha name.
+
+Example:
+
+פרשת השבוע
+ואתחנן
+
+Or, if a one-line treatment works better:
+
+פרשת השבוע · ואתחנן
+
+Choose whichever fits the current design more elegantly.
+
+The current parsha name should be useful but visually secondary.
+
+---
+
+# PARSHA BUTTON — INACTIVE STATE
+
+Use:
+
+* soft cream background
+* subtle gold border
+* dark/navy primary text
+* small muted/gold secondary parsha name
+* optional small book/calendar/Torah-style icon if an existing icon library supports it cleanly
+
+Do NOT introduce a decorative custom illustration.
+
+Do NOT make the icon larger than the text.
+
+---
+
+# PARSHA BUTTON — ACTIVE STATE
+
+When active:
+
+* use a stronger gold-filled or gold-tinted state consistent with the app
+* maintain sufficient text contrast
+* visually communicate selected state immediately
+* do not rely solely on border color
+* a small checkmark/filter indicator is acceptable if restrained
+
+The active state should feel obvious but not loud.
+
+---
+
+# PARSHA RESULT COUNT
+
+If the existing data already exposes the number of matches in the weekly parsha, display it elegantly.
+
+Examples:
+
+פרשת השבוע · 8
+
+or:
+
+ואתחנן · 8 התאמות
+
+Do NOT add extra API work solely for this visual task.
+
+Only display the count if it is already readily available from current state/data.
+
+---
+
+# 3. STANDARD MATCH-TYPE FILTERS
+
+Keep the existing filters:
+
+* הכל
+* מילה שלמה
+* צירוף שלם
+* חלק ממילה
+
+These should remain compact chips.
+
+Improve their alignment and spacing if needed, but do NOT redesign them into large buttons.
+
+Their visual role is secondary.
+
+Use:
+
+* compact height
+* consistent spacing
+* clear active state
+* existing count values
+* restrained borders
+* no excessive shadows
+
+The active chip may continue using the existing gold accent.
+
+---
+
+# SPACING / HIERARCHY
+
+The toolbar currently feels compressed into one area.
+
+Create more intentional vertical rhythm.
+
+Suggested structure:
+
+Tanach section heading
+
+small spacing
+
+Search + פרשת השבוע row
+
+12–16px spacing
+
+Match-type chip row
+
+16–24px spacing
+
+Results grid
+
+Do not create excessive white space.
+
+---
+
+# WIDTH BALANCE
+
+On desktop:
+
+Search should occupy most of the available row width.
+
+Suggested proportion:
+
+Search: approximately 70–80%
+
+פרשת השבוע: approximately 20–30%
+
+Do not force exact percentages if the current component system responds better using flex/grid.
+
+The parsha button should have a sensible minimum width so its Hebrew text does not wrap awkwardly.
+
+---
+
+# MOBILE
+
+On smaller screens:
+
+Stack naturally.
+
+Preferred order:
+
+1. Search field — full width
+2. פרשת השבוע — full width or near-full width
+3. match-type chips — wrapping horizontally
+
+Do NOT create horizontal page scrolling.
+
+Chips may wrap onto multiple lines.
+
+Maintain RTL.
+
+---
+
+# VISUAL CONSISTENCY
+
+Use the current design language:
+
+* cream/off-white page
+* navy Hebrew typography
+* restrained warm gold
+* thin borders
+* soft card radii
+* very subtle shadows
+* premium but understated look
+
+Do NOT:
+
+* introduce gradients
+* introduce bright colors
+* add heavy shadows
+* use oversized icons
+* create glassmorphism
+* create a dark toolbar
+* change fonts
+* redesign the entire Tanach section
+
+---
+
+# MICRO-INTERACTIONS
+
+Add only subtle interactions:
+
+Search:
+
+* smooth focus border transition
+
+Parsha:
+
+* subtle hover background/border transition
+* clear selected-state transition
+
+Filter chips:
+
+* existing hover/selected behavior can remain
+
+Avoid scale animations and anything playful/gimmicky.
+
+---
+
+# RTL QUALITY
+
+Check carefully:
+
+* icon placement
+* text alignment
+* spacing between icon/text
+* button alignment
+* chip order
+* parsha name position
+
+The UI must look intentionally designed for Hebrew RTL, not mirrored from an English layout.
+
+---
+
+# DO NOT TOUCH FUNCTIONALITY
+
+This point is critical.
+
+Do not change:
+
+* debounce timing
+* search query behavior
+* current parsha calculation
+* Israel/Diaspora logic
+* existing result filters
+* existing result counts
+* current result sorting
+* pagination
+* Tanach data
+* match highlighting
+
+If a functional problem is discovered during this visual task, report it rather than silently redesigning the behavior.
+
+---
+
+# ACCEPTANCE CHECK
+
+After the change, visually verify:
+
+1. Search is clearly the main control.
+2. Search no longer looks like a generic browser input.
+3. פרשת השבוע feels like a special quick filter.
+4. The actual parsha name is visible elegantly if available.
+5. Match-type chips remain clearly secondary.
+6. The toolbar is visually balanced with the existing results grid.
+7. Desktop layout uses space cleanly.
+8. Mobile has no horizontal overflow.
+9. RTL alignment is correct.
+10. No existing functionality changed.
+
+Report the files changed.
+
+Do not perform unrelated refactors.
