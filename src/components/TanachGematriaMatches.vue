@@ -13,28 +13,35 @@
     </header>
 
     <div class="controls" role="toolbar" aria-label="סינון התאמות">
-      <label class="result-search">
-        <span class="sr-only">חפש בתוצאות</span>
-        <span class="mdi mdi-magnify" aria-hidden="true"></span>
-        <input
-          :value="search"
-          type="search"
-          inputmode="search"
-          autocomplete="off"
-          placeholder="חפש בתוצאות — מילה, פסוק או מראה מקום..."
-          @input="setSearch($event.target.value)"
+      <div class="controls-primary-row">
+        <label class="result-search">
+          <span class="sr-only">חפש בתוצאות</span>
+          <span class="mdi mdi-magnify" aria-hidden="true"></span>
+          <input
+            :value="search"
+            type="search"
+            inputmode="search"
+            autocomplete="off"
+            placeholder="חפש בתוצאות — מילה, פסוק או מראה מקום..."
+            @input="setSearch($event.target.value)"
+          >
+        </label>
+        <button
+          type="button"
+          class="parshah-filter"
+          :class="{ active: currentParshah }"
+          :aria-pressed="currentParshah"
+          @click="toggleCurrentParshah"
         >
-      </label>
-      <button
-        type="button"
-        class="parshah-filter"
-        :class="{ active: currentParshah }"
-        :aria-pressed="currentParshah"
-        @click="toggleCurrentParshah"
-      >
-        פרשת השבוע
-        <span v-if="currentParshah && weeklyParshah">{{ weeklyParshah.nameHe }}</span>
-      </button>
+          <span class="mdi mdi-book-open-page-variant-outline" aria-hidden="true"></span>
+          <span class="parshah-filter-copy">
+            <span class="parshah-filter-label">פרשת השבוע</span>
+            <span v-if="weeklyParshah" class="parshah-filter-name">
+              {{ weeklyParshah.nameHe }}<template v-if="currentParshah"> · {{ total.toLocaleString('he-IL') }} התאמות</template>
+            </span>
+          </span>
+        </button>
+      </div>
       <div class="filter-list" role="group" aria-label="סוג התאמה">
         <button
           v-for="item in filterOptions"
@@ -191,17 +198,24 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .total-mark { min-width: 86px; text-align: left; }
 .total-mark strong { display: block; font-size: 1.65rem; font-variant-numeric: tabular-nums; color: #96732b; }
 .total-mark span { color: var(--text-secondary, #74716a); font-size: .7rem; }
-.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 8px; }
-.result-search { display: flex; align-items: center; gap: 6px; min-width: min(100%, 250px); padding: 0 9px; border: 1px solid var(--border, #e8e1d5); border-radius: 7px; background: #fff; color: #887a63; }
-.result-search:focus-within { border-color: #c09840; box-shadow: 0 0 0 3px rgba(192,152,64,.12); }
-.result-search input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--navy, #1a2744); font: inherit; font-size: .76rem; line-height: 31px; }
-.result-search input::placeholder { color: #9a958c; opacity: 1; }
-.parshah-filter { border: 1px solid var(--border, #e8e1d5); background: #fff; color: var(--navy, #1a2744); border-radius: 7px; padding: 7px 10px; font: inherit; font-size: .74rem; cursor: pointer; transition: background .16s, color .16s, border-color .16s, transform .16s; }
-.parshah-filter:hover { transform: translateY(-1px); border-color: #c09840; }
-.parshah-filter.active { background: var(--gold-light, #f6edda); color: #765812; border-color: #d4b96c; font-weight: 700; }
-.parshah-filter span { margin-inline-start: 4px; opacity: .78; }
-.filter-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.controls { display: grid; gap: 13px; margin-bottom: 9px; padding: 14px; border: 1px solid rgba(211,193,151,.55); border-radius: 13px; background: rgba(255,253,249,.72); box-shadow: 0 8px 22px rgba(26,39,68,.035); }
+.controls-primary-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(172px, 218px); gap: 12px; align-items: stretch; }
+.result-search { display: flex; align-items: center; gap: 11px; min-width: 0; min-height: 48px; padding: 0 15px; border: 1px solid #dcd2bf; border-radius: 10px; background: #fffdf9; color: #96732b; box-shadow: 0 2px 6px rgba(26,39,68,.025); transition: border-color .18s ease, box-shadow .18s ease; }
+.result-search:focus-within { border-color: #bf9741; box-shadow: 0 0 0 3px rgba(192,152,64,.12), 0 2px 6px rgba(26,39,68,.025); }
+.result-search .mdi { flex: 0 0 auto; font-size: 1.15rem; }
+.result-search input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--navy, #1a2744); font: inherit; font-size: .88rem; line-height: 1.2; }
+.result-search input::placeholder { color: #8c867c; opacity: 1; }
+.parshah-filter { display: flex; align-items: center; justify-content: flex-start; gap: 10px; min-height: 48px; padding: 8px 12px; border: 1px solid #dbc17c; border-radius: 10px; background: #fbf4e6; color: var(--navy, #1a2744); font: inherit; text-align: right; cursor: pointer; transition: border-color .18s ease, background .18s ease, box-shadow .18s ease; }
+.parshah-filter:hover { border-color: #c79d43; background: #faf0db; }
+.parshah-filter.active { border-color: #bd9135; background: #f0deab; color: #654d16; box-shadow: inset 0 0 0 1px rgba(159,118,32,.08); }
+.parshah-filter > .mdi { flex: 0 0 auto; color: #9a772d; font-size: 1.15rem; }
+.parshah-filter-copy { display: grid; min-width: 0; gap: 1px; }
+.parshah-filter-label { font-size: .75rem; font-weight: 800; line-height: 1.1; }
+.parshah-filter-name { color: #98752a; font-size: .69rem; font-weight: 600; line-height: 1.15; }
+.parshah-filter.active .parshah-filter-name { color: #775a18; }
+.filter-list { display: flex; flex-wrap: wrap; gap: 7px; padding-top: 1px; border-top: 1px solid #efe7d9; }
 .filter-list button, .load-more, .card-actions button { border: 1px solid var(--border, #e8e1d5); background: #fff; color: var(--navy, #1a2744); border-radius: 7px; padding: 7px 10px; font: inherit; font-size: .74rem; cursor: pointer; transition: background .16s, color .16s, border-color .16s, transform .16s; }
+.filter-list button { border-color: #e5ded2; border-radius: 999px; padding: 6px 10px; background: transparent; color: #46536a; font-size: .69rem; }
 .filter-list button:hover, .card-actions button:hover:not(:disabled), .load-more:hover { transform: translateY(-1px); border-color: #c09840; }
 .filter-list button.active { background: var(--gold-light, #f6edda); color: #765812; border-color: #d4b96c; font-weight: 700; }
 .filter-list button span { margin-inline-start: 4px; opacity: .7; font-variant-numeric: tabular-nums; }
@@ -237,5 +251,5 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .load-more { display: flex; align-items: center; gap: 7px; margin: 16px auto 0; padding-inline: 16px; }
 @keyframes breathe { from { opacity: .45; } to { opacity: 1; } }
 @media (max-width: 820px) { .match-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 560px) { .discovery-header { align-items: flex-start; }.match-grid { grid-template-columns: 1fr; }.total-mark { min-width: 60px; }.total-mark strong { font-size: 1.25rem; }.result-search { order: -1; flex-basis: 100%; } }
+@media (max-width: 560px) { .discovery-header { align-items: flex-start; }.match-grid { grid-template-columns: 1fr; }.total-mark { min-width: 60px; }.total-mark strong { font-size: 1.25rem; }.controls { gap: 11px; padding: 11px; }.controls-primary-row { grid-template-columns: 1fr; gap: 9px; }.parshah-filter { min-height: 46px; }.filter-list { gap: 6px; padding-top: 10px; } }
 </style>
