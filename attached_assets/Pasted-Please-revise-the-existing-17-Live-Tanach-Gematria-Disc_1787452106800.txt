@@ -1,0 +1,200 @@
+Please revise the existing **#17 — Live Tanach Gematria Discovery** task with the following corrections before implementation.
+
+Do NOT replace the current task. Keep its existing scope, architecture, files, and acceptance criteria, but incorporate these safeguards.
+
+## 1. Use the SAME resolved UXLC text representation as the Tanach reader
+
+This is important.
+
+The Tanach discovery search must search against the exact same resolved Hebrew reading representation already used by the Tanach reader.
+
+That includes the existing קרי/כתיב policy.
+
+Do NOT create a separate text-resolution rule for search.
+
+The following must all refer to the SAME sequence of countable Hebrew letters:
+
+- corpus search
+- gematria calculation
+- start/end letter indices
+- classification
+- canonical display highlighting
+- open-in-Tanach restoration
+- saved exact range
+- server-side save validation
+
+If a verse contains קרי/כתיב, a search result must never be calculated from one representation and then opened/saved against another.
+
+Add tests using real UXLC קרי/כתיב data to prove this consistency.
+
+---
+
+## 2. Clarify what חלק ממילה includes
+
+The existing task should explicitly define:
+
+**חלק ממילה** means any contiguous matching range that is NOT aligned to complete word boundaries.
+
+It is NOT limited to a substring inside one individual word.
+
+A valid partial-range match may:
+
+- begin inside one word;
+- continue through the rest of that word;
+- cross one or more spaces;
+- include complete following words;
+- end inside another word.
+
+Example conceptually:
+
+`...אב[גדה ווז חט]יכ...`
+
+If the highlighted contiguous range has the target gematria, it is a valid match even though it crosses word boundaries.
+
+It should be classified:
+
+**חלק ממילה**
+
+unless both ends align with complete word boundaries.
+
+Continue to require that the range stays inside one פסוק.
+
+Do not silently expand such matches to complete words.
+
+---
+
+## 3. Never show stale Tanach results under a new gematria value
+
+The existing task already requires debounced and stale-safe requests.
+
+Strengthen the visible UX requirement.
+
+When the current full gematria changes:
+
+- immediately treat the previous Tanach result set as belonging to the OLD target;
+- do not leave old results visibly presented under the new gematria number;
+- clear, hide, or transition the previous result list into a loading state for the new target;
+- once the new response arrives, display only results belonging to the newest requested target.
+
+Example:
+
+Current:
+
+410
+
+Tanach results for 410 are visible.
+
+User types another letter and current gematria immediately becomes:
+
+411
+
+The UI must NOT temporarily show:
+
+`411`
+
+above Tanach results that were actually calculated for:
+
+`410`
+
+while waiting for the new request.
+
+The result state should instead become something like:
+
+**מחפש התאמות ל־411...**
+
+until the 411 response is available.
+
+Older/stale responses must still be ignored if they return afterward.
+
+Numerical trust is more important than keeping old results visible during loading.
+
+---
+
+## 4. Refine the search-algorithm wording
+
+In Step 1, replace wording equivalent to:
+
+> using positive-value sliding windows/prefix sums
+
+with:
+
+> Use an efficient positive-value sliding-window search over the existing normalized Hebrew-letter representation. Reuse the existing prefix-sum and range metadata where useful for fast range totals, validation, and extraction.
+
+The sliding window is the primary contiguous-range search algorithm.
+
+Prefix sums may support range calculations, but do not build unnecessary complexity or treat them as a separate exhaustive substring-search strategy.
+
+Do NOT precompute every possible substring.
+
+---
+
+## 5. Preserve all existing #17 requirements
+
+Everything else in the current #17 task remains required, including:
+
+- server-backed Tanach discovery beneath the calculator result panel
+- personal saved matches staying in the existing sidebar
+- whole-word matches
+- whole-phrase matches
+- partial contiguous-letter matches
+- single-verse-only ranges
+- total and per-type counts
+- pagination
+- canonical ordering
+- bounded caching
+- low-value search stability
+- exact canonical-text highlighting
+- פתח בתנ״ך
+- restoring the exact selected range
+- saving the exact found Tanach range
+- occurrence-aware duplicate protection
+- existing saved-library integration
+- regression protection
+
+Do not broaden the task beyond this.
+
+---
+
+## Additional acceptance tests
+
+Add these tests to the existing #17 acceptance criteria:
+
+### קרי/כתיב consistency
+
+1. Search a real UXLC verse containing קרי/כתיב.
+2. Confirm the search uses the same resolved form as the reader.
+3. Open the result in תנ״ך.
+4. Exact highlighted letters equal the range used by the search.
+5. Gematria in the reader equals the search result.
+6. Save it.
+7. Server-derived saved gematria still equals the search result.
+8. No קרי + כתיב double-counting occurs.
+
+### Partial range crossing words
+
+Create/identify a matching range that:
+
+- starts inside one word;
+- crosses at least one word boundary;
+- ends inside a later word.
+
+Verify:
+
+- it is found;
+- exact letters are preserved;
+- spaces count as zero;
+- it is classified as חלק ממילה;
+- opening in Tanach restores exactly that range;
+- saving stores exactly that range.
+
+### Target-change trust
+
+1. Display Tanach matches for target A.
+2. Change calculator input so the live gematria becomes target B.
+3. Confirm target-A results are immediately removed/marked unavailable.
+4. Show loading state for B if needed.
+5. Return only B results.
+6. Force A's request to return late.
+7. Confirm A can never overwrite B.
+
+Please update the task specification with these changes before beginning implementation.
