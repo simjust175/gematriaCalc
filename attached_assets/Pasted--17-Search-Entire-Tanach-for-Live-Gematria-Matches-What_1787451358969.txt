@@ -1,0 +1,995 @@
+# #17 — Search Entire Tanach for Live Gematria Matches
+
+## What & Why
+
+Add a major discovery feature to the existing Gematria calculator:
+
+As the user's CURRENT FULL GEMATRIA changes, automatically search the entire imported Tanach for contiguous Hebrew text whose standard gematria equals that current value.
+
+The search should find:
+
+1. **whole-word matches**
+2. **whole multi-word phrase matches**
+3. **partial-word / arbitrary contiguous-letter matches**
+
+The user should see those Tanach discoveries directly underneath the main three-result Gematria panel.
+
+The existing LEFT sidebar remains dedicated to the user's own:
+
+**התאמות שמורות**
+
+Do NOT mix the potentially large Tanach search result set into the personal saved-match sidebar.
+
+Every Tanach result must allow:
+
+- opening the exact location in תנ״ך;
+- seeing the matching letters highlighted;
+- saving the exact matched range into the existing personal saved library.
+
+This should turn the workflow into:
+
+**calculate → discover Tanach connection → inspect it → save it → it becomes part of the personal matching library**
+
+---
+
+# CORE DISTINCTION
+
+There are now TWO different discovery systems.
+
+## LEFT SIDEBAR — PERSONAL
+
+**התאמות שמורות**
+
+These are the user's personally saved calculations.
+
+Keep the existing system and styling.
+
+Do NOT replace it.
+
+---
+
+## UNDER CALCULATION — GLOBAL TANACH
+
+Add a new section:
+
+**התאמות בתנ״ך**
+
+These are dynamically discovered occurrences anywhere in the imported Tanach.
+
+This section belongs directly beneath the unified three-part result panel.
+
+Do NOT render the full Tanach results in the left sidebar.
+
+---
+
+# PAGE ORDER
+
+Calculator desktop flow should be:
+
+1. input
+2. unified three-result calculation panel
+3. **התאמות בתנ״ך**
+4. פירוט מילים
+
+The left side continues to show:
+
+**התאמות שמורות**
+
+---
+
+# WHAT VALUE DO WE SEARCH?
+
+Tanach searching is driven by the CURRENT:
+
+**full gematria**
+
+of the calculator input.
+
+Example:
+
+Current:
+
+`410 · תי`
+
+Search the complete Tanach for every appropriate contiguous Hebrew range whose standard gematria equals:
+
+`410`
+
+Do NOT search Tanach separately for every auxiliary output in this phase.
+
+ראשי תיבות matching remains part of the existing PERSONAL saved-match engine.
+
+This new corpus search is specifically:
+
+**current full gematria → matching contiguous Tanach text**
+
+---
+
+# EXACT SEARCH TYPES
+
+Classify every Tanach match into one of three user-facing types.
+
+## 1. WHOLE WORD
+
+The selected range is exactly one complete Hebrew word.
+
+Badge:
+
+**מילה שלמה**
+
+Example concept:
+
+Current gematria = 410
+
+A Tanach word with gematria 410 is discovered.
+
+---
+
+## 2. PHRASE / MULTIPLE COMPLETE WORDS
+
+The selected range starts at the beginning of a word, ends at the end of a word, and spans TWO OR MORE complete consecutive words.
+
+Badge:
+
+**צירוף מילים**
+
+Do NOT require the match to align to a verse boundary.
+
+It may be any consecutive whole-word phrase inside one verse.
+
+---
+
+## 3. PARTIAL / CONTIGUOUS LETTER RANGE
+
+The matching range starts and/or ends inside a word.
+
+Badge:
+
+**חלק ממילה**
+
+The range may:
+
+- be part of one word;
+- start inside one word and continue through following words;
+- end inside another word.
+
+It must always be a CONTIGUOUS range of Hebrew text.
+
+---
+
+# IMPORTANT — CONTIGUOUS ONLY
+
+Do NOT search for arbitrary non-contiguous combinations of letters.
+
+Valid:
+
+letters 10–18 of a verse
+
+Invalid:
+
+letter 2 + letter 19 + letter 47 simply because their values add to the target.
+
+Only real contiguous Hebrew ranges count.
+
+---
+
+# VERSE BOUNDARY
+
+For this phase, search ranges must stay within ONE פסוק.
+
+Do NOT create matches that begin in one verse and continue into the next verse.
+
+Cross-verse matching is OUT OF SCOPE.
+
+---
+
+# SEARCH ALGORITHM
+
+Do NOT precompute every possible substring of Tanach.
+
+That would produce unnecessary storage and complexity.
+
+Standard Hebrew gematria values are strictly positive.
+
+Therefore use an efficient sliding-window/two-pointer approach over the normalized Hebrew letters of each verse.
+
+Conceptually:
+
+- total < target → advance right
+- total > target → advance left
+- total === target → record match
+
+This allows finding contiguous ranges in approximately linear time per verse/corpus scan.
+
+The implementation must return ALL valid matches subject to pagination/display limits.
+
+Overlapping valid ranges must not be incorrectly discarded.
+
+---
+
+# EXISTING TANACH REPRESENTATION
+
+Reuse the existing Tanach infrastructure.
+
+We already have:
+
+- UXLC corpus
+- normalized/countable Hebrew-letter representation
+- grapheme/base-letter mapping
+- word boundaries
+- book/chapter/verse references
+- cursor/range highlighting
+- Tanach reader
+- gematria calculation
+
+Do NOT create a second unrelated Hebrew parser.
+
+Extract/reuse shared range logic where appropriate.
+
+---
+
+# PERFORMANCE OPTIMIZATION
+
+The basic calculator result must remain instant.
+
+Tanach search runs separately.
+
+Use approximately:
+
+**300–350ms debounce**
+
+after the latest relevant calculator change.
+
+If another character is typed before the previous search completes:
+
+- cancel it where practical;
+- otherwise mark it stale;
+- NEVER allow an older result to overwrite results for the newer gematria.
+
+---
+
+# CACHE BY GEMATRIA VALUE
+
+Add server-side/in-memory caching where appropriate.
+
+If gematria:
+
+410
+
+has already been searched recently, reuse the result rather than rescanning the entire Tanach unnecessarily.
+
+Use a bounded cache strategy.
+
+Do not introduce unbounded memory growth.
+
+---
+
+# QUICK WHOLE-WORD INDEX
+
+Whole-word matches are common and should be very fast.
+
+If useful, build or reuse a lightweight Tanach word-occurrence/index structure containing conceptually:
+
+- normalized word
+- gematria
+- source verse
+- word position
+- start letter index
+- end letter index
+
+Index gematria appropriately.
+
+Then:
+
+whole-word searches can use an indexed lookup.
+
+The arbitrary contiguous-range engine can handle phrase/partial matches.
+
+Avoid returning the same exact range twice if both mechanisms discover it.
+
+Deduplicate using a stable key such as:
+
+book/division + chapter + verse + startLetter + endLetter
+
+---
+
+# DO NOT STORE EVERY POSSIBLE SUBSTRING
+
+Explicitly avoid:
+
+- one DB row per possible Tanach substring;
+- an O(n²) corpus expansion;
+- giant precomputed range tables.
+
+That is unnecessary.
+
+---
+
+# RESULT COUNT / PAGINATION
+
+Some values may have many Tanach matches, especially small gematria values.
+
+Do NOT send thousands of result cards to the browser at once.
+
+Return:
+
+- total matching count
+- counts by classification
+- bounded initial page
+- pagination/load-more support
+
+Suggested initial page:
+
+**10–20 results**
+
+Use:
+
+**הצג עוד**
+
+for additional results.
+
+Do not silently pretend the first page is the complete result set.
+
+---
+
+# SECTION HEADER
+
+When the current gematria is:
+
+410
+
+show approximately:
+
+**התאמות בתנ״ך · 27**
+
+and beneath/alongside:
+
+**410 · תי**
+
+The total count must reflect the actual matching result set.
+
+---
+
+# FILTERS
+
+Add compact filters:
+
+**הכל**
+
+**מילה שלמה**
+
+**צירוף מילים**
+
+**חלק ממילה**
+
+Show counts if practical:
+
+`הכל 27`
+
+`מילה שלמה 8`
+
+`צירוף מילים 11`
+
+`חלק ממילה 8`
+
+The filters should feel like small chips/tabs, not large navigation buttons.
+
+Switching filters must NOT trigger another full corpus scan if the data is already available/cached.
+
+---
+
+# RESULT CARD DESIGN
+
+Each Tanach result should be compact and readable.
+
+Show:
+
+### Reference
+
+Example:
+
+**דברים ו׳:ד׳**
+
+### Surrounding verse text
+
+Show enough of the original canonical verse to understand the match.
+
+The EXACT matching range should be highlighted using the same warm/gold theme used for Tanach selection.
+
+Preserve ניקוד/טעמים visually where available.
+
+### Match value
+
+Example:
+
+**410 · תי**
+
+### Type badge
+
+One of:
+
+- מילה שלמה
+- צירוף מילים
+- חלק ממילה
+
+### Actions
+
+- **שמור**
+- **פתח בתנ״ך**
+
+Keep these compact.
+
+---
+
+# SHOW ORIGINAL CONTEXT, CALCULATE NORMALIZED LETTERS
+
+The result preview should display the canonical UXLC Hebrew text with its normal punctuation/nikud/taamim as appropriate.
+
+But matching/gematria must continue to use only normalized countable Hebrew letters.
+
+The highlighted visual range must correctly map back to the original display graphemes.
+
+Do not highlight ניקוד separately.
+
+---
+
+# OPEN IN TANACH
+
+Clicking:
+
+**פתח בתנ״ך**
+
+or clicking the result itself should:
+
+1. navigate to תנ״ך;
+2. open the exact ספר / פרק / פסוק;
+3. restore/select the exact matching letter range;
+4. visibly highlight that range using the existing Tanach selection styling;
+5. calculate that range in Tanach mode.
+
+Do NOT merely open the verse without highlighting the found range.
+
+This deep-link behavior is important.
+
+---
+
+# SAVE EACH TANACH RESULT
+
+Every found Tanach match needs a:
+
+**שמור**
+
+action.
+
+The Save button saves the EXACT MATCHED RANGE.
+
+It does NOT automatically save the entire verse.
+
+Example:
+
+Verse context:
+
+`... שמע ישראל ה׳ אלהינו ...`
+
+If the matching range is:
+
+`שמע`
+
+save:
+
+`שמע`
+
+while preserving the full Tanach source context.
+
+---
+
+# SAVE DATA
+
+Reuse the EXISTING server-derived saving flow.
+
+Do NOT create a separate Tanach-results database.
+
+For a found Tanach match, persist the normal saved-entry data:
+
+- original matched text
+- normalized matched text
+- fullGematria
+- initials
+- initialsGematria
+- words
+- createdAt
+
+And Tanach context:
+
+- canonical book
+- source/navigation division
+- chapter
+- verse
+- match start letter index
+- match end letter index
+- Tanach source/version identifier where already supported
+
+Also persist/find the match classification if useful:
+
+- whole_word
+- whole_phrase
+- partial_range
+
+Do not duplicate data unnecessarily if it can be derived reliably.
+
+---
+
+# SERVER-DERIVED SAVE VALIDATION
+
+Do not trust the browser-supplied gematria total.
+
+When saving a found range:
+
+- retrieve/validate the source verse;
+- reconstruct the selected range from start/end indices;
+- recompute standard gematria on the server;
+- verify that it equals the saved value;
+- derive ראשי תיבות and associated values through existing logic.
+
+This protects data integrity.
+
+---
+
+# ALREADY-SAVED STATE
+
+Prevent accidental duplicate saves of the SAME Tanach occurrence.
+
+Uniqueness should take into account the actual selected text/range/source context rather than merely the gematria number.
+
+Two different Tanach locations with identical text/gematria may legitimately both be saved.
+
+If the exact Tanach occurrence/range is already saved:
+
+show:
+
+**כבר שמור**
+
+or the existing saved-state treatment.
+
+Do not create another identical saved occurrence.
+
+---
+
+# AFTER SAVING
+
+Once a Tanach result is saved:
+
+it becomes a normal member of the existing personal Gematria library.
+
+Therefore it can later appear in:
+
+**התאמות שמורות**
+
+like any other saved entry.
+
+Do NOT maintain a separate "Tanach favorites" silo.
+
+---
+
+# SAVED LIBRARY SOURCE
+
+When opened later in שמורים, a Tanach-derived result should still show its reference:
+
+Example:
+
+**דברים ו׳:ד׳**
+
+and, where available:
+
+פרשה context may also be shown.
+
+Do not affect ordinary manually saved entries.
+
+---
+
+# LEFT SIDEBAR SUMMARY
+
+Keep full Tanach results OUT of the left personal-match sidebar.
+
+However, at the bottom of the saved-match panel add a very small contextual link when Tanach results exist:
+
+Example:
+
+**בתנ״ך נמצאו 27 התאמות ←**
+
+Clicking it should scroll/focus the:
+
+**התאמות בתנ״ך**
+
+section underneath the calculation.
+
+This link is supplementary only.
+
+Do NOT render Tanach result cards in the sidebar.
+
+---
+
+# EMPTY / LOADING STATES
+
+While searching:
+
+use a subtle loading indicator/skeleton.
+
+Do not make the main calculator wait.
+
+If no Tanach matches exist:
+
+show a compact state such as:
+
+**לא נמצאו התאמות בתנ״ך לערך זה**
+
+Do not show an error-looking empty box.
+
+If there is a real server/search error:
+
+distinguish that from "zero matches."
+
+---
+
+# VERY SMALL GEMATRIA VALUES
+
+Small values may generate extremely large match sets.
+
+The UI and API must remain stable.
+
+Use:
+
+- pagination
+- bounded responses
+- filtering
+- caching
+
+Do not attempt to render every א in Tanach simultaneously for gematria 1.
+
+---
+
+# SEARCH RESULT ORDER
+
+Use a deterministic useful order.
+
+Preferred initial ordering:
+
+1. whole-word matches
+2. whole-phrase matches
+3. partial matches
+
+Within type:
+
+canonical Tanach order.
+
+Do not return random database order.
+
+When a filter is selected, use canonical Tanach order inside that filter.
+
+---
+
+# MATCH CLASSIFICATION RULES
+
+Use actual word-boundary metadata from the normalized verse representation.
+
+## whole_word
+
+- start = word start
+- end = same word end
+- exactly one word
+
+## whole_phrase
+
+- start = word start
+- end = word end
+- spans at least two words
+
+## partial_range
+
+everything else
+
+Do not classify based merely on whether a space appears in the selected display substring.
+
+---
+
+# MATCH TEXT / RANGE EXTRACTION
+
+When a range starts or ends inside a Hebrew word:
+
+save and show EXACTLY the selected Hebrew letters.
+
+Do not silently expand it to the full word.
+
+When a range spans spaces:
+
+preserve natural spaces in the displayed/saved text where appropriate.
+
+Spaces contribute zero.
+
+---
+
+# ראשי תיבות FOR SAVED TANACH MATCHES
+
+When a found Tanach result is SAVED, calculate ראשי תיבות using the same current rules as normal saved entries.
+
+Do not invent special Tanach-specific initials behavior.
+
+---
+
+# RESPONSIVE DESIGN
+
+## Desktop
+
+Tanach discovery results span the main calculator content width underneath the result strip.
+
+Left personal sidebar remains separate.
+
+## Tablet
+
+Reflow naturally.
+
+## Mobile
+
+Do not preserve a sidebar.
+
+Use natural order:
+
+calculator  
+results  
+personal matches  
+Tanach matches  
+word breakdown
+
+or the existing mobile ordering if already better.
+
+Tanach result cards must not produce horizontal scrolling.
+
+---
+
+# DO NOT BLOCK TYPING
+
+This is critical.
+
+When a user adds/removes a calculator letter:
+
+local gematria must still update immediately.
+
+Tanach scanning must never make input typing feel laggy.
+
+Heavy corpus work belongs on the server/background request path, not the render/input thread.
+
+---
+
+# API DESIGN
+
+Add a bounded endpoint compatible with the existing Express architecture.
+
+Conceptually something like:
+
+`GET /api/tanach/gematria-matches?value=410&type=all&page=1&limit=20`
+
+Exact route naming should match current conventions.
+
+Return enough information to render/open/save each result:
+
+- reference identifiers
+- book/division
+- chapter
+- verse
+- display verse text or bounded context
+- normalized/matched text
+- start/end letter indices
+- gematria
+- classification
+- total count
+- per-type counts
+- pagination data
+
+Do not expose internal debugging data unnecessarily.
+
+---
+
+# VALIDATION
+
+Reject invalid values safely.
+
+Do not run meaningless scans for:
+
+- empty input
+- zero
+- negative values
+- NaN
+- absurdly invalid values
+
+Use reasonable server-side validation.
+
+---
+
+# TESTS — SEARCH ENGINE
+
+Add tests for:
+
+1. exact whole-word match
+2. multi-word full-boundary phrase match
+3. partial-word match
+4. range beginning inside a word
+5. range ending inside a word
+6. overlapping valid matches where applicable
+7. no duplicate exact ranges
+8. spaces ignored
+9. punctuation ignored
+10. ניקוד ignored
+11. טעמים ignored
+12. final letters use existing standard values
+13. no cross-verse ranges
+14. classification is correct
+15. deterministic canonical ordering
+
+---
+
+# TESTS — PERFORMANCE / REQUEST BEHAVIOR
+
+Verify:
+
+1. calculator itself remains local/instant
+2. Tanach search is debounced
+3. stale response cannot replace newer value
+4. repeated same value can use cache
+5. pagination works
+6. small-value result sets do not overwhelm response/UI
+
+---
+
+# TESTS — UI
+
+Verify:
+
+1. Tanach section appears beneath unified result panel
+2. current target number is clear
+3. total result count is shown
+4. filters work
+5. highlighted matching text is correct
+6. match type badge is correct
+7. הצג עוד works
+8. personal saved-match sidebar remains separate
+9. sidebar Tanach-count shortcut scrolls to results
+10. zero-result state is distinct from error state
+
+---
+
+# TESTS — OPEN IN TANACH
+
+Verify:
+
+1. click result
+2. opens correct book
+3. correct chapter
+4. correct verse
+5. exact start/end range restored
+6. exact range highlighted
+7. Tanach calculation equals search result
+
+---
+
+# TESTS — SAVE
+
+Verify:
+
+1. save whole-word result
+2. exact word saved
+3. source reference preserved
+4. start/end indices preserved
+5. server recomputes value
+6. saved entry appears in שמורים
+7. saved entry can later appear in personal matching
+8. same exact occurrence cannot be accidentally duplicated
+9. same gematria at a different verse/location can still be saved
+10. partial-range saving preserves only selected letters
+11. phrase-range saving preserves complete selected phrase
+12. existing manual save behavior remains unchanged
+
+---
+
+# REGRESSION
+
+All existing functionality must remain working:
+
+- calculator
+- automatic Hebrew keyboard
+- three-part result strip
+- Hebrew numerals
+- ראשי תיבות
+- גימטריית ר״ת
+- personal saved matching
+- word breakdown
+- saved library
+- Tanach browser
+- drag selection
+- parsha navigation
+- Tanach saving
+- authentication/session
+- existing APIs
+
+Do not rewrite stable systems unnecessarily.
+
+---
+
+# MANUAL ACCEPTANCE FLOW
+
+Perform a real end-to-end browser test:
+
+1. Open מחשבון.
+2. Type Hebrew text.
+3. Full gematria changes instantly.
+4. Wait briefly.
+5. התאמות בתנ״ך loads.
+6. Header clearly shows target gematria and number of matches.
+7. Whole-word/phrase/partial filters have valid counts.
+8. Open a whole-word result.
+9. Correct Tanach verse opens.
+10. Exact range is highlighted.
+11. Return to calculator.
+12. Save that result.
+13. Button changes to already-saved state.
+14. Open שמורים.
+15. Saved exact range and Tanach source are present.
+16. Return to calculator.
+17. Reach the same gematria again.
+18. Newly saved Tanach discovery can participate in התאמות שמורות.
+19. Type another letter.
+20. Main calculation updates immediately.
+21. Old Tanach search request/result does not overwrite the new value.
+22. Test a low gematria value with many matches.
+23. UI remains responsive and paginated.
+24. Test a partial-word result.
+25. Open it in Tanach.
+26. Exact partial range is highlighted.
+27. Save it.
+28. Only exact selected letters are saved.
+29. Existing personal saved matching remains correct.
+
+Do not report complete unless this entire flow has been manually verified.
+
+---
+
+# OUT OF SCOPE
+
+Do NOT add:
+
+- non-contiguous letter combinations
+- cross-verse matches
+- English Tanach search
+- alternate gematria systems
+- AI interpretation of matches
+- statistical charts
+- automatic saving
+- a separate Tanach-favorites system
+- rebuilding the Tanach corpus
+- a massive precomputed substring database
+
+---
+
+# FINAL REPORT REQUIRED
+
+Report:
+
+1. search algorithm used
+2. any whole-word indexing added
+3. corpus representation reused
+4. cache strategy
+5. debounce/stale-request approach
+6. API endpoint(s)
+7. match classification logic
+8. pagination strategy
+9. result counts used in manual testing
+10. open-in-Tanach implementation
+11. exact-range save implementation
+12. duplicate-save behavior
+13. automated test results
+14. regression test results
+15. manual browser test results
+16. any genuine remaining limitations
+
+The final UX principle is:
+
+**Personal discoveries stay on the left. Global Tanach discoveries appear beneath the calculation. Every Tanach discovery can be opened and saved into the personal library.**
