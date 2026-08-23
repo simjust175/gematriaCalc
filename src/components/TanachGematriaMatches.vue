@@ -4,7 +4,7 @@
       <div class="heading-block">
         <span class="section-kicker">הדים מספריים בתנ״ך</span>
         <h2 id="matches-title">איפה עוד מופיע הערך {{ formattedTarget }}?</h2>
-        <p>חיפוש ממוקד במאגר התנ״ך, לפי הסדר הקנוני — כדי לתת למספר הקשר.</p>
+        <p>למצוא תיבות וצירופים בפסוקי התנ״ך העולים בגימטריא למספר המבוקש.</p>
       </div>
       <div class="total-mark" aria-live="polite">
         <strong>{{ allTotal.toLocaleString('he-IL') }}</strong>
@@ -15,7 +15,7 @@
     <div class="controls" role="toolbar" aria-label="סינון התאמות">
       <div class="controls-primary-row">
         <label class="result-search">
-          <span class="sr-only">חפש בתוצאות</span>
+         
           <span class="mdi mdi-magnify" aria-hidden="true"></span>
           <input
             :value="search"
