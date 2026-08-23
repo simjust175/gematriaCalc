@@ -385,8 +385,8 @@ async function saveEntry() {
   direction: rtl;
   text-align: right;
   caret-color: #C09840;
-  min-height: 190px;
-  max-height: 420px;
+  min-height: 110px;
+  max-height: 280px;
   overflow-y: auto;
 }
 
@@ -398,8 +398,8 @@ async function saveEntry() {
 
 @media (max-width: 640px) {
   .heb-input {
-    min-height: 150px;
-    max-height: 360px;
+    min-height: 110px;
+    max-height: 280px;
   }
 }
 

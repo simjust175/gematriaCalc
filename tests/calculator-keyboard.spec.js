@@ -30,7 +30,9 @@ test('automatic Hebrew keyboard maps physical keys and preserves calculator edit
   const automaticKeyboard = page.getByRole('checkbox', { name: 'מקלדת עברית אוטומטית' });
   await expect(automaticKeyboard).toBeChecked();
   await expect(page.locator('.empty-hint')).toHaveCount(0);
-  expect(await textarea.evaluate((element) => Math.round(element.getBoundingClientRect().height))).toBeGreaterThanOrEqual(190);
+  const emptyTextareaHeight = await textarea.evaluate((element) => Math.round(element.getBoundingClientRect().height));
+  expect(emptyTextareaHeight).toBeGreaterThanOrEqual(105);
+  expect(emptyTextareaHeight).toBeLessThanOrEqual(120);
 
   await textarea.focus();
   await page.keyboard.press('KeyJ');
