@@ -219,12 +219,12 @@ watch(automaticHebrewKeyboard, (enabled) => {
   }
 });
 
-// Auto-resize textarea to fit content, starting at 100px
+// Auto-resize textarea to fit content, starting at the compact input height
 function resizeTextarea() {
   const el = textareaRef.value;
   if (!el) return;
   el.style.height = 'auto';
-  el.style.height = Math.max(100, el.scrollHeight) + 'px';
+  el.style.height = Math.max(84, el.scrollHeight) + 'px';
 }
 
 function restoreCaretAfterMappedInput(textarea, selectionStart, selectionEnd) {
@@ -385,8 +385,8 @@ async function saveEntry() {
   direction: rtl;
   text-align: right;
   caret-color: #C09840;
-  min-height: 110px;
-  max-height: 280px;
+  min-height: 84px;
+  max-height: 260px;
   overflow-y: auto;
 }
 
@@ -398,8 +398,8 @@ async function saveEntry() {
 
 @media (max-width: 640px) {
   .heb-input {
-    min-height: 110px;
-    max-height: 280px;
+    min-height: 84px;
+    max-height: 260px;
   }
 }
 

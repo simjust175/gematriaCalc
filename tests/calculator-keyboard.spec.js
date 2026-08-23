@@ -31,8 +31,8 @@ test('automatic Hebrew keyboard maps physical keys and preserves calculator edit
   await expect(automaticKeyboard).toBeChecked();
   await expect(page.locator('.empty-hint')).toHaveCount(0);
   const emptyTextareaHeight = await textarea.evaluate((element) => Math.round(element.getBoundingClientRect().height));
-  expect(emptyTextareaHeight).toBeGreaterThanOrEqual(105);
-  expect(emptyTextareaHeight).toBeLessThanOrEqual(120);
+  expect(emptyTextareaHeight).toBeGreaterThanOrEqual(80);
+  expect(emptyTextareaHeight).toBeLessThanOrEqual(90);
 
   await textarea.focus();
   await page.keyboard.press('KeyJ');
