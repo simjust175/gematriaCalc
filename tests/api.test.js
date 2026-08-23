@@ -485,6 +485,66 @@ test('Tanach gematria discovery validates, paginates, filters, and preserves can
   }
 });
 
+test('Tanach gematria discovery searches only matching cards by normalized text, reference, and weekly filter', async () => {
+  const agent = request.agent(app);
+  await agent.post('/api/auth/login').send({ password: 'correct-test-password-12345' });
+
+  const tooLong = await agent.get('/api/tanach/gematria-matches').query({
+    value: 913,
+    search: 'א'.repeat(161),
+  });
+  assert.equal(tooLong.status, 400);
+  const invalidParshah = await agent.get('/api/tanach/gematria-matches').query({
+    value: 913,
+    parsha: 'bereshit',
+  });
+  assert.equal(invalidParshah.status, 400);
+
+  const pointedText = await agent.get('/api/tanach/gematria-matches').query({
+    value: 913,
+    type: 'whole_word',
+    search: 'בְּרֵאשִׁ֖ית בָּרָ֣א אֱלֹהִ֑ים אֵ֥ת הַשָּׁמַ֖יִם וְאֵ֥ת הָאָֽרֶץ׃',
+  });
+  assert.equal(pointedText.status, 200);
+  assert.ok(pointedText.body.results.length > 0);
+  assert.ok(pointedText.body.results.every(item => (
+    item.bookSlug === 'Genesis' && item.chapter === 1 && item.verse === 1
+  )));
+
+  const maqaf = await agent.get('/api/tanach/gematria-matches').query({
+    value: 52,
+    type: 'whole_word',
+    search: 'בֶּן־אָדָם',
+  });
+  assert.equal(maqaf.status, 200);
+  assert.ok(maqaf.body.results.length > 0, 'maqaf-separated words remain searchable');
+
+  const reference = await agent.get('/api/tanach/gematria-matches').query({
+    value: 913,
+    type: 'whole_word',
+    search: 'בראשית א:א',
+  });
+  assert.equal(reference.status, 200);
+  assert.ok(reference.body.results.length > 0);
+  assert.ok(reference.body.results.every(item => (
+    item.bookSlug === 'Genesis' && item.chapter === 1 && item.verse === 1
+  )));
+
+  const composed = await agent.get('/api/tanach/gematria-matches').query({
+    value: 913,
+    type: 'whole_word',
+    search: 'בראשית',
+    parsha: 'current',
+    page: 1,
+    limit: 2,
+  });
+  assert.equal(composed.status, 200);
+  assert.equal(composed.body.page, 1);
+  assert.equal(composed.body.limit, 2);
+  assert.ok(Object.hasOwn(composed.body, 'weeklyParshah'));
+  assert.ok(composed.body.results.every(item => item.type === 'whole_word'));
+});
+
 test('qere representation is identical across discovery, exact opening data, and occurrence saves', async () => {
   const agent = request.agent(app);
   await agent.post('/api/auth/login').send({ password: 'correct-test-password-12345' });

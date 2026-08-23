@@ -1,5 +1,7 @@
 import { findGematriaRanges } from './tanachGematriaSearch.js';
 import { createTanachCursor } from '../src/composables/useTanachCursor.js';
+import { toHebrewNumber } from '../src/composables/useGematria.js';
+import { getCurrentWeeklyParshah } from './tanachWeeklyParsha.js';
 
 export const MAX_GEMATRIA_TARGET = 100000;
 export const MAX_GEMATRIA_PAGE_SIZE = 50;
@@ -7,8 +9,12 @@ export const MAX_GEMATRIA_PAGE_SIZE = 50;
 const VALID_TYPES = new Set(['all', 'whole_word', 'whole_phrase', 'partial']);
 const MAX_CACHED_TARGETS = 6;
 const MAX_CACHED_MATCH_REFERENCES = 200000;
+const MAX_GEMATRIA_SEARCH_LENGTH = 160;
 const HEBREW_LETTER = /[\u05D0-\u05EA]/;
 const HEBREW_MARK = /[\u0591-\u05BD\u05BF-\u05C2\u05C4\u05C5\u05C7]/;
+const TORAH_BOOK_ORDER = new Map([
+  ['Genesis', 1], ['Exodus', 2], ['Leviticus', 3], ['Numbers', 4], ['Deuteronomy', 5],
+]);
 
 let corpusCache = null;
 const targetCache = new Map();
@@ -123,6 +129,8 @@ export function parseGematriaSearchQuery(query) {
   const type = typeof query.type === 'string' ? query.type : 'all';
   const page = query.page == null ? 1 : Number(query.page);
   const requestedLimit = query.limit == null ? 12 : Number(query.limit);
+  const search = typeof query.search === 'string' ? query.search.trim() : '';
+  const currentParshah = query.parsha === 'current';
 
   if (!Number.isSafeInteger(value) || value < 1 || value > MAX_GEMATRIA_TARGET) {
     return { error: 'invalid_gematria_value' };
@@ -134,17 +142,70 @@ export function parseGematriaSearchQuery(query) {
   if (!Number.isSafeInteger(requestedLimit) || requestedLimit < 1) {
     return { error: 'invalid_limit' };
   }
+  if (search.length > MAX_GEMATRIA_SEARCH_LENGTH) return { error: 'invalid_search' };
+  if (query.parsha != null && !currentParshah) return { error: 'invalid_parsha_filter' };
 
   return {
     value,
     type,
     page,
     limit: Math.min(requestedLimit, MAX_GEMATRIA_PAGE_SIZE),
+    search,
+    currentParshah,
   };
 }
 
+function searchKey(value = '') {
+  return String(value)
+    .normalize('NFD')
+    // Keep word boundaries stable for both pasted UXLC text and user queries.
+    // Maqaf and sof pasuq must delimit terms rather than silently joining them.
+    .replace(/[״׳"'־\u05BE\u05C3:.,/\\-]/g, ' ')
+    .replace(/[\u0591-\u05BD\u05BF-\u05C2\u05C4\u05C5\u05C7]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function verseSearchKey(verse) {
+  const hebrewText = searchKey(verse.display_text);
+  const hebrewReference = `${verse.book_name} ${toHebrewNumber(verse.chapter)} ${toHebrewNumber(verse.verse)}`;
+  const numericReference = `${verse.book_name} ${verse.chapter} ${verse.verse}`;
+  return searchKey([
+    hebrewText,
+    verse.book_name,
+    verse.book_slug,
+    hebrewReference,
+    numericReference,
+    `${verse.book_slug} ${verse.chapter} ${verse.verse}`,
+  ].join(' '));
+}
+
+function compareReference(left, right) {
+  const leftBook = TORAH_BOOK_ORDER.get(left.bookSlug);
+  const rightBook = TORAH_BOOK_ORDER.get(right.bookSlug);
+  if (leftBook !== rightBook) return (leftBook || 999) - (rightBook || 999);
+  if (left.chapter !== right.chapter) return left.chapter - right.chapter;
+  return left.verse - right.verse;
+}
+
+export function isVerseInParshah(verse, weeklyParshah) {
+  if (!weeklyParshah?.portions?.length || !TORAH_BOOK_ORDER.has(verse.book_slug)) return false;
+  const reference = { bookSlug: verse.book_slug, chapter: verse.chapter, verse: verse.verse };
+  return weeklyParshah.portions.some(portion => (
+    compareReference(reference, portion.start) >= 0 && compareReference(reference, portion.end) <= 0
+  ));
+}
+
 export async function searchTanachGematria(db, options, mayRetry = true) {
-  const { value, type, page, limit } = options;
+  const {
+    value,
+    type,
+    page,
+    limit,
+    search = '',
+    currentParshah = false,
+  } = options;
   const { corpus, revision } = await loadCorpus(db);
   let entry = targetCache.get(value);
   if (!entry) {
@@ -167,27 +228,39 @@ export async function searchTanachGematria(db, options, mayRetry = true) {
   }
   touchTarget(value, entry);
 
+  const normalizedSearch = searchKey(search);
+  const weeklyParshah = getCurrentWeeklyParshah();
   const offset = (page - 1) * limit;
   const results = [];
-  let filteredIndex = 0;
+  const counts = { all: 0, whole_word: 0, whole_phrase: 0, partial: 0 };
   for (const match of entry.matches) {
+    const verse = corpus[match.verseIndex];
+    if (normalizedSearch && !verseSearchKey(verse).includes(normalizedSearch)) continue;
+    if (currentParshah && !isVerseInParshah(verse, weeklyParshah)) continue;
+    counts.all += 1;
+    counts[match.type] += 1;
     if (type !== 'all' && match.type !== type) continue;
-    if (filteredIndex >= offset && results.length < limit) {
-      results.push(serializeMatch(corpus[match.verseIndex], match));
+    if (counts[type] - 1 >= offset && results.length < limit) {
+      results.push(serializeMatch(verse, match));
     }
-    filteredIndex += 1;
-    if (results.length === limit) break;
   }
 
-  const total = type === 'all' ? entry.counts.all : entry.counts[type];
+  const total = type === 'all' ? counts.all : counts[type];
   const response = {
     target: value,
     results,
-    counts: entry.counts,
+    counts,
     total,
     page,
     limit,
     hasMore: offset + results.length < total,
+    weeklyParshah: weeklyParshah && {
+      id: weeklyParshah.id,
+      ids: weeklyParshah.ids,
+      nameHe: weeklyParshah.nameHe,
+      isIsrael: weeklyParshah.isIsrael,
+      shabbatDate: weeklyParshah.shabbatDate,
+    },
   };
   if (mayRetry && !await ensureCurrentRevision(db, revision)) {
     return searchTanachGematria(db, options, false);

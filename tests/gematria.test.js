@@ -303,3 +303,45 @@ test('Tanach discovery clears stale targets, filters server-side, and appends pa
     live.stop();
   }
 });
+
+test('Tanach discovery scopes normalized search and weekly filters to its current target', async () => {
+  const urls = [];
+  const fetchImpl = async url => {
+    urls.push(String(url));
+    return {
+      ok: true,
+      json: async () => ({
+        results: [],
+        counts: { all: 0, whole_word: 0, whole_phrase: 0, partial: 0 },
+        total: 0,
+        page: 1,
+        limit: 12,
+        hasMore: false,
+        weeklyParshah: { id: 'ki-tavo', ids: ['ki-tavo'], nameHe: 'כי תבוא', isIsrael: true },
+      }),
+    };
+  };
+  const flush = () => new Promise(resolve => setTimeout(resolve, 0));
+  const live = useTanachGematriaMatches(ref(913), { fetchImpl, debounceMs: 0 });
+
+  try {
+    await flush();
+    live.setSearch('בְּרֵאשִׁ֖ית א:א');
+    await flush();
+    assert.match(urls.at(-1), /search=/);
+    assert.equal(new URL(urls.at(-1), 'http://example.test').searchParams.get('search'), 'בְּרֵאשִׁ֖ית א:א');
+
+    live.toggleCurrentParshah();
+    await flush();
+    assert.match(urls.at(-1), /parsha=current/);
+    assert.equal(live.currentParshah.value, true);
+    assert.equal(live.weeklyParshah.value.nameHe, 'כי תבוא');
+
+    live.toggleCurrentParshah();
+    await flush();
+    assert.doesNotMatch(urls.at(-1), /parsha=current/);
+    assert.equal(live.search.value, 'בְּרֵאשִׁ֖ית א:א', 'toggling weekly filter preserves search');
+  } finally {
+    live.stop();
+  }
+});

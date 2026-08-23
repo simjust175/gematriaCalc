@@ -11,6 +11,9 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
   const total = ref(0);
   const page = ref(1);
   const filter = ref('all');
+  const search = ref('');
+  const currentParshah = ref(false);
+  const weeklyParshah = ref(null);
   const loading = ref(false);
   const error = ref('');
   const hasMore = ref(false);
@@ -49,6 +52,8 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
         page: String(nextPage),
         limit: String(limit),
       });
+      if (search.value.trim()) params.set('search', search.value.trim());
+      if (currentParshah.value) params.set('parsha', 'current');
       const response = await fetchImpl(`/api/tanach/gematria-matches?${params}`, {
         signal: requestController.signal,
       });
@@ -61,6 +66,7 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
       total.value = Number(data.total) || 0;
       page.value = Number(data.page) || nextPage;
       hasMore.value = data.hasMore === true;
+      weeklyParshah.value = data.weeklyParshah || null;
     } catch (reason) {
       if (reason?.name !== 'AbortError' && currentId === requestId) {
         error.value = reason?.message || 'אירעה שגיאה בטעינת ההתאמות';
@@ -81,6 +87,7 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
     total.value = 0;
     page.value = 1;
     hasMore.value = false;
+    weeklyParshah.value = null;
     error.value = '';
     if (!valueOfTarget()) {
       loading.value = false;
@@ -93,6 +100,18 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
   function setFilter(nextFilter) {
     if (!FILTERS.includes(nextFilter) || filter.value === nextFilter) return;
     filter.value = nextFilter;
+    schedule();
+  }
+
+  function setSearch(nextSearch) {
+    const nextValue = String(nextSearch ?? '');
+    if (search.value === nextValue) return;
+    search.value = nextValue;
+    schedule();
+  }
+
+  function toggleCurrentParshah() {
+    currentParshah.value = !currentParshah.value;
     schedule();
   }
 
@@ -118,5 +137,8 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
   }
   if (getCurrentScope()) onScopeDispose(dispose);
 
-  return { results, counts, total, loading, error, filter, page, hasMore, setFilter, loadMore, refresh, stop: dispose };
+  return {
+    results, counts, total, loading, error, filter, search, currentParshah, weeklyParshah,
+    page, hasMore, setFilter, setSearch, toggleCurrentParshah, loadMore, refresh, stop: dispose,
+  };
 }

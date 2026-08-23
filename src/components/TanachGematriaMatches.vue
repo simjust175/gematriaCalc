@@ -13,6 +13,28 @@
     </header>
 
     <div class="controls" role="toolbar" aria-label="סינון התאמות">
+      <label class="result-search">
+        <span class="sr-only">חפש בתוצאות</span>
+        <span class="mdi mdi-magnify" aria-hidden="true"></span>
+        <input
+          :value="search"
+          type="search"
+          inputmode="search"
+          autocomplete="off"
+          placeholder="חפש בתוצאות — מילה, פסוק או מראה מקום..."
+          @input="setSearch($event.target.value)"
+        >
+      </label>
+      <button
+        type="button"
+        class="parshah-filter"
+        :class="{ active: currentParshah }"
+        :aria-pressed="currentParshah"
+        @click="toggleCurrentParshah"
+      >
+        פרשת השבוע
+        <span v-if="currentParshah && weeklyParshah">{{ weeklyParshah.nameHe }}</span>
+      </button>
       <div class="filter-list" role="group" aria-label="סוג התאמה">
         <button
           v-for="item in filterOptions"
@@ -27,6 +49,10 @@
         </button>
       </div>
     </div>
+    <p v-if="weeklyParshah" class="parshah-note">
+      פרשת השבוע: <strong>{{ weeklyParshah.nameHe }}</strong>
+      <span v-if="currentParshah"> · {{ total.toLocaleString('he-IL') }} התאמות</span>
+    </p>
 
     <div v-if="loading && !results.length" class="match-grid" aria-label="טוען התאמות" aria-busy="true">
       <article v-for="n in 3" :key="n" class="match-card skeleton-card">
@@ -41,8 +67,8 @@
     </div>
     <div v-else-if="!results.length" class="state-card empty-state">
       <span class="empty-rule" aria-hidden="true"></span>
-      <strong>לא נמצאו התאמות מהסוג הזה</strong>
-      <span>אפשר לבחור סיווג אחר או להמשיך לחקור ערך חדש במחשבון.</span>
+      <strong>{{ currentParshah ? 'אין התאמות בפרשת השבוע' : search ? 'לא נמצאו התאמות בחיפוש זה' : 'לא נמצאו התאמות מהסוג הזה' }}</strong>
+      <span>{{ currentParshah ? 'אפשר להסיר את סינון פרשת השבוע או לשנות את החיפוש.' : 'אפשר לבחור סיווג אחר או להמשיך לחקור ערך חדש במחשבון.' }}</span>
     </div>
     <div v-else class="match-grid" aria-live="polite">
       <article v-for="(result, index) in results" :key="resultKey(result)" class="match-card">
@@ -101,7 +127,10 @@ const filterOptions = [
   { value: 'whole_phrase', label: 'צירוף שלם' },
   { value: 'partial', label: 'חלק ממילה' },
 ];
-const { results, counts, total, loading, error, filter, hasMore, setFilter, loadMore, refresh } =
+const {
+  results, counts, total, loading, error, filter, search, currentParshah, weeklyParshah,
+  hasMore, setFilter, setSearch, toggleCurrentParshah, loadMore, refresh,
+} =
   useTanachGematriaMatches(computed(() => props.target));
 
 const formattedTarget = computed(() => Number(props.target || 0).toLocaleString('he-IL'));
@@ -162,12 +191,22 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .total-mark { min-width: 86px; text-align: left; }
 .total-mark strong { display: block; font-size: 1.65rem; font-variant-numeric: tabular-nums; color: #96732b; }
 .total-mark span { color: var(--text-secondary, #74716a); font-size: .7rem; }
-.controls { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 8px; }
+.result-search { display: flex; align-items: center; gap: 6px; min-width: min(100%, 250px); padding: 0 9px; border: 1px solid var(--border, #e8e1d5); border-radius: 7px; background: #fff; color: #887a63; }
+.result-search:focus-within { border-color: #c09840; box-shadow: 0 0 0 3px rgba(192,152,64,.12); }
+.result-search input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--navy, #1a2744); font: inherit; font-size: .76rem; line-height: 31px; }
+.result-search input::placeholder { color: #9a958c; opacity: 1; }
+.parshah-filter { border: 1px solid var(--border, #e8e1d5); background: #fff; color: var(--navy, #1a2744); border-radius: 7px; padding: 7px 10px; font: inherit; font-size: .74rem; cursor: pointer; transition: background .16s, color .16s, border-color .16s, transform .16s; }
+.parshah-filter:hover { transform: translateY(-1px); border-color: #c09840; }
+.parshah-filter.active { background: var(--gold-light, #f6edda); color: #765812; border-color: #d4b96c; font-weight: 700; }
+.parshah-filter span { margin-inline-start: 4px; opacity: .78; }
 .filter-list { display: flex; flex-wrap: wrap; gap: 6px; }
 .filter-list button, .load-more, .card-actions button { border: 1px solid var(--border, #e8e1d5); background: #fff; color: var(--navy, #1a2744); border-radius: 7px; padding: 7px 10px; font: inherit; font-size: .74rem; cursor: pointer; transition: background .16s, color .16s, border-color .16s, transform .16s; }
 .filter-list button:hover, .card-actions button:hover:not(:disabled), .load-more:hover { transform: translateY(-1px); border-color: #c09840; }
 .filter-list button.active { background: var(--gold-light, #f6edda); color: #765812; border-color: #d4b96c; font-weight: 700; }
 .filter-list button span { margin-inline-start: 4px; opacity: .7; font-variant-numeric: tabular-nums; }
+.parshah-note { margin: 0 0 13px; color: var(--text-secondary, #74716a); font-size: .73rem; }
+.parshah-note strong { color: #87671f; }
 .match-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .match-card { display: flex; flex-direction: column; min-height: 190px; padding: 14px 15px 12px; border: 1px solid var(--border, #e8e1d5); border-radius: 10px; background: #fff; box-shadow: 0 2px 10px rgba(26,39,68,.035); transition: transform .18s, box-shadow .18s; }
 .match-card:hover { transform: translateY(-2px); box-shadow: 0 7px 18px rgba(26,39,68,.08); }
@@ -198,5 +237,5 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .load-more { display: flex; align-items: center; gap: 7px; margin: 16px auto 0; padding-inline: 16px; }
 @keyframes breathe { from { opacity: .45; } to { opacity: 1; } }
 @media (max-width: 820px) { .match-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 560px) { .discovery-header { align-items: flex-start; }.match-grid { grid-template-columns: 1fr; }.total-mark { min-width: 60px; }.total-mark strong { font-size: 1.25rem; } }
+@media (max-width: 560px) { .discovery-header { align-items: flex-start; }.match-grid { grid-template-columns: 1fr; }.total-mark { min-width: 60px; }.total-mark strong { font-size: 1.25rem; }.result-search { order: -1; flex-basis: 100%; } }
 </style>

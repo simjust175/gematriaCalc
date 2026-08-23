@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { computeAll } from '../src/composables/useGematria.js';
 import { createTanachCursor, normalizeTanachSelection, tanachRangeText } from '../src/composables/useTanachCursor.js';
 import { TANACH_PARSHIOT } from '../server/tanachParshiot.js';
+import { getCurrentWeeklyParshah, isIsraelParshahSchedule } from '../server/tanachWeeklyParsha.js';
+import { isVerseInParshah } from '../server/tanachGematriaDiscovery.js';
 
 const GENESIS_1_1 = 'בְּרֵאשִׁ֖ית בָּרָ֣א אֱלֹהִ֑ים אֵ֥ת הַשָּׁמַ֖יִם וְאֵ֥ת הָאָֽרֶץ׃';
 
@@ -68,4 +70,34 @@ test('canonical Torah portion metadata contains 54 individually ordered portions
   assert.deepEqual(TANACH_PARSHIOT.find(parsha => parsha.id === 'lech-lecha').start, {
     bookSlug: 'Genesis', chapter: 12, verse: 1,
   });
+});
+
+test('weekly parashah resolver uses Israel by default and returns both parts of a double portion', () => {
+  const weekly = getCurrentWeeklyParshah({
+    date: new Date('2024-07-28T12:00:00Z'),
+    isIsrael: true,
+  });
+  assert.equal(isIsraelParshahSchedule(), true);
+  assert.deepEqual(weekly.ids, ['matot', 'masei']);
+  assert.equal(weekly.nameHe, 'מטות–מסעי');
+  assert.equal(weekly.shabbatDate, '2024-08-03');
+});
+
+test('weekly parashah ranges include their exact boundaries and exclude adjacent verses', () => {
+  const weekly = getCurrentWeeklyParshah({
+    date: new Date('2024-07-28T12:00:00Z'),
+    isIsrael: true,
+  });
+  assert.equal(isVerseInParshah({ book_slug: 'Numbers', chapter: 30, verse: 2 }, weekly), true);
+  assert.equal(isVerseInParshah({ book_slug: 'Numbers', chapter: 36, verse: 13 }, weekly), true);
+  assert.equal(isVerseInParshah({ book_slug: 'Numbers', chapter: 30, verse: 1 }, weekly), false);
+  assert.equal(isVerseInParshah({ book_slug: 'Deuteronomy', chapter: 1, verse: 1 }, weekly), false);
+});
+
+test('weekly parashah resolver supports divergent Israel and Diaspora schedules', () => {
+  const date = new Date('2026-05-17T12:00:00Z');
+  const israel = getCurrentWeeklyParshah({ date, isIsrael: true });
+  const diaspora = getCurrentWeeklyParshah({ date, isIsrael: false });
+  assert.equal(israel.id, 'naso');
+  assert.equal(diaspora, null, 'Diaspora schedule has a festival Shabbat on this date');
 });

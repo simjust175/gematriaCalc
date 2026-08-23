@@ -16,6 +16,7 @@
     "import:tanach": "node scripts/import-tanach.js"
   },
   "dependencies": {
+    "@hebcal/core": "^6.9.2",
     "@mdi/font": "7.4.47",
     "concurrently": "^9.2.4",
     "connect-pg-simple": "^10.0.0",
