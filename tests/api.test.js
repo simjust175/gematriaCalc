@@ -23,6 +23,7 @@ process.env.APP_PASSWORD    = 'correct-test-password-12345';
 
 // Import app AFTER env vars are set
 const { app } = await import('../server/app.js');
+const { pool } = await import('../server/db.js');
 
 // ── Unauthenticated access ────────────────────────────────────────────────────
 
@@ -108,6 +109,11 @@ test('GET /api/auth/check returns authenticated=true after login', async () => {
     .set('Cookie', cookie);
   assert.equal(checkRes.status, 200);
   assert.equal(checkRes.body.authenticated, true);
+
+  const storedSessions = await pool.query(
+    `SELECT COUNT(*)::int AS count FROM "session" WHERE sess->>'authenticated' = 'true'`
+  );
+  assert.ok(storedSessions.rows[0].count > 0, 'authenticated session should be stored in PostgreSQL');
 });
 
 // ── Authenticated access to protected routes ──────────────────────────────────

@@ -4,6 +4,7 @@
  */
 import express from 'express';
 import session from 'express-session';
+import connectPgSimple from 'connect-pg-simple';
 import { pool } from './db.js';
 import { computeAll, normalize } from '../src/composables/useGematria.js';
 import { createTanachCursor } from '../src/composables/useTanachCursor.js';
@@ -18,18 +19,26 @@ import {
 } from './readiness.js';
 
 export const app = express();
+const PostgresSessionStore = connectPgSimple(session);
 
 // ── Middleware ───────────────────────────────────────────────────────────────
 
+// The deployment terminates TLS before forwarding requests to the app. Trusting
+// that proxy lets secure session cookies be issued in production.
+app.set('trust proxy', 1);
 app.use(express.json());
 app.use(requireApplicationReady);
 
-// Session — signed with SESSION_SECRET, httpOnly, sameSite strict.
-// No external CORS headers: all API access is same-origin through the Vite proxy.
+// Sessions live in PostgreSQL so autoscaled instances share the same login
+// state. No external CORS headers: all API access is same-origin through Vite.
 app.use(session({
   secret: process.env.SESSION_SECRET || (() => {
     throw new Error('SESSION_SECRET environment variable must be set');
   })(),
+  store: new PostgresSessionStore({
+    pool,
+    createTableIfMissing: true,
+  }),
   resave: false,
   saveUninitialized: false,
   cookie: {

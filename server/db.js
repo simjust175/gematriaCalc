@@ -188,5 +188,5 @@ export async function needsTanachRepresentationImport(db = pool) {
      JOIN tanach_sources s ON s.id = v.source_id`
   );
   const row = result.rows[0];
-  return row.verse_count > 0 && row.representation_version < UXLC_REPRESENTATION_VERSION;
+  return row.verse_count === 0 || row.representation_version < UXLC_REPRESENTATION_VERSION;
 }
