@@ -1,0 +1,284 @@
+# SAVED MATCHES — MAKE WORD-WITHIN-PHRASE MATCHES INSTANTLY CLEAR
+
+The saved matching system is working.
+
+However, when a saved phrase appears because **only one word inside that saved phrase matches the current gematria**, it is not immediately obvious WHY the phrase appeared.
+
+We need to make this completely clear while preserving the current clean, premium visual design.
+
+## IMPORTANT
+
+Do NOT redesign the saved-match panel.
+
+Do NOT make cards taller than necessary.
+
+Do NOT add long explanatory text.
+
+Do NOT change:
+
+* matching logic
+* gematria calculations
+* saved data
+* database queries
+* card layout structure unnecessarily
+* overall color palette
+* fonts
+* spacing system
+* other match types
+
+This is a focused visual-clarity refinement.
+
+---
+
+# CORE IDEA
+
+When a saved phrase appears because an INDIVIDUAL WORD inside it matches the current gematria:
+
+1. clearly identify the match type
+2. visually highlight the exact matching word inside the saved phrase
+3. show the matching word/value once in compact metadata
+
+The user should understand the reason for the match in less than one second.
+
+---
+
+# MATCH TYPE LABEL
+
+For a word-within-phrase match, use:
+
+**התאמה בתיבה**
+
+This should appear as a small refined badge/pill.
+
+Do NOT use:
+
+מילה שמורה
+
+because the individual word was not necessarily saved separately.
+
+The saved object is the complete phrase; one תיבה inside it is what matched.
+
+---
+
+# HIGHLIGHT THE EXACT MATCHING WORD
+
+This is the most important change.
+
+Example saved phrase:
+
+קולי שמע וראה דמע
+
+Suppose:
+
+קולי = 146
+
+and the current live gematria = 146.
+
+Display the complete saved phrase, but visually highlight ONLY:
+
+**קולי**
+
+Use the same restrained pale-gold highlight language already used for matching words in the Tanach result cards.
+
+Do NOT:
+
+* highlight the whole phrase
+* use bright yellow
+* use a heavy border
+* change text size dramatically
+* underline every match
+
+The highlight should feel elegant and integrated.
+
+---
+
+# COMPACT MATCH DETAIL
+
+Below or beside the phrase, show a subtle secondary line:
+
+**תיבה מתאימה: קולי · 146**
+
+The exact styling should remain compact.
+
+Suggested hierarchy:
+
+Saved phrase — strongest
+
+Badge:
+התאמה בתיבה
+
+Small secondary metadata:
+תיבה מתאימה: קולי · 146
+
+Do not repeat unnecessary information elsewhere on the card.
+
+---
+
+# VISUAL EXAMPLE
+
+Conceptually:
+
+קולי שמע וראה דמע
+
+[ התאמה בתיבה ]
+
+תיבה מתאימה: קולי · 146
+
+where the word:
+
+קולי
+
+inside the phrase itself receives a subtle gold background highlight.
+
+Do NOT literally reproduce this as stacked oversized text; fit it elegantly into the current card design.
+
+---
+
+# OTHER MATCH TYPES
+
+Keep other match types visually distinct.
+
+Suggested labels remain:
+
+* **גימטריה מלאה**
+* **התאמה בתיבה**
+* **ראשי תיבות**
+* **גימטריית ר״ת**
+
+Every result should make the match reason clear.
+
+---
+
+# MULTIPLE MATCHING WORDS
+
+If more than one word inside the same saved phrase matches the current gematria:
+
+* render the saved phrase only ONCE
+* highlight all matching words
+* do not create duplicate cards
+
+Example:
+
+If two words inside a saved phrase both equal the current value, both matching words may receive the subtle highlight.
+
+The metadata may say:
+
+**תיבות מתאימות: ...**
+
+instead of creating separate result cards.
+
+---
+
+# MULTIPLE MATCH TYPES
+
+A saved phrase may also match through more than one mechanism.
+
+Example:
+
+* full gematria
+* and a word inside it
+* and/or ראשי תיבות
+
+Do NOT duplicate the saved card.
+
+Show one saved result with the appropriate compact badges.
+
+Example:
+
+[ גימטריה מלאה ] [ התאמה בתיבה ]
+
+or:
+
+[ התאמה בתיבה ] [ גימטריית ר״ת ]
+
+Only highlight individual words when a word-level match actually exists.
+
+---
+
+# FULL-GEMATRIA MATCH
+
+If the entire saved phrase matches the current gematria, do NOT highlight one arbitrary word.
+
+Show:
+
+**גימטריה מלאה**
+
+and preserve the phrase normally.
+
+---
+
+# ראשי תיבות MATCH
+
+If the match is caused by saved ראשי תיבות, do NOT highlight an ordinary word unless there is ALSO an independent word match.
+
+Use the existing ראשי תיבות / גימטריית ר״ת badge instead.
+
+---
+
+# CONSISTENCY WITH TANACH RESULTS
+
+Reuse the visual language already used in the Tanach result cards for highlighting matched text:
+
+* pale warm gold background
+* subtle radius
+* dark readable text
+* no strong outline
+* no saturated colors
+
+This will make the two parts of the product feel intentionally connected.
+
+---
+
+# SAVED LIBRARY
+
+Do NOT permanently highlight words on the normal שמורים library page merely because they could match some number.
+
+The highlight is contextual.
+
+It should appear when displaying a saved entry as a LIVE MATCH to the current calculation.
+
+Normal library browsing remains unchanged unless the card is being shown specifically in a match context.
+
+---
+
+# ACCESSIBILITY
+
+Do not communicate match type using color alone.
+
+The textual badge:
+
+התאמה בתיבה
+
+must remain visible.
+
+Highlighted text must retain sufficient contrast.
+
+---
+
+# ACCEPTANCE TEST
+
+Use a saved phrase containing multiple words.
+
+Example concept:
+
+קולי שמע וראה דמע
+
+with:
+
+קולי = 146
+
+Then:
+
+1. enter text whose current full gematria becomes 146
+2. the saved phrase appears
+3. the card clearly says התאמה בתיבה
+4. the exact word קולי is visibly highlighted inside the phrase
+5. the card displays תיבה מתאימה: קולי · 146
+6. change the live gematria away from 146
+7. that match disappears normally
+8. no duplicate cards are introduced
+9. full-gematria, ראשי תיבות, and גימטריית ר״ת match displays still work unchanged
+
+Also verify a case where one saved phrase has multiple simultaneous match reasons and ensure it renders only once.
+
+Do not perform unrelated refactors.

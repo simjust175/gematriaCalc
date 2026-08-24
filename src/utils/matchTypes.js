@@ -12,7 +12,7 @@ export const MATCH_TYPE_META = Object.freeze({
     badgeClass: 'match-badge--initials-gematria',
   }),
   saved_word: Object.freeze({
-    label: 'מילה שמורה',
+    label: 'התאמה בתיבה',
     badgeClass: 'match-badge--word',
   }),
 });

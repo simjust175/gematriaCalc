@@ -164,7 +164,7 @@ test('match type identifiers map to explicit Hebrew badge labels', () => {
   assert.equal(getMatchTypeMeta('full_gematria').label, 'גימטריה מלאה');
   assert.equal(getMatchTypeMeta('initials_text').label, 'ראשי תיבות');
   assert.equal(getMatchTypeMeta('initials_gematria').label, 'גימטריית ר״ת');
-  assert.equal(getMatchTypeMeta('saved_word').label, 'מילה שמורה');
+  assert.equal(getMatchTypeMeta('saved_word').label, 'התאמה בתיבה');
 });
 
 test('live matching clears old reasons and ignores stale A → B → A responses', async () => {
