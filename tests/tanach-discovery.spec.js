@@ -49,38 +49,56 @@ test('changing target clears stale cards immediately and load more appends serve
   await expect(discovery.locator('.match-card:not(.skeleton-card)')).toHaveCount(24);
 });
 
-test('calculator discovery navigates by Chumash and parashah while preserving the weekly shortcut', async ({ page }, testInfo) => {
+test('calculator discovery navigates Tanach scopes with accessible listboxes while preserving the weekly shortcut', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-chromium');
   await login(page);
   await page.locator('.heb-input').fill('יהוה');
 
   const discovery = page.locator('.gematria-discovery');
-  const chumash = discovery.getByLabel('בחירת חומש');
-  const parshah = discovery.getByLabel('בחירת פרשה');
-  await expect(chumash).toBeEnabled();
-  await chumash.selectOption('Genesis');
-  await expect(parshah.locator('option[value="vayetze"]')).toHaveText('ויצא');
-  await expect(parshah.locator('option[value="yitro"]')).toHaveCount(0);
-  await parshah.selectOption('vayetze');
+  const book = discovery.getByRole('combobox', { name: 'ספר', exact: true });
+  await expect(book).toBeEnabled();
+  await book.click();
+  await expect(page.getByRole('listbox')).toBeVisible();
+  await book.press('End');
+  await book.press('Escape');
+  await expect(book).toHaveAttribute('aria-expanded', 'false');
+
+  await book.click();
+  await page.getByRole('option', { name: 'בראשית', exact: true }).click();
+  const parshah = discovery.getByRole('combobox', { name: 'פרשה', exact: true });
+  await expect(parshah).toBeVisible();
+  await parshah.click();
+  await expect(page.getByRole('option', { name: 'ויצא', exact: true })).toBeVisible();
+  await expect(page.getByRole('option', { name: 'יתרו', exact: true })).toHaveCount(0);
+  await page.getByRole('option', { name: 'ויצא', exact: true }).click();
   await expect(discovery.locator('.match-card:not(.skeleton-card)').first()).toBeVisible();
   await expect(discovery.locator('.citation strong').first()).toContainText('בראשית');
 
   const weekly = discovery.getByRole('button', { name: /פרשת השבוע/ });
   await weekly.click();
   await expect(weekly).toHaveAttribute('aria-pressed', 'true');
-  await expect(chumash).toHaveValue('');
-  await expect(parshah).toHaveValue('');
-  await chumash.selectOption('Genesis');
+  await expect(book).toContainText('כל התנ״ך');
+  await expect(parshah).toHaveCount(0);
+  await book.click();
+  await page.getByRole('option', { name: 'ישעיהו', exact: true }).click();
   await expect(weekly).toHaveAttribute('aria-pressed', 'false');
-  await expect(parshah).toHaveValue('');
+  const chapter = discovery.getByRole('combobox', { name: 'פרק', exact: true });
+  await expect(chapter).toBeVisible();
+  await chapter.click();
+  await page.getByRole('option', { name: 'פרק מ', exact: true }).click();
+  const verse = discovery.getByRole('combobox', { name: 'פסוק', exact: true });
+  await expect(verse).toBeVisible();
+  await verse.click();
+  await page.getByRole('option', { name: 'פסוק ג', exact: true }).click();
+  await expect(discovery.locator('.citation strong').first()).toContainText('ישעיהו מ:ג');
 });
 
-test('Chumash and parashah selectors do not overflow on mobile', async ({ page }, testInfo) => {
+test('Tanach listbox selectors do not overflow on mobile', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-chromium');
   await page.setViewportSize({ width: 390, height: 844 });
   await login(page);
   await page.locator('.heb-input').fill('יהוה');
   const discovery = page.locator('.gematria-discovery');
-  await expect(discovery.getByLabel('בחירת חומש')).toBeEnabled();
+  await expect(discovery.getByRole('combobox', { name: 'ספר', exact: true })).toBeEnabled();
   expect(await discovery.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
 });

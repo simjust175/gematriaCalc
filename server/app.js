@@ -12,6 +12,7 @@ import { parshaSearchKey } from './tanachParshiot.js';
 import {
   parseGematriaSearchQuery,
   searchTanachGematria,
+  validateTanachGematriaScope,
 } from './tanachGematriaDiscovery.js';
 import {
   isApplicationReady,
@@ -132,9 +133,15 @@ app.get('/api/tanach/books', requireAuth, async (_req, res) => {
     const canonicalMap = new Map();
     for (const segment of booksResult.rows) {
       if (!canonicalMap.has(segment.canonical_order)) {
+        const section = segment.canonical_order <= 5
+          ? { id: 'torah', name_he: 'תורה' }
+          : segment.canonical_order <= 13
+            ? { id: 'prophets', name_he: 'נביאים' }
+            : { id: 'writings', name_he: 'כתובים' };
         canonicalMap.set(segment.canonical_order, {
           order: segment.canonical_order,
           name: segment.canonical_name,
+          section,
           segments: [],
         });
       }
@@ -334,6 +341,8 @@ app.get('/api/tanach/gematria-matches', requireAuth, async (req, res) => {
   if (parsed.error) return res.status(400).json({ error: parsed.error });
 
   try {
+    const scopeError = await validateTanachGematriaScope(pool, parsed);
+    if (scopeError) return res.status(400).json({ error: scopeError });
     res.json(await searchTanachGematria(pool, parsed));
   } catch (err) {
     console.error('/api/tanach/gematria-matches error:', err.message);

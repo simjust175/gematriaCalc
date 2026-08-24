@@ -49,7 +49,8 @@ async function loadCorpus(db) {
   if (!corpusCache || corpusCache.revision !== revision) {
     targetCache.clear();
     const promise = db.query(
-      `SELECT v.book_slug, b.hebrew_name AS book_name, v.chapter, v.verse, v.display_text
+      `SELECT v.book_slug, b.hebrew_name AS book_name, b.canonical_order,
+              v.chapter, v.verse, v.display_text
        FROM tanach_verses v
        JOIN tanach_books b ON b.slug = v.book_slug
        ORDER BY b.canonical_order, b.segment_order, v.chapter, v.verse`
@@ -136,6 +137,11 @@ export function parseGematriaSearchQuery(query) {
   const requestedChumash = typeof query.chumash === 'string' ? query.chumash : '';
   const chumash = requestedChumash === 'all' ? '' : requestedChumash;
   const parshaId = typeof query.parsha_id === 'string' ? query.parsha_id : '';
+  const requestedBookOrder = query.book_order == null ? '' : query.book_order;
+  const bookOrder = requestedBookOrder === '' ? 0 : Number(requestedBookOrder);
+  const chapterBook = typeof query.chapter_book === 'string' ? query.chapter_book : '';
+  const chapter = query.chapter == null ? 0 : Number(query.chapter);
+  const verseNumber = query.verse == null ? 0 : Number(query.verse);
 
   if (!Number.isSafeInteger(value) || value < 1 || value > MAX_GEMATRIA_TARGET) {
     return { error: 'invalid_gematria_value' };
@@ -151,12 +157,31 @@ export function parseGematriaSearchQuery(query) {
   if (query.parsha != null && !currentParshah) return { error: 'invalid_parsha_filter' };
   if (query.chumash != null && typeof query.chumash !== 'string') return { error: 'invalid_chumash_filter' };
   if (chumash && !TORAH_BOOK_ORDER.has(chumash)) return { error: 'invalid_chumash_filter' };
+  if (query.book_order != null && (!Number.isSafeInteger(bookOrder) || bookOrder < 1 || bookOrder > 24)) {
+    return { error: 'invalid_book_filter' };
+  }
+  if (query.chapter_book != null && (typeof query.chapter_book !== 'string' || !chapterBook)) {
+    return { error: 'invalid_chapter_filter' };
+  }
+  if (query.chapter != null && (!Number.isSafeInteger(chapter) || chapter < 1)) {
+    return { error: 'invalid_chapter_filter' };
+  }
+  if (query.verse != null && (!Number.isSafeInteger(verseNumber) || verseNumber < 1)) {
+    return { error: 'invalid_verse_filter' };
+  }
+  if ((chapterBook && !chapter) || (chapter && !chapterBook) || (verseNumber && !chapter)) {
+    return { error: 'invalid_chapter_filter' };
+  }
   if (query.parsha_id != null && typeof query.parsha_id !== 'string') return { error: 'invalid_parsha_filter' };
   if (parshaId && !PARSHAH_BY_ID.has(parshaId)) return { error: 'invalid_parsha_filter' };
   if (parshaId && chumash && PARSHAH_BY_ID.get(parshaId).start.bookSlug !== chumash) {
     return { error: 'invalid_parsha_filter' };
   }
-  if (currentParshah && (chumash || parshaId)) return { error: 'invalid_parsha_filter' };
+  const parshaBookOrder = parshaId ? TORAH_BOOK_ORDER.get(PARSHAH_BY_ID.get(parshaId).start.bookSlug) : 0;
+  if (parshaId && bookOrder && parshaBookOrder !== bookOrder) return { error: 'invalid_parsha_filter' };
+  if (currentParshah && (chumash || parshaId || bookOrder || chapterBook || chapter || verseNumber)) {
+    return { error: 'invalid_parsha_filter' };
+  }
 
   return {
     value,
@@ -167,7 +192,45 @@ export function parseGematriaSearchQuery(query) {
     currentParshah,
     chumash,
     parshaId,
+    bookOrder: bookOrder || (chumash ? TORAH_BOOK_ORDER.get(chumash) : 0),
+    chapterBook,
+    chapter,
+    verse: verseNumber,
   };
+}
+
+export async function validateTanachGematriaScope(db, options) {
+  const { bookOrder, chapterBook, chapter, verse: verseNumber } = options;
+  if (!bookOrder && !chapterBook) return null;
+
+  if (bookOrder) {
+    const canonicalBook = await db.query(
+      'SELECT 1 FROM tanach_books WHERE canonical_order = $1 LIMIT 1',
+      [bookOrder]
+    );
+    if (!canonicalBook.rows.length) return 'invalid_book_filter';
+  }
+
+  if (!chapterBook) return null;
+  const segment = await db.query(
+    'SELECT canonical_order FROM tanach_books WHERE slug = $1 LIMIT 1',
+    [chapterBook]
+  );
+  if (!segment.rows.length || (bookOrder && segment.rows[0].canonical_order !== bookOrder)) {
+    return 'invalid_chapter_filter';
+  }
+
+  const reference = await db.query(
+    `SELECT 1
+     FROM tanach_verses
+     WHERE book_slug = $1
+       AND chapter = $2
+       AND ($3::int = 0 OR verse = $3)
+     LIMIT 1`,
+    [chapterBook, chapter, verseNumber]
+  );
+  if (reference.rows.length) return null;
+  return verseNumber ? 'invalid_verse_filter' : 'invalid_chapter_filter';
 }
 
 function searchKey(value = '') {
@@ -222,6 +285,10 @@ export async function searchTanachGematria(db, options, mayRetry = true) {
     currentParshah = false,
     chumash = '',
     parshaId = '',
+    bookOrder = 0,
+    chapterBook = '',
+    chapter = 0,
+    verse: verseNumber = 0,
   } = options;
   const { corpus, revision } = await loadCorpus(db);
   let entry = targetCache.get(value);
@@ -255,6 +322,10 @@ export async function searchTanachGematria(db, options, mayRetry = true) {
     const verse = corpus[match.verseIndex];
     if (normalizedSearch && !verseSearchKey(verse).includes(normalizedSearch)) continue;
     if (chumash && verse.book_slug !== chumash) continue;
+    if (bookOrder && verse.canonical_order !== bookOrder) continue;
+    if (chapterBook && verse.book_slug !== chapterBook) continue;
+    if (chapter && verse.chapter !== chapter) continue;
+    if (verseNumber && verse.verse !== verseNumber) continue;
     if (manualParshah && !isVerseInParshah(verse, { portions: [manualParshah] })) continue;
     if (currentParshah && !isVerseInParshah(verse, weeklyParshah)) continue;
     counts.all += 1;

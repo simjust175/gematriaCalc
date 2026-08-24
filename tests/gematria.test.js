@@ -346,7 +346,7 @@ test('Tanach discovery scopes normalized search and weekly filters to its curren
   }
 });
 
-test('Tanach discovery composes manual Chumash and parashah scopes with the weekly shortcut', async () => {
+test('Tanach discovery composes book, parashah, chapter, and verse scopes with the weekly shortcut', async () => {
   const urls = [];
   const fetchImpl = async url => {
     urls.push(String(url));
@@ -368,38 +368,46 @@ test('Tanach discovery composes manual Chumash and parashah scopes with the week
 
   try {
     await flush();
-    live.setChumash('Genesis');
+    live.setBookOrder(1);
     await flush();
     let params = new URL(urls.at(-1), 'http://example.test').searchParams;
-    assert.equal(params.get('chumash'), 'Genesis');
+    assert.equal(params.get('book_order'), '1');
     assert.equal(params.get('parsha_id'), null);
     assert.equal(live.currentParshah.value, false);
 
     live.setParshaId('vayetze');
     await flush();
     params = new URL(urls.at(-1), 'http://example.test').searchParams;
-    assert.equal(params.get('chumash'), 'Genesis');
+    assert.equal(params.get('book_order'), '1');
     assert.equal(params.get('parsha_id'), 'vayetze');
 
-    live.setChumash('Exodus');
+    live.setBookOrder(10);
     await flush();
     params = new URL(urls.at(-1), 'http://example.test').searchParams;
-    assert.equal(live.parshaId.value, '', 'changing Chumash resets an invalid parashah');
-    assert.equal(params.get('chumash'), 'Exodus');
+    assert.equal(live.parshaId.value, '', 'changing book resets an invalid parashah');
+    assert.equal(params.get('book_order'), '10');
     assert.equal(params.get('parsha_id'), null);
 
-    live.setChumash('');
+    live.setChapter('Isaiah', 40);
     await flush();
     params = new URL(urls.at(-1), 'http://example.test').searchParams;
-    assert.equal(params.get('chumash'), null, 'all Chumashim omits the book scope');
+    assert.equal(params.get('chapter_book'), 'Isaiah');
+    assert.equal(params.get('chapter'), '40');
+    assert.equal(params.get('verse'), null);
 
-    live.setParshaId('vayetze');
+    live.setVerse(3);
+    await flush();
+    params = new URL(urls.at(-1), 'http://example.test').searchParams;
+    assert.equal(params.get('verse'), '3');
+
     await flush();
     live.toggleCurrentParshah();
     await flush();
     params = new URL(urls.at(-1), 'http://example.test').searchParams;
-    assert.equal(live.chumash.value, '');
+    assert.equal(live.bookOrder.value, 0);
     assert.equal(live.parshaId.value, '');
+    assert.equal(live.chapter.value, 0);
+    assert.equal(live.verse.value, 0);
     assert.equal(params.get('parsha'), 'current');
     assert.equal(params.get('parsha_id'), null);
   } finally {

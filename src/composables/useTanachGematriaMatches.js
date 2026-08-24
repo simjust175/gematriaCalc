@@ -12,8 +12,11 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
   const page = ref(1);
   const filter = ref('all');
   const search = ref('');
-  const chumash = ref('');
+  const bookOrder = ref(0);
   const parshaId = ref('');
+  const chapterBook = ref('');
+  const chapter = ref(0);
+  const verse = ref(0);
   const currentParshah = ref(false);
   const weeklyParshah = ref(null);
   const loading = ref(false);
@@ -55,8 +58,11 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
         limit: String(limit),
       });
       if (search.value.trim()) params.set('search', search.value.trim());
-       if (chumash.value) params.set('chumash', chumash.value);
+       if (bookOrder.value) params.set('book_order', String(bookOrder.value));
        if (parshaId.value) params.set('parsha_id', parshaId.value);
+       if (chapterBook.value) params.set('chapter_book', chapterBook.value);
+       if (chapter.value) params.set('chapter', String(chapter.value));
+       if (verse.value) params.set('verse', String(verse.value));
       if (currentParshah.value) params.set('parsha', 'current');
       const response = await fetchImpl(`/api/tanach/gematria-matches?${params}`, {
         signal: requestController.signal,
@@ -114,11 +120,14 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
     schedule();
   }
 
-  function setChumash(nextChumash) {
-    const nextValue = String(nextChumash ?? '');
-    if (chumash.value === nextValue && !parshaId.value && !currentParshah.value) return;
-    chumash.value = nextValue;
+  function setBookOrder(nextBookOrder) {
+    const nextValue = Number(nextBookOrder) || 0;
+    if (bookOrder.value === nextValue && !parshaId.value && !chapter.value && !currentParshah.value) return;
+    bookOrder.value = nextValue;
     parshaId.value = '';
+    chapterBook.value = '';
+    chapter.value = 0;
+    verse.value = 0;
     currentParshah.value = false;
     schedule();
   }
@@ -127,6 +136,28 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
     const nextValue = String(nextParshaId ?? '');
     if (parshaId.value === nextValue && !currentParshah.value) return;
     parshaId.value = nextValue;
+    chapterBook.value = '';
+    chapter.value = 0;
+    verse.value = 0;
+    currentParshah.value = false;
+    schedule();
+  }
+
+  function setChapter(nextChapterBook, nextChapter) {
+    const nextBook = String(nextChapterBook ?? '');
+    const nextValue = Number(nextChapter) || 0;
+    if (chapterBook.value === nextBook && chapter.value === nextValue && !verse.value && !currentParshah.value) return;
+    chapterBook.value = nextBook;
+    chapter.value = nextValue;
+    verse.value = 0;
+    currentParshah.value = false;
+    schedule();
+  }
+
+  function setVerse(nextVerse) {
+    const nextValue = Number(nextVerse) || 0;
+    if (verse.value === nextValue && !currentParshah.value) return;
+    verse.value = nextValue;
     currentParshah.value = false;
     schedule();
   }
@@ -134,8 +165,11 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
   function toggleCurrentParshah() {
     currentParshah.value = !currentParshah.value;
     if (currentParshah.value) {
-      chumash.value = '';
+      bookOrder.value = 0;
       parshaId.value = '';
+      chapterBook.value = '';
+      chapter.value = 0;
+      verse.value = 0;
     }
     schedule();
   }
@@ -163,7 +197,7 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
   if (getCurrentScope()) onScopeDispose(dispose);
 
   return {
-    results, counts, total, loading, error, filter, search, chumash, parshaId, currentParshah, weeklyParshah,
-    page, hasMore, setFilter, setSearch, setChumash, setParshaId, toggleCurrentParshah, loadMore, refresh, stop: dispose,
+    results, counts, total, loading, error, filter, search, bookOrder, parshaId, chapterBook, chapter, verse, currentParshah, weeklyParshah,
+    page, hasMore, setFilter, setSearch, setBookOrder, setParshaId, setChapter, setVerse, toggleCurrentParshah, loadMore, refresh, stop: dispose,
   };
 }

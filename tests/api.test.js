@@ -612,6 +612,69 @@ test('Tanach gematria discovery scopes current matches by Chumash and canonical 
   assert.ok(allChumashim.body.total >= genesis.body.total);
 });
 
+test('Tanach gematria discovery scopes results by canonical book, chapter, and exact verse', async () => {
+  const agent = request.agent(app);
+  await agent.post('/api/auth/login').send({ password: 'correct-test-password-12345' });
+
+  const books = await agent.get('/api/tanach/books');
+  assert.equal(books.status, 200);
+  assert.deepEqual(
+    [...new Set(books.body.canonicalBooks.map(book => book.section.id))],
+    ['torah', 'prophets', 'writings']
+  );
+  const samuel = books.body.canonicalBooks.find(book => book.order === 8);
+  assert.deepEqual(samuel.segments.map(segment => segment.slug), ['Samuel_1', 'Samuel_2']);
+
+  const invalidBook = await agent.get('/api/tanach/gematria-matches').query({ value: 26, book_order: 25 });
+  assert.equal(invalidBook.status, 400);
+  const invalidChapter = await agent.get('/api/tanach/gematria-matches').query({ value: 26, chapter: 40 });
+  assert.equal(invalidChapter.status, 400);
+  const invalidVerse = await agent.get('/api/tanach/gematria-matches').query({
+    value: 26, book_order: 10, chapter_book: 'Isaiah', verse: 3,
+  });
+  assert.equal(invalidVerse.status, 400);
+  const mismatchedSegment = await agent.get('/api/tanach/gematria-matches').query({
+    value: 26, book_order: 10, chapter_book: 'Genesis', chapter: 1,
+  });
+  assert.equal(mismatchedSegment.status, 400);
+  const missingChapter = await agent.get('/api/tanach/gematria-matches').query({
+    value: 26, book_order: 10, chapter_book: 'Isaiah', chapter: 999,
+  });
+  assert.equal(missingChapter.status, 400);
+  const missingVerse = await agent.get('/api/tanach/gematria-matches').query({
+    value: 26, book_order: 10, chapter_book: 'Isaiah', chapter: 40, verse: 999,
+  });
+  assert.equal(missingVerse.status, 400);
+
+  const splitBookChapter = await agent.get('/api/tanach/gematria-matches').query({
+    value: 26, book_order: 8, chapter_book: 'Samuel_2', chapter: 1,
+  });
+  assert.equal(splitBookChapter.status, 200);
+
+  const isaiah = await agent.get('/api/tanach/gematria-matches').query({
+    value: 26, type: 'whole_word', book_order: 10, limit: 50,
+  });
+  assert.equal(isaiah.status, 200);
+  assert.ok(isaiah.body.total > 0);
+  assert.ok(isaiah.body.results.every(item => item.bookSlug === 'Isaiah'));
+
+  const chapter = await agent.get('/api/tanach/gematria-matches').query({
+    value: 26, type: 'whole_word', book_order: 10, chapter_book: 'Isaiah', chapter: 40, limit: 50,
+  });
+  assert.equal(chapter.status, 200);
+  assert.ok(chapter.body.total > 0);
+  assert.ok(chapter.body.results.every(item => item.bookSlug === 'Isaiah' && item.chapter === 40));
+
+  const exactVerse = await agent.get('/api/tanach/gematria-matches').query({
+    value: 26, type: 'whole_word', book_order: 10, chapter_book: 'Isaiah', chapter: 40, verse: 3, limit: 50,
+  });
+  assert.equal(exactVerse.status, 200);
+  assert.ok(exactVerse.body.total > 0);
+  assert.ok(exactVerse.body.results.every(item => (
+    item.bookSlug === 'Isaiah' && item.chapter === 40 && item.verse === 3 && item.type === 'whole_word'
+  )));
+});
+
 test('qere representation is identical across discovery, exact opening data, and occurrence saves', async () => {
   const agent = request.agent(app);
   await agent.post('/api/auth/login').send({ password: 'correct-test-password-12345' });
