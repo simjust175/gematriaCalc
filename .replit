@@ -59,8 +59,8 @@ localPort = 4174
 externalPort = 3002
 
 [[ports]]
-localPort = 4191
-externalPort = 3003
+localPort = 4190
+externalPort = 5173
 
 [[ports]]
 localPort = 5000
@@ -71,8 +71,12 @@ localPort = 5001
 externalPort = 3001
 
 [[ports]]
+localPort = 5055
+externalPort = 3003
+
+[[ports]]
 localPort = 23636
-externalPort = 5173
+externalPort = 6000
 
 [postMerge]
 path = "scripts/post-merge.sh"
