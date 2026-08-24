@@ -1,0 +1,768 @@
+# TANACH NAVIGATION — ספר → פרשה / פרק → פסוק
+
+We need to improve the existing Tanach result navigation.
+
+The current filtering works, but there are two problems:
+
+1. The first filter is based around חומש, which does not fit the entire תנ״ך.
+2. The current dropdown menus use browser-native `<select>` styling and look visually cheap/inconsistent with the rest of the application.
+
+This task should solve BOTH.
+
+## CRITICAL
+
+Do NOT change:
+
+* gematria calculations
+* Tanach match detection
+* match highlighting
+* result cards
+* result categories
+* result sorting
+* saved calculations
+* calculator
+* existing פרשת השבוע button design or behavior
+* overall cream / navy / gold visual language
+
+The existing **פרשת השבוע** button should remain exactly as it is.
+
+---
+
+# 1. CHANGE THE PRIMARY NAVIGATION TO ספר
+
+Replace the current:
+
+חומש → פרשה
+
+concept with:
+
+**ספר**
+
+The ספר selector represents all of תנ״ך.
+
+Its first/default option should be:
+
+**כל התנ״ך**
+
+Then group the books according to the traditional structure:
+
+### תורה
+
+* בראשית
+* שמות
+* ויקרא
+* במדבר
+* דברים
+
+### נביאים
+
+Use the application's existing canonical Tanach book mapping.
+
+### כתובים
+
+Use the application's existing canonical Tanach book mapping.
+
+IMPORTANT:
+
+The underlying corpus may internally divide books such as שמואל, מלכים, דברי הימים, עזרא/נחמיה, etc.
+
+Do not break the existing corpus mapping.
+
+Use the application's established 24-book canonical display structure and translate that safely to the underlying Tanach data.
+
+---
+
+# 2. DYNAMIC NAVIGATION BASED ON THE BOOK TYPE
+
+After ספר is selected, the remaining controls must intelligently change.
+
+## If one of the five חומשים is selected
+
+Show:
+
+**ספר → פרשה**
+
+Example:
+
+בראשית → ויצא
+
+Do NOT show פרק / פסוק controls in this mode unless required by an existing separate feature.
+
+The parsha selector must contain only the parshiyos belonging to the selected Chumash.
+
+Example:
+
+If ספר = בראשית:
+
+* כל הפרשיות
+* בראשית
+* נח
+* לך לך
+* וירא
+* חיי שרה
+* תולדות
+* ויצא
+* וישלח
+* וישב
+* מקץ
+* ויגש
+* ויחי
+
+Use canonical data rather than scattered conditional code.
+
+---
+
+# 3. IF A NACH BOOK IS SELECTED
+
+If the selected ספר is from נביאים or כתובים, replace the פרשה selector with:
+
+**פרק**
+
+Then add:
+
+**פסוק**
+
+So the flow becomes:
+
+**ספר → פרק → פסוק**
+
+Example:
+
+ישעיה → פרק מ׳ → פסוק א׳
+
+---
+
+# PEREK OPTIONS
+
+The פרק dropdown should dynamically contain only valid chapters for the selected book.
+
+First option:
+
+**כל הפרקים**
+
+Then:
+
+פרק א
+פרק ב
+פרק ג
+...
+
+Display chapter numbers using the application's corrected Hebrew-number converter.
+
+Do NOT recreate the earlier invalid Hebrew number behavior such as:
+
+טזא
+טזב
+טזג
+
+Correct sequence includes:
+
+טו
+טז
+יז
+יח
+יט
+
+---
+
+# PASUK OPTIONS
+
+Once a specific chapter is selected, show only valid verses for that chapter.
+
+First option:
+
+**כל הפסוקים**
+
+Then:
+
+פסוק א
+פסוק ב
+פסוק ג
+...
+
+Again use the shared Hebrew-number conversion utility.
+
+Do not hardcode arbitrary verse limits.
+
+Read the actual chapter data.
+
+---
+
+# FILTERING EXAMPLES
+
+### Torah
+
+ספר:
+בראשית
+
+פרשה:
+ויצא
+
+→ show only the CURRENT gematria matches inside פרשת ויצא.
+
+---
+
+### Nach — whole book
+
+ספר:
+ישעיה
+
+פרק:
+כל הפרקים
+
+→ show all current gematria matches in ספר ישעיה.
+
+---
+
+### Nach — whole chapter
+
+ספר:
+ישעיה
+
+פרק:
+מ
+
+פסוק:
+כל הפסוקים
+
+→ show all matches in ישעיה פרק מ.
+
+---
+
+### Nach — exact pasuk
+
+ספר:
+ישעיה
+
+פרק:
+מ
+
+פסוק:
+א
+
+→ show only matches in ישעיה מ׳ א׳.
+
+---
+
+# 4. RESET INVALID DOWNSTREAM FILTERS
+
+The controls must stay logically valid.
+
+Example:
+
+Current:
+
+ישעיה → פרק מ → פסוק ג
+
+User changes ספר to:
+
+ירמיה
+
+Reset:
+
+פרק → כל הפרקים
+פסוק → hidden/reset
+
+Do not preserve invalid chapter/verse state.
+
+Likewise:
+
+Current:
+
+בראשית → ויצא
+
+User changes to:
+
+שמות
+
+Reset:
+
+פרשה → כל הפרשיות
+
+---
+
+# 5. CURRENT PARSHA BUTTON
+
+CRITICAL:
+
+Leave the existing:
+
+**פרשת השבוע**
+
+button exactly as it currently looks.
+
+Do NOT redesign it.
+
+Do NOT move it unnecessarily.
+
+Do NOT change its current-parsha calculation.
+
+It remains a special shortcut.
+
+---
+
+# CURRENT PARSHA VS MANUAL NAVIGATION
+
+Avoid contradictory filter states.
+
+If the user clicks:
+
+פרשת השבוע
+
+use the weekly-parsha scope.
+
+If the user then manually chooses:
+
+ספר / פרשה / פרק / פסוק
+
+deactivate current-parsha mode and use the manual scope.
+
+Likewise, clicking פרשת השבוע should replace the manual Torah-range selection where necessary.
+
+The user should never wonder which geographic/textual scope is active.
+
+---
+
+# 6. EXISTING MATCH-TYPE FILTERS
+
+Preserve:
+
+* הכל
+* מילה שלמה
+* צירוף שלם
+* חלק ממילה
+
+These remain underneath.
+
+They must compose with the new navigation.
+
+Example:
+
+ספר = בראשית
+פרשה = ויצא
+match type = צירוף שלם
+
+→ only צירוף שלם results inside ויצא.
+
+---
+
+# 7. IMPORTANT VISUAL CHANGE — REMOVE NATIVE SELECT LOOK
+
+The screenshot shows native browser dropdowns opening with:
+
+* large plain white browser menu
+* bright blue selected item
+* default system scrollbar
+* browser-native typography
+
+This visually clashes with the application.
+
+DO NOT continue using browser-native `<select>` dropdown presentation if it results in this appearance.
+
+Implement a polished custom select/listbox/popover component consistent with the app.
+
+Reuse an existing accessible component library if the project already has one.
+
+Do NOT add a heavy UI library just for this.
+
+---
+
+# DROPDOWN CLOSED STATE
+
+Each selector should look like a premium part of the existing toolbar.
+
+Approximately:
+
+┌──────────────────────────┐
+│ ספר                      │
+│ כל התנ״ך             ⌄  │
+└──────────────────────────┘
+
+or the current compact equivalent.
+
+Requirements:
+
+* cream/white background
+* subtle warm border
+* rounded corners consistent with current cards
+* navy selected text
+* small gold/muted label
+* refined chevron
+* clear hover state
+* clear focus state
+* appropriate RTL alignment
+
+The label and value should have a deliberate hierarchy.
+
+---
+
+# DROPDOWN OPEN STATE
+
+The open dropdown menu is especially important.
+
+It should look like part of the application, NOT like a browser menu.
+
+Use:
+
+* white / warm off-white surface
+* subtle border
+* soft shadow
+* rounded corners
+* comfortable row height
+* navy text
+* gold/cream hover state
+* gold-tinted selected state
+* no bright browser-blue highlight
+* custom slim scrollbar where appropriate
+* sufficient padding
+* proper RTL text alignment
+
+The menu should appear directly below its control and align correctly.
+
+---
+
+# SELECTED ITEM
+
+For the selected option:
+
+Use a restrained warm/gold background or accent.
+
+Optional:
+
+✓
+
+on the appropriate side.
+
+Do NOT use saturated blue.
+
+---
+
+# HOVER
+
+Hover should use:
+
+* very light gold/cream background
+
+not dramatic color changes.
+
+---
+
+# GROUPED ספר DROPDOWN
+
+The ספר dropdown should visually group the books.
+
+For example:
+
+**תורה**
+
+בראשית
+שמות
+ויקרא
+במדבר
+דברים
+
+────────
+
+**נביאים**
+
+...
+
+────────
+
+**כתובים**
+
+...
+
+Group headings should be:
+
+* smaller
+* muted/gold
+* not selectable
+* visually distinct from actual books
+
+This will make the list significantly easier to scan.
+
+---
+
+# MENU HEIGHT
+
+Do not make the ספר dropdown taller than the viewport.
+
+Use a sensible maximum height and internal scrolling.
+
+The scrollbar should be subtle.
+
+The user must never lose the dropdown off-screen.
+
+---
+
+# 8. KEYBOARD / ACCESSIBILITY
+
+Even though these are custom styled controls, preserve proper behavior.
+
+Support:
+
+* click/tap
+* keyboard navigation
+* Arrow Up / Arrow Down
+* Enter
+* Escape
+* focus states
+* appropriate ARIA/listbox semantics
+
+Do not sacrifice accessibility merely to avoid native selects.
+
+---
+
+# 9. RESPONSIVE BEHAVIOR
+
+Desktop:
+
+### Torah mode
+
+[ ספר ] [ פרשה ] [ existing פרשת השבוע ]
+
+### Nach mode
+
+[ ספר ] [ פרק ] [ פסוק ] [ existing פרשת השבוע ]
+
+Fit these elegantly within the existing toolbar.
+
+Do not squeeze the controls until Hebrew labels wrap awkwardly.
+
+---
+
+# MOBILE
+
+On mobile:
+
+Allow controls to stack or wrap naturally.
+
+For example:
+
+[ ספר                         ]
+
+[ פרשה                        ]
+
+[ פרשת השבוע                  ]
+
+or for Nach:
+
+[ ספר                         ]
+
+[ פרק          ] [ פסוק       ]
+
+[ פרשת השבוע                  ]
+
+Choose whichever responds best to available width.
+
+Requirements:
+
+* no horizontal page scroll
+* comfortable touch targets
+* dropdown menus remain within viewport
+* RTL remains correct
+
+---
+
+# 10. VISUAL HIERARCHY
+
+Do not make this toolbar look like a settings form.
+
+It should feel like an elegant navigation strip for exploring Tanach results.
+
+The user should immediately understand:
+
+### Torah
+
+ספר → פרשה
+
+### Nach
+
+ספר → פרק → פסוק
+
+while:
+
+פרשת השבוע
+
+remains the special shortcut.
+
+---
+
+# 11. RESULT COUNT
+
+The large match count must respond to the current scope.
+
+Example:
+
+All Tanach:
+
+150,336
+
+Select:
+
+בראשית → ויצא
+
+The displayed count should now represent only the matches inside ויצא.
+
+Likewise:
+
+ישעיה → מ → כל הפסוקים
+
+should display the number of matches within that chapter.
+
+Do not continue displaying the global total as though it were the filtered count.
+
+---
+
+# 12. OPTIONAL ACTIVE-SCOPE LINE
+
+If it improves clarity without adding clutter, add a subtle context line below the toolbar.
+
+Examples:
+
+**מציג התאמות בפרשת ויצא**
+
+or:
+
+**מציג התאמות בישעיה פרק מ׳**
+
+or:
+
+**מציג התאמות בישעיה מ׳, פסוק א׳**
+
+Keep this visually subtle.
+
+Do not add it if the selectors themselves already make the scope completely obvious.
+
+---
+
+# 13. DATA ARCHITECTURE
+
+Do not scatter Torah/parsha/chapter information across Vue/React components.
+
+Use structured canonical data.
+
+For Torah parsha ranges, conceptually:
+
+```js
+{
+  book: "בראשית",
+  parsha: "ויצא",
+  start: {
+    chapter: 28,
+    verse: 10
+  },
+  end: {
+    chapter: 32,
+    verse: 3
+  }
+}
+```
+
+For Nach chapter/verse options, derive available values from the existing Tanach corpus wherever possible.
+
+Do not manually maintain hundreds of verse counts if the corpus already contains that information.
+
+---
+
+# 14. PERFORMANCE
+
+Filtering must continue to work efficiently with very large result sets.
+
+The screenshot currently shows over 150,000 possible matches.
+
+Do not:
+
+* load/render all matches merely to filter them
+* scan 150,000 DOM cards client-side
+* break existing pagination
+
+Use the existing backend/index/search architecture where possible.
+
+Pass the appropriate scope into the result query:
+
+* book
+* parsha range
+* chapter
+* verse
+* match type
+* page/limit
+
+---
+
+# 15. TESTS
+
+Add tests covering at minimum:
+
+### Book navigation
+
+1. כל התנ״ך returns global scope
+2. selecting בראשית returns only בראשית
+3. selecting ישעיה returns only ישעיה
+
+### Torah behavior
+
+4. selecting a Torah book shows פרשה
+5. selecting a Torah book does NOT show פרק/פסוק
+6. parsha list contains only that Chumash's parshiyos
+7. בראשית → ויצא uses correct verse boundaries
+8. first verse of ויצא is included
+9. final verse of ויצא is included
+10. adjacent verses are excluded
+
+### Nach behavior
+
+11. selecting a Nach book shows פרק
+12. selecting a chapter reveals פסוק
+13. only valid chapters appear
+14. only valid verses appear
+15. כל הפרקים works
+16. כל הפסוקים works
+17. exact ספר + פרק + פסוק filtering works
+
+### State
+
+18. switching books resets invalid downstream filters
+19. switching Torah → Nach changes controls correctly
+20. switching Nach → Torah changes controls correctly
+
+### Current parsha
+
+21. existing פרשת השבוע continues working
+22. activating manual navigation correctly leaves weekly-parsha mode
+23. clicking weekly-parsha correctly overrides manual scope
+
+### Match filters
+
+24. הכל composes correctly
+25. מילה שלמה composes correctly
+26. צירוף שלם composes correctly
+27. חלק ממילה composes correctly
+
+### UI
+
+28. custom dropdown supports keyboard navigation
+29. dropdown closes with Escape
+30. selected state displays correctly
+31. mobile has no horizontal overflow
+
+Run all existing tests as well.
+
+---
+
+# FINAL VISUAL ACCEPTANCE
+
+The open dropdown must NOT resemble the screenshot's current browser-native menu.
+
+Specifically, I should no longer see:
+
+* blue Windows/browser selection highlight
+* native rectangular system menu
+* native scrollbar styling dominating the control
+
+Instead, every open dropdown should look like it was intentionally designed as part of this exact application.
+
+The final result should feel like a polished traditional Hebrew Tanach research tool, while staying simple enough for the client to use without explanation.
+
+Do not perform unrelated redesigns.
