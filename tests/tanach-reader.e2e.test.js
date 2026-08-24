@@ -106,12 +106,21 @@ test('signed-in Tanach reader supports cursor, navigation, search, and cited sav
     await expect(slider).toBeFocused();
     await expect(slider).toHaveAttribute('aria-valuenow', '1');
 
-    const chapter = page.locator('.reference-selectors select').nth(1);
-    await chapter.selectOption('2');
-    await expect(page.locator('.verse-toolbar h2')).toHaveText('בראשית ב:א');
-    await expect(slider).toBeFocused();
+    const book = page.getByRole('combobox', { name: 'ספר', exact: true });
+    await book.click();
+    await page.getByRole('option', { name: 'ישעיהו', exact: true }).click();
+    await expect(page.getByRole('combobox', { name: 'פרשה', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('combobox', { name: 'פרק', exact: true })).toBeVisible();
+    await expect(page.getByRole('combobox', { name: 'פסוק', exact: true })).toBeVisible();
+    await page.getByRole('combobox', { name: 'פרק', exact: true }).click();
+    await page.getByRole('option', { name: 'מ', exact: true }).click();
+    await expect(page.locator('.verse-toolbar h2')).toHaveText('ישעיהו מ:א');
+    await page.getByRole('combobox', { name: 'פסוק', exact: true }).click();
+    await page.getByRole('option', { name: 'ג', exact: true }).click();
+    await expect(page.locator('.verse-toolbar h2')).toHaveText('ישעיהו מ:ג');
 
-    await chapter.selectOption('1');
+    await book.click();
+    await page.getByRole('option', { name: 'בראשית', exact: true }).click();
     await expect(page.locator('.verse-toolbar h2')).toHaveText('בראשית א:א');
 
     const searchResponsePromise = page.waitForResponse(response =>

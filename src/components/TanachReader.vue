@@ -43,49 +43,53 @@
           <div v-if="!searchLoading && searchResults.length === 0" class="empty-search">לא נמצאו תוצאות</div>
         </div>
 
-        <template v-else>
+        <div class="navigation-area">
+          <span class="navigation-heading">ניווט</span>
           <div class="reference-selectors">
-            <label>
-              <span>ניווט</span>
-              <select :value="navigationValue" @change="onNavigationChange">
-                <optgroup
-                  v-for="canonical in canonicalBooks"
-                  :key="canonical.order"
-                  :label="canonical.name"
-                >
-                  <option v-for="segment in canonical.segments" :key="segment.slug" :value="`book:${segment.slug}`">
-                    {{ segment.hebrew_name }}
-                  </option>
-                </optgroup>
-                <optgroup label="פרשיות התורה">
-                  <option v-for="parsha in parshiot" :key="parsha.id" :value="`parsha:${parsha.id}`">
-                    פרשת {{ parsha.name_he }}
-                  </option>
-                </optgroup>
-              </select>
-            </label>
-            <label>
-              <span>פרק</span>
-              <select v-model.number="selectedChapter" @change="onChapterChange">
-                <option v-for="chapter in selectedBook?.chapter_count || 1" :key="chapter" :value="chapter">
-                  {{ toHebrewNumber(chapter) }}
-                </option>
-              </select>
-            </label>
+            <TanachScopeSelect
+              :model-value="selectedBookSlug"
+              label="ספר"
+              :groups="bookGroups"
+              :disabled="loadingBooks"
+              @update:model-value="selectBook"
+            />
+            <TanachScopeSelect
+              v-if="isTorahBook"
+              :model-value="selectedParshaId"
+              label="פרשה"
+              :groups="[{ options: parshaOptions }]"
+              empty-label="כל הפרשיות"
+              @update:model-value="selectParsha"
+            />
+            <div v-else class="chapter-verse-row">
+              <TanachScopeSelect
+                :model-value="String(selectedChapter)"
+                label="פרק"
+                :groups="[{ options: chapterOptions }]"
+                @update:model-value="onChapterChange"
+              />
+              <TanachScopeSelect
+                :model-value="verseScope"
+                label="פסוק"
+                :groups="[{ options: verseOptions }]"
+                empty-label="כל הפסוקים"
+                @update:model-value="selectVerseScope"
+              />
+            </div>
           </div>
+        </div>
 
-          <div class="verse-list" aria-label="פסוקי הפרק">
-            <button
-              v-for="item in verses"
-              :key="item.verse"
-              :class="{ active: item.verse === selectedVerseNumber }"
-              @click="selectVerse(item.verse)"
-            >
-              <span class="verse-number">{{ toHebrewNumber(item.verse) }}</span>
-              <span class="verse-preview">{{ item.display_text }}</span>
-            </button>
-          </div>
-        </template>
+        <div ref="verseList" class="verse-list" aria-label="פסוקי הפרק">
+          <button
+            v-for="item in verses"
+            :key="item.verse"
+            :class="{ active: item.verse === selectedVerseNumber }"
+            @click="selectVerse(item.verse)"
+          >
+            <span class="verse-number">{{ toHebrewNumber(item.verse) }}</span>
+            <span class="verse-preview">{{ item.display_text }}</span>
+          </button>
+        </div>
       </aside>
 
       <main class="reader-column">
@@ -232,6 +236,7 @@ import { computeAll, toHebrewNumber } from '@/composables/useGematria.js';
 import { createTanachCursor, normalizeTanachSelection } from '@/composables/useTanachCursor.js';
 import { useLiveMatching } from '@/composables/useLiveMatching.js';
 import MatchPanel from './MatchPanel.vue';
+import TanachScopeSelect from './TanachScopeSelect.vue';
 
 const props = defineProps({
   openReference: { type: Object, default: null },
@@ -247,6 +252,8 @@ const stats = ref({});
 const selectedBookSlug = ref('Genesis');
 const selectedChapter = ref(1);
 const selectedVerseNumber = ref(1);
+const verseScope = ref('1');
+const showAllVerses = ref(false);
 const selectedParshaId = ref('');
 const anchorLetterIndex = ref(0);
 const focusLetterIndex = ref(0);
@@ -259,6 +266,7 @@ const searchLoading = ref(false);
 const saveStatus = ref('idle');
 const saveError = ref('');
 const verseDisplay = ref(null);
+const verseList = ref(null);
 let searchTimer;
 let isChangingReference = false;
 let chapterRequestId = 0;
@@ -266,6 +274,47 @@ let chapterController = null;
 let lastExternalReferenceId = null;
 
 const selectedBook = computed(() => books.value.find(book => book.slug === selectedBookSlug.value));
+const selectedCanonicalBook = computed(() => canonicalBooks.value.find(canonical => (
+  canonical.segments?.some(segment => segment.slug === selectedBookSlug.value)
+)));
+const isTorahBook = computed(() => Number(selectedCanonicalBook.value?.order) <= 5);
+const bookGroups = computed(() => {
+  const sections = new Map();
+  for (const canonical of canonicalBooks.value) {
+    const section = canonical.section || (
+      Number(canonical.order) <= 5
+        ? { id: 'torah', name_he: 'תורה' }
+        : Number(canonical.order) <= 13
+          ? { id: 'prophets', name_he: 'נביאים' }
+          : { id: 'writings', name_he: 'כתובים' }
+    );
+    if (!sections.has(section.id)) sections.set(section.id, { label: section.name_he, options: [] });
+    for (const segment of canonical.segments || []) {
+      sections.get(section.id).options.push({
+        value: segment.slug,
+        label: segment.hebrew_name,
+      });
+    }
+  }
+  return [...sections.values()];
+});
+const parshaOptions = computed(() => {
+  const segmentSlugs = new Set(selectedCanonicalBook.value?.segments?.map(segment => segment.slug) || []);
+  return parshiot.value
+    .filter(parsha => segmentSlugs.has(parsha.start_book_slug))
+    .map(parsha => ({ value: parsha.id, label: parsha.name_he }));
+});
+const chapterOptions = computed(() => Array.from(
+  { length: Number(selectedBook.value?.chapter_count) || 1 },
+  (_, index) => {
+    const chapter = index + 1;
+    return { value: String(chapter), label: toHebrewNumber(chapter) };
+  }
+));
+const verseOptions = computed(() => verses.value.map(item => ({
+  value: String(item.verse),
+  label: toHebrewNumber(item.verse),
+})));
 const selectedParsha = computed(() => parshiot.value.find(parsha => parsha.id === selectedParshaId.value) || null);
 const selectedVerse = computed(() => verses.value.find(verse => verse.verse === selectedVerseNumber.value));
 const cursor = computed(() => createTanachCursor(selectedVerse.value?.display_text || ''));
@@ -292,9 +341,6 @@ const activeParsha = computed(() => selectedParsha.value && isWithinParsha(
   selectedChapter.value,
   selectedVerseNumber.value
 ) ? selectedParsha.value : null);
-const navigationValue = computed(() => selectedParshaId.value
-  ? `parsha:${selectedParshaId.value}`
-  : `book:${selectedBookSlug.value}`);
 const matchContext = computed(() => ({
   bookSlug: selectedBookSlug.value,
   chapter: selectedChapter.value,
@@ -311,6 +357,10 @@ watch(selectedVerse, () => {
   saveStatus.value = 'idle';
   saveError.value = '';
   nextTick(() => verseDisplay.value?.focus());
+});
+
+watch(selectedVerseNumber, verse => {
+  if (verse && !showAllVerses.value) verseScope.value = String(verse);
 });
 
 watch([selectedBookSlug, selectedChapter, selectedVerseNumber], () => {
@@ -360,6 +410,8 @@ async function loadChapter(preferredVerse = 1) {
     selectedVerseNumber.value = verses.value.some(item => item.verse === preferredVerse)
       ? preferredVerse
       : verses.value[0]?.verse || 1;
+    showAllVerses.value = false;
+    verseScope.value = String(selectedVerseNumber.value);
     loadError.value = '';
     return true;
   } catch (error) {
@@ -409,8 +461,22 @@ function clearParshaIfOutsideRange() {
   if (selectedParshaId.value && !activeParsha.value) selectedParshaId.value = '';
 }
 
-async function onChapterChange() {
+async function selectBook(bookSlug) {
+  if (!bookSlug || bookSlug === selectedBookSlug.value) return;
   isChangingReference = true;
+  selectedParshaId.value = '';
+  selectedBookSlug.value = bookSlug;
+  selectedChapter.value = 1;
+  await loadChapter();
+  isChangingReference = false;
+  clearParshaIfOutsideRange();
+}
+
+async function onChapterChange(chapterValue) {
+  const chapter = Number(chapterValue);
+  if (!Number.isInteger(chapter) || chapter < 1 || chapter === selectedChapter.value) return;
+  isChangingReference = true;
+  selectedChapter.value = chapter;
   await loadChapter();
   isChangingReference = false;
   clearParshaIfOutsideRange();
@@ -436,16 +502,12 @@ function isWithinParsha(parsha, bookSlug, chapter, verse) {
   return compare(current, start) >= 0 && compare(current, end) <= 0;
 }
 
-async function onNavigationChange(event) {
-  const [kind, value] = event.target.value.split(':', 2);
-  if (kind === 'parsha') {
-    await openParsha(value);
+async function selectParsha(parshaId) {
+  if (!parshaId) {
+    selectedParshaId.value = '';
     return;
   }
-  selectedParshaId.value = '';
-  selectedBookSlug.value = value;
-  selectedChapter.value = 1;
-  await loadChapter();
+  await openParsha(parshaId);
 }
 
 async function openParsha(id) {
@@ -461,10 +523,26 @@ async function openParsha(id) {
 }
 
 function selectVerse(verse) {
-  selectedVerseNumber.value = verse;
+  const nextVerse = Number(verse);
+  if (!Number.isInteger(nextVerse) || nextVerse < 1) return;
+  showAllVerses.value = false;
+  verseScope.value = String(nextVerse);
+  selectedVerseNumber.value = nextVerse;
+}
+
+function selectVerseScope(verse) {
+  if (verse) {
+    selectVerse(verse);
+    return;
+  }
+  showAllVerses.value = true;
+  selectedVerseNumber.value = verses.value[0]?.verse || 1;
+  verseScope.value = '';
+  nextTick(() => verseList.value?.scrollTo({ top: 0, behavior: 'smooth' }));
 }
 
 async function moveVerse(delta) {
+  showAllVerses.value = false;
   const index = verses.value.findIndex(item => item.verse === selectedVerseNumber.value);
   const next = verses.value[index + delta];
   if (next) {
@@ -672,9 +750,10 @@ onMounted(loadBooks);
 .search-results button.search-result--navigation { background: #fffdf7; }
 .search-results button.search-result--navigation strong { color: #80601d; }
 .empty-search { padding: 22px; text-align: center; color: var(--text-secondary); }
-.reference-selectors { display: grid; grid-template-columns: 1fr 80px; gap: 8px; padding: 0 12px 10px; }
-.reference-selectors label { display: flex; flex-direction: column; gap: 3px; font-size: .68rem; color: var(--text-secondary); }
-.reference-selectors select { border: 1px solid var(--border); border-radius: 7px; background: #fff; padding: 7px; font: inherit; color: var(--navy); }
+.navigation-area { padding: 0 12px 10px; }
+.navigation-heading { display: block; margin: 1px 2px 6px; color: #9b7a31; font-size: .67rem; font-weight: 800; }
+.reference-selectors { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.chapter-verse-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; min-width: 0; }
 .verse-list { overflow-y: auto; padding: 0 9px 12px; }
 .verse-list button { display: grid; grid-template-columns: 25px 1fr; gap: 7px; width: 100%; border: 0; border-radius: 7px; padding: 8px; background: none; text-align: right; cursor: pointer; font: inherit; }
 .verse-list button:hover { background: #f8f5ef; }

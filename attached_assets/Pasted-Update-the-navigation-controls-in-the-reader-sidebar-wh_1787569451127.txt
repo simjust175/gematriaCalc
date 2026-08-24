@@ -1,0 +1,122 @@
+Update the navigation controls in the תנ״ך reader sidebar while PRESERVING the existing search bar.
+
+The search field at the top should remain available and retain its current search functionality.
+
+Below it, replace the current small book/chapter controls with a polished dynamic Tanach navigation area.
+
+## Structure
+
+Keep:
+
+Search bar
+
+Then underneath add a small section label:
+
+ניווט
+
+### When a Torah/Chumash book is selected
+
+Show:
+
+1. ספר
+2. פרשה
+
+Both should use polished custom dropdowns.
+
+Example:
+
+ספר
+בראשית
+
+פרשה
+ויצא
+
+The selected parsha should navigate/filter the reader to that parsha range.
+
+### When a Navi/Kesuvim book is selected
+
+Show:
+
+1. ספר
+2. פרק
+3. פסוק
+
+Because the sidebar is narrow:
+
+* ספר should be full width
+* פרק and פסוק may sit side-by-side beneath it
+
+Example:
+
+ספר
+ישעיה
+
+פרק            פסוק
+מ              א
+
+Include:
+
+כל הפסוקים
+
+where useful so a user can navigate to an entire chapter without selecting one specific verse.
+
+## Visual treatment
+
+Do not make these look like browser-native select elements.
+
+Use the same custom premium dropdown styling being used for the Tanach results filters:
+
+* cream/white background
+* thin warm border
+* navy selected value
+* small muted/gold field label
+* restrained chevron
+* rounded corners
+* subtle focus/hover state
+* custom dropdown menu, not browser-blue native menus
+* proper RTL alignment
+
+The selected value should be visually stronger than the field label.
+
+The sidebar should feel like a compact Tanach navigator, not a settings form.
+
+## Search stays independent
+
+Do NOT replace the search bar.
+
+Search and structured navigation have different purposes:
+
+* Search = find ספר / Hebrew text / phrase quickly
+* Navigation = browse ספר → פרשה or ספר → פרק → פסוק
+
+Do not make choosing a dropdown erase the search field itself.
+
+## Dynamic behavior
+
+Torah book selected:
+ספר → פרשה
+
+Nach book selected:
+ספר → פרק → פסוק
+
+When ספר changes, reset invalid downstream selections.
+
+Use the existing Tanach corpus for valid chapter and verse counts.
+
+Use the shared corrected Hebrew numeral conversion utility.
+
+Do not reintroduce invalid forms such as טזא / טזב / טזג.
+
+## Preserve
+
+Do not change:
+
+* Tanach text rendering
+* current verse selection
+* gematria calculations
+* selected-letter/range behavior
+* search functionality
+* saved matches
+* overall page layout
+
+This task is specifically to make the sidebar navigation cleaner and consistent with the new Tanach-results navigation.

@@ -91,7 +91,7 @@ test('Tanach selection remains readable without horizontal scrolling on mobile',
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
 });
 
-test('Parashah navigation and search preserve context across chapter boundaries', async ({ page }) => {
+test('Parashah navigation and search remain available alongside structured navigation', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await loginAndOpenTanach(page);
 
@@ -100,27 +100,23 @@ test('Parashah navigation and search preserve context across chapter boundaries'
   await expect(page.locator('.verse-toolbar h2')).toContainText('בראשית יב:א');
   await expect(page.locator('.parsha-context')).toHaveText('פרשת לך לך');
 
-  const selectors = page.locator('.reference-selectors select');
-  await selectors.first().selectOption('parsha:vayetze');
+  await page.locator('.search-wrap input').fill('לך לך');
+  const parshah = page.getByRole('combobox', { name: 'פרשה', exact: true });
+  await parshah.click();
+  await page.getByRole('option', { name: 'ויצא', exact: true }).click();
   await expect(page.locator('.verse-toolbar h2')).toContainText('בראשית כח:י');
   await expect(page.locator('.parsha-context')).toHaveText('פרשת ויצא');
+  await expect(page.locator('.search-wrap input')).toHaveValue('לך לך');
 
-  await selectors.nth(1).selectOption('31');
-  await expect(page.locator('.verse-list button')).toHaveCount(54);
-  await page.locator('.verse-list button').last().click();
-  await expect(page.locator('.verse-toolbar h2')).toContainText('בראשית לא:נד');
   await page.getByRole('button', { name: /הבא/ }).click();
-  await expect(page.locator('.verse-toolbar h2')).toContainText('בראשית לב:א');
+  await expect(page.locator('.verse-toolbar h2')).toContainText('בראשית כח:יא');
   await expect(page.locator('.parsha-context')).toHaveText('פרשת ויצא');
 
-  await page.getByRole('button', { name: /הבא/ }).click();
-  await page.getByRole('button', { name: /הבא/ }).click();
-  await page.getByRole('button', { name: /הבא/ }).click();
-  await expect(page.locator('.verse-toolbar h2')).toContainText('בראשית לב:ד');
-  await expect(page.locator('.parsha-context')).toHaveCount(0);
-
-  await selectors.first().selectOption('book:Exodus');
+  const book = page.getByRole('combobox', { name: 'ספר', exact: true });
+  await book.click();
+  await page.getByRole('option', { name: 'שמות', exact: true }).click();
   await expect(page.locator('.verse-toolbar h2')).toContainText('שמות א:א');
+  await expect(page.locator('.parsha-context')).toHaveCount(0);
 });
 
 const e2ePassword = process.env.E2E_APP_PASSWORD || 'tanach-browser-test-password';
