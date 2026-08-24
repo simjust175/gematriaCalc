@@ -545,6 +545,73 @@ test('Tanach gematria discovery searches only matching cards by normalized text,
   assert.ok(composed.body.results.every(item => item.type === 'whole_word'));
 });
 
+test('Tanach gematria discovery scopes current matches by Chumash and canonical parashah ranges', async () => {
+  const agent = request.agent(app);
+  await agent.post('/api/auth/login').send({ password: 'correct-test-password-12345' });
+
+  const invalidChumash = await agent.get('/api/tanach/gematria-matches').query({
+    value: 26,
+    chumash: 'Joshua',
+  });
+  assert.equal(invalidChumash.status, 400);
+  const invalidParshah = await agent.get('/api/tanach/gematria-matches').query({
+    value: 26,
+    parsha_id: 'not-a-parshah',
+  });
+  assert.equal(invalidParshah.status, 400);
+  const mismatchedParshah = await agent.get('/api/tanach/gematria-matches').query({
+    value: 26,
+    chumash: 'Exodus',
+    parsha_id: 'vayetze',
+  });
+  assert.equal(mismatchedParshah.status, 400);
+
+  const genesis = await agent.get('/api/tanach/gematria-matches').query({
+    value: 26,
+    type: 'whole_word',
+    chumash: 'Genesis',
+    limit: 50,
+  });
+  assert.equal(genesis.status, 200);
+  assert.ok(genesis.body.total > 0);
+  assert.ok(genesis.body.results.every(item => item.bookSlug === 'Genesis'));
+
+  const exodus = await agent.get('/api/tanach/gematria-matches').query({
+    value: 26,
+    type: 'whole_word',
+    chumash: 'Exodus',
+    limit: 50,
+  });
+  assert.equal(exodus.status, 200);
+  assert.ok(exodus.body.total > 0);
+  assert.ok(exodus.body.results.every(item => item.bookSlug === 'Exodus'));
+
+  const vayetze = await agent.get('/api/tanach/gematria-matches').query({
+    value: 26,
+    type: 'whole_word',
+    chumash: 'Genesis',
+    parsha_id: 'vayetze',
+    limit: 50,
+  });
+  assert.equal(vayetze.status, 200);
+  assert.ok(vayetze.body.total > 0);
+  assert.ok(vayetze.body.results.every(item => (
+    item.bookSlug === 'Genesis'
+    && (item.chapter > 28 || (item.chapter === 28 && item.verse >= 10))
+    && (item.chapter < 32 || (item.chapter === 32 && item.verse <= 3))
+    && item.type === 'whole_word'
+  )));
+
+  const allChumashim = await agent.get('/api/tanach/gematria-matches').query({
+    value: 26,
+    type: 'whole_word',
+    chumash: 'all',
+    limit: 50,
+  });
+  assert.equal(allChumashim.status, 200);
+  assert.ok(allChumashim.body.total >= genesis.body.total);
+});
+
 test('qere representation is identical across discovery, exact opening data, and occurrence saves', async () => {
   const agent = request.agent(app);
   await agent.post('/api/auth/login').send({ password: 'correct-test-password-12345' });

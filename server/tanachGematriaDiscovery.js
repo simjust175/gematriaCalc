@@ -2,6 +2,7 @@ import { findGematriaRanges } from './tanachGematriaSearch.js';
 import { createTanachCursor } from '../src/composables/useTanachCursor.js';
 import { toHebrewNumber } from '../src/composables/useGematria.js';
 import { getCurrentWeeklyParshah } from './tanachWeeklyParsha.js';
+import { TANACH_PARSHIOT } from './tanachParshiot.js';
 
 export const MAX_GEMATRIA_TARGET = 100000;
 export const MAX_GEMATRIA_PAGE_SIZE = 50;
@@ -15,6 +16,7 @@ const HEBREW_MARK = /[\u0591-\u05BD\u05BF-\u05C2\u05C4\u05C5\u05C7]/;
 const TORAH_BOOK_ORDER = new Map([
   ['Genesis', 1], ['Exodus', 2], ['Leviticus', 3], ['Numbers', 4], ['Deuteronomy', 5],
 ]);
+const PARSHAH_BY_ID = new Map(TANACH_PARSHIOT.map(parshah => [parshah.id, parshah]));
 
 let corpusCache = null;
 const targetCache = new Map();
@@ -131,6 +133,9 @@ export function parseGematriaSearchQuery(query) {
   const requestedLimit = query.limit == null ? 12 : Number(query.limit);
   const search = typeof query.search === 'string' ? query.search.trim() : '';
   const currentParshah = query.parsha === 'current';
+  const requestedChumash = typeof query.chumash === 'string' ? query.chumash : '';
+  const chumash = requestedChumash === 'all' ? '' : requestedChumash;
+  const parshaId = typeof query.parsha_id === 'string' ? query.parsha_id : '';
 
   if (!Number.isSafeInteger(value) || value < 1 || value > MAX_GEMATRIA_TARGET) {
     return { error: 'invalid_gematria_value' };
@@ -144,6 +149,14 @@ export function parseGematriaSearchQuery(query) {
   }
   if (search.length > MAX_GEMATRIA_SEARCH_LENGTH) return { error: 'invalid_search' };
   if (query.parsha != null && !currentParshah) return { error: 'invalid_parsha_filter' };
+  if (query.chumash != null && typeof query.chumash !== 'string') return { error: 'invalid_chumash_filter' };
+  if (chumash && !TORAH_BOOK_ORDER.has(chumash)) return { error: 'invalid_chumash_filter' };
+  if (query.parsha_id != null && typeof query.parsha_id !== 'string') return { error: 'invalid_parsha_filter' };
+  if (parshaId && !PARSHAH_BY_ID.has(parshaId)) return { error: 'invalid_parsha_filter' };
+  if (parshaId && chumash && PARSHAH_BY_ID.get(parshaId).start.bookSlug !== chumash) {
+    return { error: 'invalid_parsha_filter' };
+  }
+  if (currentParshah && (chumash || parshaId)) return { error: 'invalid_parsha_filter' };
 
   return {
     value,
@@ -152,6 +165,8 @@ export function parseGematriaSearchQuery(query) {
     limit: Math.min(requestedLimit, MAX_GEMATRIA_PAGE_SIZE),
     search,
     currentParshah,
+    chumash,
+    parshaId,
   };
 }
 
@@ -205,6 +220,8 @@ export async function searchTanachGematria(db, options, mayRetry = true) {
     limit,
     search = '',
     currentParshah = false,
+    chumash = '',
+    parshaId = '',
   } = options;
   const { corpus, revision } = await loadCorpus(db);
   let entry = targetCache.get(value);
@@ -230,12 +247,15 @@ export async function searchTanachGematria(db, options, mayRetry = true) {
 
   const normalizedSearch = searchKey(search);
   const weeklyParshah = getCurrentWeeklyParshah();
+  const manualParshah = parshaId ? PARSHAH_BY_ID.get(parshaId) : null;
   const offset = (page - 1) * limit;
   const results = [];
   const counts = { all: 0, whole_word: 0, whole_phrase: 0, partial: 0 };
   for (const match of entry.matches) {
     const verse = corpus[match.verseIndex];
     if (normalizedSearch && !verseSearchKey(verse).includes(normalizedSearch)) continue;
+    if (chumash && verse.book_slug !== chumash) continue;
+    if (manualParshah && !isVerseInParshah(verse, { portions: [manualParshah] })) continue;
     if (currentParshah && !isVerseInParshah(verse, weeklyParshah)) continue;
     counts.all += 1;
     counts[match.type] += 1;

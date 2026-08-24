@@ -49,22 +49,38 @@ test('changing target clears stale cards immediately and load more appends serve
   await expect(discovery.locator('.match-card:not(.skeleton-card)')).toHaveCount(24);
 });
 
-test('calculator discovery searches its own cards and composes the weekly portion toggle', async ({ page }, testInfo) => {
+test('calculator discovery navigates by Chumash and parashah while preserving the weekly shortcut', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-chromium');
   await login(page);
-  await page.locator('.heb-input').fill('בראשית');
+  await page.locator('.heb-input').fill('יהוה');
 
   const discovery = page.locator('.gematria-discovery');
-  const search = discovery.getByPlaceholder('חפש בתוצאות — מילה, פסוק או מראה מקום...');
-  await expect(search).toBeVisible();
-  await search.fill('בְּרֵאשִׁ֖ית א:א');
+  const chumash = discovery.getByLabel('בחירת חומש');
+  const parshah = discovery.getByLabel('בחירת פרשה');
+  await expect(chumash).toBeEnabled();
+  await chumash.selectOption('Genesis');
+  await expect(parshah.locator('option[value="vayetze"]')).toHaveText('ויצא');
+  await expect(parshah.locator('option[value="yitro"]')).toHaveCount(0);
+  await parshah.selectOption('vayetze');
   await expect(discovery.locator('.match-card:not(.skeleton-card)').first()).toBeVisible();
-  await expect(discovery.locator('.citation strong').first()).toHaveText('בראשית א:א');
+  await expect(discovery.locator('.citation strong').first()).toContainText('בראשית');
 
   const weekly = discovery.getByRole('button', { name: /פרשת השבוע/ });
   await weekly.click();
   await expect(weekly).toHaveAttribute('aria-pressed', 'true');
-  await weekly.click();
+  await expect(chumash).toHaveValue('');
+  await expect(parshah).toHaveValue('');
+  await chumash.selectOption('Genesis');
   await expect(weekly).toHaveAttribute('aria-pressed', 'false');
-  await expect(search).toHaveValue('בְּרֵאשִׁ֖ית א:א');
+  await expect(parshah).toHaveValue('');
+});
+
+test('Chumash and parashah selectors do not overflow on mobile', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-chromium');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await login(page);
+  await page.locator('.heb-input').fill('יהוה');
+  const discovery = page.locator('.gematria-discovery');
+  await expect(discovery.getByLabel('בחירת חומש')).toBeEnabled();
+  expect(await discovery.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
 });

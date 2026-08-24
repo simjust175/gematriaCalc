@@ -345,3 +345,64 @@ test('Tanach discovery scopes normalized search and weekly filters to its curren
     live.stop();
   }
 });
+
+test('Tanach discovery composes manual Chumash and parashah scopes with the weekly shortcut', async () => {
+  const urls = [];
+  const fetchImpl = async url => {
+    urls.push(String(url));
+    return {
+      ok: true,
+      json: async () => ({
+        results: [],
+        counts: { all: 0, whole_word: 0, whole_phrase: 0, partial: 0 },
+        total: 0,
+        page: 1,
+        limit: 12,
+        hasMore: false,
+        weeklyParshah: { id: 'ki-tavo', ids: ['ki-tavo'], nameHe: 'כי תבוא', isIsrael: true },
+      }),
+    };
+  };
+  const flush = () => new Promise(resolve => setTimeout(resolve, 0));
+  const live = useTanachGematriaMatches(ref(26), { fetchImpl, debounceMs: 0 });
+
+  try {
+    await flush();
+    live.setChumash('Genesis');
+    await flush();
+    let params = new URL(urls.at(-1), 'http://example.test').searchParams;
+    assert.equal(params.get('chumash'), 'Genesis');
+    assert.equal(params.get('parsha_id'), null);
+    assert.equal(live.currentParshah.value, false);
+
+    live.setParshaId('vayetze');
+    await flush();
+    params = new URL(urls.at(-1), 'http://example.test').searchParams;
+    assert.equal(params.get('chumash'), 'Genesis');
+    assert.equal(params.get('parsha_id'), 'vayetze');
+
+    live.setChumash('Exodus');
+    await flush();
+    params = new URL(urls.at(-1), 'http://example.test').searchParams;
+    assert.equal(live.parshaId.value, '', 'changing Chumash resets an invalid parashah');
+    assert.equal(params.get('chumash'), 'Exodus');
+    assert.equal(params.get('parsha_id'), null);
+
+    live.setChumash('');
+    await flush();
+    params = new URL(urls.at(-1), 'http://example.test').searchParams;
+    assert.equal(params.get('chumash'), null, 'all Chumashim omits the book scope');
+
+    live.setParshaId('vayetze');
+    await flush();
+    live.toggleCurrentParshah();
+    await flush();
+    params = new URL(urls.at(-1), 'http://example.test').searchParams;
+    assert.equal(live.chumash.value, '');
+    assert.equal(live.parshaId.value, '');
+    assert.equal(params.get('parsha'), 'current');
+    assert.equal(params.get('parsha_id'), null);
+  } finally {
+    live.stop();
+  }
+});

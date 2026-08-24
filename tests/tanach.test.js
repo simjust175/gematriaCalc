@@ -70,6 +70,19 @@ test('canonical Torah portion metadata contains 54 individually ordered portions
   assert.deepEqual(TANACH_PARSHIOT.find(parsha => parsha.id === 'lech-lecha').start, {
     bookSlug: 'Genesis', chapter: 12, verse: 1,
   });
+  assert.deepEqual(
+    TANACH_PARSHIOT.filter(parsha => parsha.start.bookSlug === 'Genesis').map(parsha => parsha.nameHe),
+    ['בראשית', 'נח', 'לך לך', 'וירא', 'חיי שרה', 'תולדות', 'ויצא', 'וישלח', 'וישב', 'מקץ', 'ויגש', 'ויחי']
+  );
+});
+
+test('manual Vayetze range includes its canonical endpoints and excludes neighboring verses', () => {
+  const vayetze = TANACH_PARSHIOT.find(parsha => parsha.id === 'vayetze');
+  const manualRange = { portions: [vayetze] };
+  assert.equal(isVerseInParshah({ book_slug: 'Genesis', chapter: 28, verse: 10 }, manualRange), true);
+  assert.equal(isVerseInParshah({ book_slug: 'Genesis', chapter: 32, verse: 3 }, manualRange), true);
+  assert.equal(isVerseInParshah({ book_slug: 'Genesis', chapter: 28, verse: 9 }, manualRange), false);
+  assert.equal(isVerseInParshah({ book_slug: 'Genesis', chapter: 32, verse: 4 }, manualRange), false);
 });
 
 test('weekly parashah resolver uses Israel by default and returns both parts of a double portion', () => {

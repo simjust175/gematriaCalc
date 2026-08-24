@@ -1,0 +1,492 @@
+# TANACH RESULTS — CHUMASH → PARSHA NAVIGATION
+
+Change the Tanach result filtering UX so the primary manual filtering is based on:
+
+**חומש → פרשה**
+
+instead of the current generic text-search field.
+
+## CRITICAL — DO NOT TOUCH CURRENT PARSHA BUTTON
+
+The existing:
+
+**פרשת השבוע**
+
+button is already good.
+
+LEAVE ITS:
+
+* design
+* placement
+* styling
+* active state
+* current-parsha logic
+* behavior
+
+AS IS.
+
+Do not redesign it.
+
+Do not move it unnecessarily.
+
+This task is about replacing/improving the OTHER search/filter control beside it.
+
+---
+
+# PRODUCT INTENT
+
+This application is being used as a traditional Hebrew gematria/Tanach tool.
+
+For browsing the Tanach gematria results, navigating by:
+
+**חומש → פרשה**
+
+is more natural and useful than a generic free-text search.
+
+The user should be able to quickly say:
+
+בראשית → ויצא
+
+or:
+
+שמות → יתרו
+
+and see only the current gematria matches that occur in that parsha.
+
+This is a FILTER over the current gematria results.
+
+Do not recalculate gematria differently.
+
+---
+
+# DESIRED DESKTOP TOOLBAR
+
+Keep the current polished toolbar/card.
+
+Replace the current large text-search field with two elegant connected selectors:
+
+**חומש**
+
+then:
+
+**פרשה**
+
+Conceptually in RTL:
+
+[ חומש ▾ ]   [ פרשה ▾ ]        [ פרשת השבוע ]
+
+The exact RTL ordering should feel natural in Hebrew.
+
+The two selectors should visually read as one navigation flow:
+
+**חומש → פרשה**
+
+Do NOT make them look like old-fashioned HTML dropdowns.
+
+Use the application's existing premium cream / gold / navy design language.
+
+---
+
+# 1. CHUMASH SELECTOR
+
+Label:
+
+**חומש**
+
+Options:
+
+* כל החומשים
+* בראשית
+* שמות
+* ויקרא
+* במדבר
+* דברים
+
+Default:
+
+**כל החומשים**
+
+When a חומש is selected, immediately filter the existing result set to verses belonging to that חומש.
+
+---
+
+# 2. PARSHA SELECTOR
+
+Label:
+
+**פרשה**
+
+The available parshiyos MUST depend on the selected Chumash.
+
+Example:
+
+If:
+
+בראשית
+
+is selected, only show its parshiyos:
+
+* בראשית
+* נח
+* לך לך
+* וירא
+* חיי שרה
+* תולדות
+* ויצא
+* וישלח
+* וישב
+* מקץ
+* ויגש
+* ויחי
+
+If:
+
+שמות
+
+is selected, show only the parshiyos in שמות.
+
+Continue correctly for all five חומשים.
+
+Do not show one giant list of every parsha regardless of the selected Chumash.
+
+---
+
+# INITIAL PARSHA STATE
+
+When:
+
+כל החומשים
+
+is selected, the parsha selector may either:
+
+* show כל הפרשיות, or
+* remain available with grouped parsha choices
+
+Prefer the cleaner UX based on the current component architecture.
+
+However, once a specific Chumash is selected, its Parsha list must be restricted to that Chumash.
+
+---
+
+# FILTERING BEHAVIOR
+
+Selecting:
+
+בראשית → ויצא
+
+must display only CURRENT gematria matches that fall within the canonical Torah range of פרשת ויצא.
+
+This filter must operate using actual:
+
+* sefer
+* chapter
+* verse
+
+boundaries.
+
+Do NOT filter merely by searching text labels.
+
+Use canonical parsha ranges.
+
+---
+
+# CHUMASH-ONLY FILTER
+
+The user does not have to choose a parsha.
+
+Example:
+
+חומש = שמות
+פרשה = כל הפרשיות
+
+should show all current gematria matches occurring anywhere in ספר שמות.
+
+---
+
+# CHANGING CHUMASH
+
+If the user has:
+
+בראשית → ויצא
+
+selected and then changes Chumash to:
+
+שמות
+
+reset the Parsha selector to:
+
+כל הפרשיות
+
+Do not leave an invalid selection like:
+
+שמות → ויצא
+
+---
+
+# CURRENT PARSHA BUTTON — KEEP EXACTLY AS IS
+
+Again:
+
+DO NOT redesign the existing פרשת השבוע button.
+
+It remains a separate one-click shortcut.
+
+Its function remains:
+
+show current gematria matches occurring in this week's parsha.
+
+---
+
+# INTERACTION BETWEEN MANUAL FILTER AND CURRENT PARSHA
+
+Avoid contradictory filters.
+
+If the user activates:
+
+פרשת השבוע
+
+that represents a specific parsha range.
+
+If the user subsequently manually selects a Chumash or Parsha, deactivate the current-parsha filter and use the manual selection.
+
+Likewise, clicking:
+
+פרשת השבוע
+
+should override/reset the manual Chumash/Parsha range as necessary.
+
+Do this without changing the visual design of the existing current-parsha button.
+
+There should always be one understandable Torah-range filter state.
+
+---
+
+# VISUAL DESIGN
+
+This is important.
+
+The new controls must match the quality of the current page.
+
+Design them as refined custom select controls.
+
+Use:
+
+* clean white/cream background
+* thin warm border
+* subtle gold focus/active state
+* navy Hebrew text
+* rounded corners matching the existing toolbar
+* proper RTL arrows/icons
+* comfortable but compact height
+* good spacing
+* subtle hover/focus transitions
+
+Do not introduce:
+
+* native ugly select styling
+* heavy shadows
+* bright colors
+* gradients
+* oversized labels
+* unnecessary instructional text
+
+---
+
+# VISUAL RELATIONSHIP
+
+The user should understand instantly:
+
+**חומש → פרשה**
+
+These selectors belong together.
+
+Consider:
+
+* placing them directly adjacent
+* slightly differentiating labels from selected values
+* using a very subtle connecting arrow/chevron if elegant
+
+Do not literally write a large arrow if it makes the UI busier.
+
+The relationship should mostly come from layout.
+
+---
+
+# EXAMPLE VISUAL IDEA
+
+Something approximately like:
+
+┌────────────────────┐ ┌────────────────────┐
+│ חומש               │ │ פרשה              │
+│ בראשית          ▾  │ │ ויצא           ▾  │
+└────────────────────┘ └────────────────────┘
+
+Beside them remains the CURRENT EXISTING:
+
+[ פרשת השבוע ]
+
+Do not alter that button.
+
+---
+
+# EXISTING MATCH-TYPE FILTERS
+
+Keep the existing:
+
+* הכל
+* מילה שלמה
+* צירוף שלם
+* חלק ממילה
+
+exactly functionally intact.
+
+They must compose with the new Torah-range filter.
+
+Example:
+
+בראשית → ויצא
+
+*
+
+צירוף שלם
+
+means:
+
+only צירוף שלם results within פרשת ויצא.
+
+---
+
+# COUNTS
+
+Update visible result counts so they represent the currently filtered result set where the existing architecture supports this.
+
+For example:
+
+ויצא selected
+
+→ result count should correspond to matches inside ויצא, not the unfiltered 12,141 total.
+
+Do not mislabel counts.
+
+---
+
+# CURRENT PARSHA + MATCH TYPES
+
+The existing פרשת השבוע filter must continue composing correctly with:
+
+* הכל
+* מילה שלמה
+* צירוף שלם
+* חלק ממילה
+
+Do not regress this behavior.
+
+---
+
+# MOBILE
+
+On mobile:
+
+* Chumash selector may take 50% width
+* Parsha selector may take 50% width
+
+or stack them if necessary.
+
+Then the existing פרשת השבוע control can wrap naturally.
+
+Prioritize:
+
+* no horizontal page scrolling
+* readable Hebrew
+* comfortable tap targets
+* obvious selector relationship
+
+---
+
+# DATA SOURCE
+
+Do not manually scatter parsha boundaries across UI components.
+
+Use one canonical structured source for:
+
+* Chumash
+* Parsha
+* starting chapter/verse
+* ending chapter/verse
+
+Conceptually:
+
+```js
+{
+  book: "בראשית",
+  parsha: "ויצא",
+  start: { chapter: 28, verse: 10 },
+  end: { chapter: 32, verse: 3 }
+}
+```
+
+Use the application's existing Tanach book IDs/canonical mapping.
+
+The UI should consume this data rather than contain hard-coded filtering conditionals.
+
+---
+
+# IMPORTANT — PARSHA RANGES
+
+Verify the canonical Torah boundaries carefully.
+
+The filter must include:
+
+* first verse of the parsha
+* last verse of the parsha
+
+and exclude neighboring verses.
+
+Add automated boundary tests.
+
+---
+
+# TESTS
+
+Add tests covering:
+
+1. selecting בראשית returns only בראשית results
+2. selecting שמות returns only שמות results
+3. selecting בראשית restricts parsha options correctly
+4. בראשית → ויצא returns only verses within ויצא
+5. changing בראשית → ויצא to שמות resets invalid parsha selection
+6. כל החומשים restores all-book scope
+7. כל הפרשיות restores full selected-Chumash scope
+8. first verse of a parsha is included
+9. final verse of a parsha is included
+10. verse immediately before the parsha is excluded
+11. verse immediately after the parsha is excluded
+12. match-type filters compose with Chumash/Parsha
+13. current פרשת השבוע button still works exactly as before
+14. manually choosing Chumash/Parsha correctly leaves current-parsha mode
+15. selecting current פרשת השבוע correctly overrides manual range
+16. mobile has no overflow
+
+Run all existing Tanach tests as well.
+
+---
+
+# DO NOT CHANGE
+
+Do NOT change:
+
+* the פרשת השבוע button visually
+* current-parsha calculation
+* gematria calculation
+* Tanach matching engine
+* highlighted result text
+* result cards
+* matching categories
+* saved calculations
+* calculator UI
+* site navigation
+* overall visual palette
+
+This is a focused enhancement:
+
+**replace generic Tanach result search with elegant Chumash → Parsha navigation while preserving the existing current-parsha shortcut exactly as it is.**

@@ -12,6 +12,8 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
   const page = ref(1);
   const filter = ref('all');
   const search = ref('');
+  const chumash = ref('');
+  const parshaId = ref('');
   const currentParshah = ref(false);
   const weeklyParshah = ref(null);
   const loading = ref(false);
@@ -53,6 +55,8 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
         limit: String(limit),
       });
       if (search.value.trim()) params.set('search', search.value.trim());
+       if (chumash.value) params.set('chumash', chumash.value);
+       if (parshaId.value) params.set('parsha_id', parshaId.value);
       if (currentParshah.value) params.set('parsha', 'current');
       const response = await fetchImpl(`/api/tanach/gematria-matches?${params}`, {
         signal: requestController.signal,
@@ -110,8 +114,29 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
     schedule();
   }
 
+  function setChumash(nextChumash) {
+    const nextValue = String(nextChumash ?? '');
+    if (chumash.value === nextValue && !parshaId.value && !currentParshah.value) return;
+    chumash.value = nextValue;
+    parshaId.value = '';
+    currentParshah.value = false;
+    schedule();
+  }
+
+  function setParshaId(nextParshaId) {
+    const nextValue = String(nextParshaId ?? '');
+    if (parshaId.value === nextValue && !currentParshah.value) return;
+    parshaId.value = nextValue;
+    currentParshah.value = false;
+    schedule();
+  }
+
   function toggleCurrentParshah() {
     currentParshah.value = !currentParshah.value;
+    if (currentParshah.value) {
+      chumash.value = '';
+      parshaId.value = '';
+    }
     schedule();
   }
 
@@ -138,7 +163,7 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
   if (getCurrentScope()) onScopeDispose(dispose);
 
   return {
-    results, counts, total, loading, error, filter, search, currentParshah, weeklyParshah,
-    page, hasMore, setFilter, setSearch, toggleCurrentParshah, loadMore, refresh, stop: dispose,
+    results, counts, total, loading, error, filter, search, chumash, parshaId, currentParshah, weeklyParshah,
+    page, hasMore, setFilter, setSearch, setChumash, setParshaId, toggleCurrentParshah, loadMore, refresh, stop: dispose,
   };
 }
