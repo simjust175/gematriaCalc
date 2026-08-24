@@ -80,15 +80,23 @@
         </div>
 
         <div ref="verseList" class="verse-list" aria-label="פסוקי הפרק">
-          <button
-            v-for="item in verses"
-            :key="item.verse"
-            :class="{ active: item.verse === selectedVerseNumber }"
-            @click="selectVerse(item.verse)"
-          >
-            <span class="verse-number">{{ toHebrewNumber(item.verse) }}</span>
-            <span class="verse-preview">{{ item.display_text }}</span>
-          </button>
+          <template v-for="(item, index) in verses" :key="`${item.chapter}:${item.verse}`">
+            <div
+              v-if="selectedParshaId && (index === 0 || item.chapter !== verses[index - 1].chapter)"
+              class="verse-chapter-divider"
+              :aria-label="`פרק ${toHebrewNumber(item.chapter)}`"
+            >
+              <span>פרק {{ toHebrewNumber(item.chapter) }}</span>
+            </div>
+            <button
+              :class="{ active: item.chapter === selectedChapter && item.verse === selectedVerseNumber }"
+              :aria-label="`פסוק ${toHebrewNumber(item.verse)} בפרק ${toHebrewNumber(item.chapter)}`"
+              @click="selectVerse(item.verse, item.chapter)"
+            >
+              <span class="verse-number">{{ toHebrewNumber(item.verse) }}</span>
+              <span class="verse-preview">{{ item.display_text }}</span>
+            </button>
+          </template>
         </div>
       </aside>
 
@@ -316,7 +324,9 @@ const verseOptions = computed(() => verses.value.map(item => ({
   label: toHebrewNumber(item.verse),
 })));
 const selectedParsha = computed(() => parshiot.value.find(parsha => parsha.id === selectedParshaId.value) || null);
-const selectedVerse = computed(() => verses.value.find(verse => verse.verse === selectedVerseNumber.value));
+const selectedVerse = computed(() => verses.value.find(verse => (
+  verse.chapter === selectedChapter.value && verse.verse === selectedVerseNumber.value
+)));
 const cursor = computed(() => createTanachCursor(selectedVerse.value?.display_text || ''));
 const cursorIndex = computed(() => focusLetterIndex.value);
 const selection = computed(() => normalizeTanachSelection(anchorLetterIndex.value, focusLetterIndex.value));
@@ -391,37 +401,107 @@ async function loadBooks() {
   }
 }
 
-async function loadChapter(preferredVerse = 1) {
+async function fetchVerseChapters(bookSlug, startChapter, endChapter, errorMessage = 'לא ניתן לטעון את הפרק') {
   const requestId = ++chapterRequestId;
   chapterController?.abort();
   const controller = new AbortController();
   chapterController = controller;
-  const bookSlug = selectedBookSlug.value;
-  const chapter = selectedChapter.value;
+  const chapterNumbers = Array.from(
+    { length: endChapter - startChapter + 1 },
+    (_, index) => startChapter + index
+  );
   try {
-    const response = await fetch(
-      `/api/tanach/verses?book=${encodeURIComponent(bookSlug)}&chapter=${chapter}`,
-      { signal: controller.signal }
-    );
-    if (!response.ok) throw new Error('לא ניתן לטעון את הפרק');
-    const data = await response.json();
+    const responses = await Promise.all(chapterNumbers.map(async chapter => {
+      const response = await fetch(
+        `/api/tanach/verses?book=${encodeURIComponent(bookSlug)}&chapter=${chapter}`,
+        { signal: controller.signal }
+      );
+      if (!response.ok) throw new Error(errorMessage);
+      return response.json();
+    }));
     if (requestId !== chapterRequestId || controller.signal.aborted) return false;
-    verses.value = data.verses;
-    selectedVerseNumber.value = verses.value.some(item => item.verse === preferredVerse)
-      ? preferredVerse
-      : verses.value[0]?.verse || 1;
-    showAllVerses.value = false;
-    verseScope.value = String(selectedVerseNumber.value);
-    loadError.value = '';
-    return true;
+    return responses.flatMap(data => data.verses || []);
   } catch (error) {
     if (error?.name !== 'AbortError' && requestId === chapterRequestId) {
-      loadError.value = error.message || 'לא ניתן לטעון את הפרק';
+      loadError.value = error.message || errorMessage;
     }
-    return false;
+    return null;
   } finally {
     if (chapterController === controller) chapterController = null;
   }
+}
+
+function applyLoadedVerses(loadedVerses, preferredChapter, preferredVerse) {
+  verses.value = loadedVerses;
+  const preferred = verses.value.find(item => (
+    item.chapter === preferredChapter && item.verse === preferredVerse
+  )) || verses.value[0];
+  selectedChapter.value = preferred?.chapter || preferredChapter;
+  selectedVerseNumber.value = preferred?.verse || preferredVerse;
+  showAllVerses.value = false;
+  verseScope.value = String(selectedVerseNumber.value);
+  loadError.value = '';
+}
+
+async function loadChapter(preferredVerse = 1) {
+  const chapter = selectedChapter.value;
+  const loadedVerses = await fetchVerseChapters(
+    selectedBookSlug.value,
+    chapter,
+    chapter
+  );
+  if (!loadedVerses) return false;
+  applyLoadedVerses(loadedVerses, chapter, preferredVerse);
+  return true;
+}
+
+function compareReferences(left, right) {
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return left[index] - right[index];
+  }
+  return 0;
+}
+
+function isVerseInRange(item, start, end) {
+  const current = compareReference(item.book_slug, item.chapter, item.verse);
+  const startReference = compareReference(start.bookSlug, start.chapter, start.verse);
+  const endReference = compareReference(end.bookSlug, end.chapter, end.verse);
+  return current && startReference && endReference
+    && compareReferences(current, startReference) >= 0
+    && compareReferences(current, endReference) <= 0;
+}
+
+async function loadParsha(parsha) {
+  if (parsha.start_book_slug !== parsha.end_book_slug) {
+    loadError.value = 'טווח הפרשה חוצה ספרים ואינו נתמך';
+    return false;
+  }
+  const loadedVerses = await fetchVerseChapters(
+    parsha.start_book_slug,
+    parsha.start_chapter,
+    parsha.end_chapter,
+    'לא ניתן לטעון את הפרשה'
+  );
+  if (!loadedVerses) return false;
+  const range = {
+    start: {
+      bookSlug: parsha.start_book_slug,
+      chapter: parsha.start_chapter,
+      verse: parsha.start_verse,
+    },
+    end: {
+      bookSlug: parsha.end_book_slug,
+      chapter: parsha.end_chapter,
+      verse: parsha.end_verse,
+    },
+  };
+  const trimmedVerses = loadedVerses.filter(item => isVerseInRange(item, range.start, range.end));
+  if (!trimmedVerses.length) {
+    loadError.value = 'לא נמצאו פסוקי הפרשה';
+    return false;
+  }
+  applyLoadedVerses(trimmedVerses, parsha.start_chapter, parsha.start_verse);
+  return true;
 }
 
 async function openExternalReference(reference) {
@@ -493,13 +573,7 @@ function isWithinParsha(parsha, bookSlug, chapter, verse) {
   const start = compareReference(parsha.start_book_slug, parsha.start_chapter, parsha.start_verse);
   const end = compareReference(parsha.end_book_slug, parsha.end_chapter, parsha.end_verse);
   if (!current || !start || !end) return false;
-  const compare = (left, right) => {
-    for (let index = 0; index < left.length; index += 1) {
-      if (left[index] !== right[index]) return left[index] - right[index];
-    }
-    return 0;
-  };
-  return compare(current, start) >= 0 && compare(current, end) <= 0;
+  return compareReferences(current, start) >= 0 && compareReferences(current, end) <= 0;
 }
 
 async function selectParsha(parshaId) {
@@ -517,16 +591,19 @@ async function openParsha(id) {
   selectedParshaId.value = parsha.id;
   selectedBookSlug.value = parsha.start_book_slug;
   selectedChapter.value = parsha.start_chapter;
-  await loadChapter(parsha.start_verse);
+  await loadParsha(parsha);
   isChangingReference = false;
   clearParshaIfOutsideRange();
 }
 
-function selectVerse(verse) {
+function selectVerse(verse, chapter = selectedChapter.value) {
   const nextVerse = Number(verse);
-  if (!Number.isInteger(nextVerse) || nextVerse < 1) return;
+  const nextChapter = Number(chapter);
+  if (!Number.isInteger(nextVerse) || nextVerse < 1 || !Number.isInteger(nextChapter) || nextChapter < 1) return;
+  if (!verses.value.some(item => item.chapter === nextChapter && item.verse === nextVerse)) return;
   showAllVerses.value = false;
   verseScope.value = String(nextVerse);
+  selectedChapter.value = nextChapter;
   selectedVerseNumber.value = nextVerse;
 }
 
@@ -536,6 +613,7 @@ function selectVerseScope(verse) {
     return;
   }
   showAllVerses.value = true;
+  selectedChapter.value = verses.value[0]?.chapter || selectedChapter.value;
   selectedVerseNumber.value = verses.value[0]?.verse || 1;
   verseScope.value = '';
   nextTick(() => verseList.value?.scrollTo({ top: 0, behavior: 'smooth' }));
@@ -543,12 +621,16 @@ function selectVerseScope(verse) {
 
 async function moveVerse(delta) {
   showAllVerses.value = false;
-  const index = verses.value.findIndex(item => item.verse === selectedVerseNumber.value);
+  const index = verses.value.findIndex(item => (
+    item.chapter === selectedChapter.value && item.verse === selectedVerseNumber.value
+  ));
   const next = verses.value[index + delta];
   if (next) {
+    selectedChapter.value = next.chapter;
     selectedVerseNumber.value = next.verse;
     return;
   }
+  if (selectedParshaId.value) return;
   const nextChapter = selectedChapter.value + delta;
   if (nextChapter >= 1 && nextChapter <= (selectedBook.value?.chapter_count || 1)) {
     isChangingReference = true;
@@ -755,6 +837,8 @@ onMounted(loadBooks);
 .reference-selectors { display: grid; grid-template-columns: 1fr; gap: 8px; }
 .chapter-verse-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; min-width: 0; }
 .verse-list { flex: 1 1 0; min-height: 0; overflow-y: auto; padding: 0 9px 12px; }
+.verse-chapter-divider { display: flex; align-items: center; gap: 8px; margin: 9px 8px 3px; color: #9b7a31; font-size: .68rem; font-weight: 800; }
+.verse-chapter-divider::after { content: ''; flex: 1; height: 1px; background: #eee4d1; }
 .verse-list button { display: grid; grid-template-columns: 25px 1fr; gap: 7px; width: 100%; border: 0; border-radius: 7px; padding: 8px; background: none; text-align: right; cursor: pointer; font: inherit; }
 .verse-list button:hover { background: #f8f5ef; }
 .verse-list button.active { background: var(--gold-light); color: #765812; }

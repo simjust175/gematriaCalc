@@ -1,0 +1,373 @@
+# FIX TORAH READER — LOAD THE ENTIRE SELECTED PARSHA
+
+There is a Torah-specific navigation bug.
+
+## Current behavior
+
+Nach navigation works correctly:
+
+ספר → פרק → פסוק
+
+However, in Torah mode, when a user selects:
+
+ספר → פרשה
+
+the reader appears to load only the FIRST PEREK associated with that parsha.
+
+That is incorrect.
+
+A פרשה is often a range spanning:
+
+* part of one chapter
+* several complete chapters
+* part of another chapter
+
+When a Torah parsha is selected, the reader must load the ENTIRE canonical parsha range from its first verse through its final verse.
+
+---
+
+# EXAMPLE OF THE BUG
+
+Conceptually, if a parsha is:
+
+start:
+פרק ד פסוק כא
+
+end:
+פרק ז פסוק פט
+
+the reader must show:
+
+ד:כא → end of ד
+all of פרק ה
+all of פרק ו
+ז:א → ז:פט
+
+It must NOT simply fetch:
+
+פרק ד
+
+and stop there.
+
+---
+
+# IMPORTANT DIFFERENCE BETWEEN TORAH AND NACH
+
+Keep these two navigation models distinct.
+
+## TORAH
+
+ספר → פרשה
+
+The selected unit is the ENTIRE PARSHA.
+
+Do not require the user to manually choose a perek.
+
+## NACH
+
+ספר → פרק → פסוק
+
+Keep the existing Nach implementation as-is because it is working correctly.
+
+Do NOT regress Nach while fixing Torah.
+
+---
+
+# INVESTIGATE THE CURRENT IMPLEMENTATION
+
+Before changing code, identify where the Torah parsha selection is converted into reader data.
+
+Look specifically for logic that may be doing something equivalent to:
+
+```js
+loadVerses(book, parsha.startChapter)
+```
+
+or calling an endpoint such as:
+
+```text
+/verses?book=...&chapter=<start chapter>
+```
+
+That is likely insufficient for parsha mode.
+
+The selected parsha has BOTH:
+
+* start chapter + verse
+* end chapter + verse
+
+Use the complete range.
+
+---
+
+# CANONICAL PARSHA RANGE
+
+Use the existing canonical parsha-range data already introduced for Torah navigation.
+
+Conceptually:
+
+```js
+{
+  book: "במדבר",
+  parsha: "נשא",
+  start: {
+    chapter: 4,
+    verse: 21
+  },
+  end: {
+    chapter: 7,
+    verse: 89
+  }
+}
+```
+
+Do NOT hardcode special handling for individual parshiyos.
+
+Create/reuse a generic range-loading function.
+
+---
+
+# RANGE LOADING
+
+When a parsha is selected:
+
+1. identify its canonical start chapter/verse
+2. identify its canonical end chapter/verse
+3. load every verse in that inclusive range
+4. preserve canonical verse order
+5. display the verses continuously in the sidebar
+6. allow selecting any verse within the whole parsha
+
+The implementation should work equally for:
+
+* parsha contained inside one perek
+* parsha spanning two perakim
+* parsha spanning many perakim
+
+---
+
+# BEST DATA APPROACH
+
+Prefer one of these approaches depending on the existing backend:
+
+### Option A — Range endpoint
+
+If appropriate, support something conceptually like:
+
+```text
+/verses/range
+?book=Numbers
+&startChapter=4
+&startVerse=21
+&endChapter=7
+&endVerse=89
+```
+
+### Option B — Existing chapter endpoint
+
+If keeping the existing chapter endpoint is cleaner:
+
+* determine every chapter touched by the parsha
+* fetch each required chapter
+* trim the first chapter before the start verse
+* trim the final chapter after the end verse
+* concatenate the verses in canonical order
+
+Do not make unnecessary duplicate requests.
+
+Choose whichever best fits the current architecture.
+
+---
+
+# SIDEBAR DISPLAY
+
+When displaying a whole parsha spanning multiple chapters, make chapter transitions easy to understand.
+
+Do NOT create large intrusive section headers.
+
+Add a subtle divider/header when a new perek begins.
+
+Example:
+
+פרק ד
+
+כא  ...
+כב  ...
+כג  ...
+
+────────────
+
+פרק ה
+
+א  ...
+ב  ...
+ג  ...
+
+The exact design should match the existing restrained Torah reader aesthetic.
+
+The current verse rows should remain essentially unchanged.
+
+---
+
+# VERSE LABELS
+
+Keep each verse labelled by פסוק.
+
+At a chapter transition, clearly indicate the new perek so there is no ambiguity between:
+
+פרק ד פסוק א
+
+and:
+
+פרק ה פסוק א
+
+Use the shared corrected Hebrew numeral utility.
+
+---
+
+# MAIN READER
+
+When the user clicks any verse from anywhere in the selected parsha:
+
+* open that exact verse in the main reader
+* preserve the current text-selection/gematria functionality
+* update the verse reference correctly
+* do not jump back to the starting chapter
+
+Previous/Next navigation should move through the verses of the selected parsha in sequence.
+
+At a chapter boundary:
+
+last verse of chapter N
+→ Next
+→ first included verse of chapter N+1
+
+without breaking.
+
+---
+
+# PREVIOUS / NEXT AT PARSHA BOUNDARIES
+
+Within parsha mode:
+
+Previous/Next should navigate through the currently selected parsha.
+
+At the first verse of the selected parsha, Previous should not incorrectly expose the previous parsha unless that is already intentionally supported.
+
+At the final verse, Next should not accidentally continue beyond the selected parsha unless existing UX explicitly supports that.
+
+Preserve the current intended boundary behavior.
+
+---
+
+# SEARCH BAR
+
+KEEP the existing Torah reader search bar.
+
+Do not change or remove it.
+
+When a parsha is selected, decide based on current behavior whether sidebar search searches:
+
+* the currently loaded parsha, or
+* the entire Tanach
+
+Do NOT silently change existing search semantics as part of this bug fix.
+
+---
+
+# PARSHA SELECTION
+
+When the user switches:
+
+בראשית → ויצא
+
+to:
+
+בראשית → וישלח
+
+replace the loaded range with the complete range of the newly selected parsha.
+
+Do not retain verses from the prior parsha.
+
+Reset the currently selected verse to the first verse of the new parsha unless the existing UX has a better established behavior.
+
+---
+
+# IMPORTANT — DO NOT CHANGE NACH
+
+Nach currently works.
+
+Do NOT modify the working:
+
+ספר → פרק → פסוק
+
+behavior beyond shared utilities that genuinely need to be reused.
+
+Explicitly regression-test Nach after this fix.
+
+---
+
+# TESTS
+
+Add regression tests for Torah ranges.
+
+At minimum test:
+
+## Single-chapter parsha/range
+
+A range entirely inside one perek loads only the required verses.
+
+## Multi-chapter parsha
+
+A parsha spanning multiple chapters:
+
+* includes the starting verse
+* includes the remaining verses in the starting chapter
+* includes intermediate chapters
+* includes the ending verse
+* excludes the verse before the parsha
+* excludes the verse after the parsha
+
+## Navigation
+
+* selecting a verse in the second/third perek works
+* Previous/Next crosses a perek boundary correctly
+* reference display updates correctly
+
+## Switching parsha
+
+* old range disappears
+* new complete range loads
+
+## Nach regression
+
+Verify:
+
+ספר → פרק → פסוק
+
+still behaves exactly as before.
+
+---
+
+# MANUAL VERIFICATION
+
+Use at least one real Torah parsha that spans multiple perakim.
+
+Do NOT verify only with בראשית.
+
+Report:
+
+1. selected parsha
+2. canonical start reference
+3. canonical end reference
+4. how many chapters it spans
+5. first verse actually rendered
+6. last verse actually rendered
+7. confirmation that a verse from a later perek can be selected
+8. confirmation that Nach navigation still works
+
+Do not claim this is fixed merely because the first perek displays correctly.
+
+The acceptance criterion is:
+
+**Selecting a פרשה in Torah mode opens the complete פרשה, across every perek it spans.**
