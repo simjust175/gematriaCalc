@@ -101,7 +101,11 @@
                 @click="toggleMilui"
               >
                 <span>מילוי</span>
-                <span class="milui-toggle__chevron" aria-hidden="true">{{ miluiOpen ? '⌃' : '⌄' }}</span>
+                <span
+                  class="milui-toggle__chevron mdi"
+                  :class="miluiOpen ? 'mdi-chevron-up' : 'mdi-chevron-down'"
+                  aria-hidden="true"
+                ></span>
               </button>
 
               <MiluiPanel
@@ -760,9 +764,14 @@ async function saveEntry() {
 }
 
 .milui-toggle__chevron {
+  align-items: center;
   color: var(--gold);
-  font-size: .98rem;
-  line-height: .8;
+  display: inline-flex;
+  font-size: 1rem;
+  height: 18px;
+  justify-content: center;
+  line-height: 1;
+  width: 18px;
 }
 
 .milui-disclosure .milui-panel {
