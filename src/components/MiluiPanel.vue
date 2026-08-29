@@ -2,8 +2,7 @@
   <section class="milui-panel" dir="rtl" aria-labelledby="milui-result-title">
     <div class="milui-panel__header">
       <div>
-        <div id="milui-result-title" class="milui-panel__eyebrow">מילוי</div>
-        <div class="milui-panel__title">שם האות במילואה</div>
+        <div id="milui-result-title" class="milui-panel__title">שם האות במילואה</div>
       </div>
       <button
         class="milui-settings-link"
@@ -82,8 +81,8 @@ const emit = defineEmits(['open-settings']);
 <style scoped>
 .milui-panel {
   background: #fff;
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius);
+  border: 0;
+  border-radius: 0;
   overflow: hidden;
 }
 
@@ -95,7 +94,6 @@ const emit = defineEmits(['open-settings']);
   padding: 14px 18px 9px;
 }
 
-.milui-panel__eyebrow,
 .milui-label {
   color: var(--text-secondary);
   font-size: .71rem;

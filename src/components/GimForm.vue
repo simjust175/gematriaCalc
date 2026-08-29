@@ -92,7 +92,7 @@
               </div>
             </div>
 
-            <div class="milui-toggle-row">
+            <div class="milui-disclosure">
               <button
                 class="milui-toggle"
                 type="button"
@@ -103,19 +103,19 @@
                 <span>מילוי</span>
                 <span class="milui-toggle__chevron" aria-hidden="true">{{ miluiOpen ? '⌃' : '⌄' }}</span>
               </button>
-            </div>
 
-            <MiluiPanel
-              v-if="miluiCalculation"
-              id="milui-calculation"
-              :calculation="miluiCalculation"
-              :settings-disabled="!miluiSettingsLoaded"
-              @open-settings="openMiluiSettings"
-            />
-            <p v-if="miluiOpen && miluiSettingsError && !miluiSettingsLoaded" class="milui-load-error" role="alert">
-              {{ miluiSettingsError }}
-              <button type="button" @click="loadMiluiSettings">נסה שוב</button>
-            </p>
+              <MiluiPanel
+                v-if="miluiCalculation"
+                id="milui-calculation"
+                :calculation="miluiCalculation"
+                :settings-disabled="!miluiSettingsLoaded"
+                @open-settings="openMiluiSettings"
+              />
+              <p v-if="miluiOpen && miluiSettingsError && !miluiSettingsLoaded" class="milui-load-error" role="alert">
+                {{ miluiSettingsError }}
+                <button type="button" @click="loadMiluiSettings">נסה שוב</button>
+              </p>
+            </div>
 
             <TanachGematriaMatches
               :target="result.fullGematria"
@@ -717,43 +717,61 @@ async function saveEntry() {
 
 .save-error { font-size: 0.82rem; color: #D32F2F; }
 
-/* ── Optional מילוי control ──────────────────────────────────────────────── */
-.milui-toggle-row {
-  display: flex;
-  justify-content: flex-start;
+/* ── Optional מילוי disclosure ───────────────────────────────────────────── */
+.milui-disclosure {
+  background: #fff;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
 }
 
 .milui-toggle {
   align-items: center;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text-secondary);
+  background: #fffdf8;
+  border: 0;
+  border-bottom: 0 solid var(--border);
+  color: var(--navy);
   cursor: pointer;
-  display: inline-flex;
+  display: flex;
   font-family: inherit;
-  font-size: .8rem;
+  font-size: .84rem;
   font-weight: 600;
-  gap: 7px;
-  padding: 6px 10px;
-  transition: background .16s, border-color .16s, color .16s;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 10px 16px;
+  text-align: right;
+  transition: background .16s, color .16s;
+  width: 100%;
 }
 
 .milui-toggle:hover,
 .milui-toggle:focus-visible,
 .milui-toggle[aria-expanded="true"] {
   background: #fbf8f1;
-  border-color: var(--gold);
-  color: var(--navy);
+}
+
+.milui-toggle:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: -3px;
+}
+
+.milui-toggle[aria-expanded="true"] {
+  border-bottom-width: 1px;
 }
 
 .milui-toggle__chevron {
   color: var(--gold);
-  font-size: .95rem;
+  font-size: .98rem;
   line-height: .8;
 }
 
+.milui-disclosure .milui-panel {
+  border-radius: 0;
+}
+
 .milui-load-error {
+  margin: 0;
+  padding: 10px 16px;
   color: #b3261e;
   font-size: .78rem;
 }
@@ -767,6 +785,14 @@ async function saveEntry() {
   font-weight: 700;
   margin-inline-start: 5px;
   text-decoration: underline;
+}
+
+/* Keep the disclosure's button sizing explicit so it remains a secondary
+   control rather than inheriting CTA styles from nearby calculator actions. */
+.milui-toggle:disabled {
+  align-items: center;
+  cursor: default;
+  opacity: .65;
 }
 
 @media (max-width: 480px) {

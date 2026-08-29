@@ -15,8 +15,9 @@ test('מילוי stays optional, updates live, persists edits, and resets safely
   await input.fill('אב');
   await expect(page.locator('.milui-panel')).toHaveCount(0);
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.locator('.milui-disclosure')).toBeVisible();
 
-  await toggle.click();
+  await toggle.press('Enter');
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   await expect(page.locator('.milui-expanded-text')).toHaveText('אלף בית');
   await expect(page.locator('.milui-value')).toContainText('523');
@@ -26,7 +27,7 @@ test('מילוי stays optional, updates live, persists edits, and resets safely
   await expect(page.locator('.milui-expanded-text')).toHaveText('אלף');
   await expect(page.locator('.milui-value')).toContainText('111');
 
-  await toggle.click();
+  await toggle.press('Space');
   await expect(page.locator('.milui-panel')).toHaveCount(0);
   await input.fill('ב');
   await expect(page.locator('.milui-panel')).toHaveCount(0);
