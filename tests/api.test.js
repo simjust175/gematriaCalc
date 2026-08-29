@@ -16,6 +16,10 @@ import assert from 'node:assert/strict';
 import request from 'supertest';
 import { computeAll, normalize, toHebrewNumber } from '../src/composables/useGematria.js';
 import { createTanachCursor } from '../src/composables/useTanachCursor.js';
+import {
+  MILUI_DEFAULT_MAPPING,
+  cloneMiluiMapping,
+} from '../src/utils/milui.js';
 
 // Set required env vars before importing the app
 process.env.SESSION_SECRET  = 'test-session-secret-for-api-tests';
@@ -58,6 +62,13 @@ test('DELETE /api/entries/1 requires authentication (401)', async () => {
   const res = await request(app).delete('/api/entries/1');
   assert.equal(res.status, 401);
   assert.equal(res.body.error, 'not_authenticated');
+});
+
+test('מילוי settings require authentication', async () => {
+  const getRes = await request(app).get('/api/settings/milui');
+  const putRes = await request(app).put('/api/settings/milui').send({ mapping: MILUI_DEFAULT_MAPPING });
+  assert.equal(getRes.status, 401);
+  assert.equal(putRes.status, 401);
 });
 
 // ── Wrong password ────────────────────────────────────────────────────────────
@@ -129,6 +140,72 @@ test('GET /api/matches with valid session returns 200', async () => {
     .set('Cookie', cookie);
   // 200 OK (may fail with 500 if no DB, but not 401)
   assert.notEqual(res.status, 401);
+});
+
+test('מילוי settings persist and never mutate saved gematria records', async () => {
+  const agent = request.agent(app);
+  await agent.post('/api/auth/login').send({ password: 'correct-test-password-12345' });
+
+  const originalSettings = await agent.get('/api/settings/milui');
+  assert.equal(originalSettings.status, 200);
+
+  const savedEntriesBefore = await pool.query(
+    `SELECT id, original_text, normalized_text, full_gematria, full_gematria_hebrew,
+            initials, initials_gematria, initials_gematria_hebrew, created_at,
+            tanach_book_slug, tanach_book_label, tanach_chapter, tanach_verse,
+            tanach_start, tanach_end, parsha_id
+     FROM saved_entries ORDER BY id`
+  );
+  const savedWordsBefore = await pool.query(
+    `SELECT id, entry_id, word, normalized_word, gematria, position
+     FROM saved_words ORDER BY id`
+  );
+
+  try {
+    const custom = cloneMiluiMapping(MILUI_DEFAULT_MAPPING);
+    custom.ו = 'ויו';
+    const saveCustom = await agent.put('/api/settings/milui').send({ mapping: custom });
+    assert.equal(saveCustom.status, 200);
+    assert.equal(saveCustom.body.mapping.ו, 'ויו');
+
+    const reloaded = await agent.get('/api/settings/milui');
+    assert.equal(reloaded.status, 200);
+    assert.equal(reloaded.body.mapping.ו, 'ויו');
+
+    const malformed = cloneMiluiMapping(custom);
+    malformed.א = 'לף';
+    const rejected = await agent.put('/api/settings/milui').send({ mapping: malformed });
+    assert.equal(rejected.status, 400);
+    assert.equal(rejected.body.error, 'invalid_milui_mapping');
+
+    const extraFinalLetter = cloneMiluiMapping(custom);
+    extraFinalLetter.ך = 'כף';
+    const rejectedFinalLetter = await agent.put('/api/settings/milui').send({ mapping: extraFinalLetter });
+    assert.equal(rejectedFinalLetter.status, 400);
+    assert.equal(rejectedFinalLetter.body.error, 'invalid_milui_mapping');
+
+    const reset = await agent.put('/api/settings/milui').send({ mapping: MILUI_DEFAULT_MAPPING });
+    assert.equal(reset.status, 200);
+    assert.deepEqual(reset.body.mapping, MILUI_DEFAULT_MAPPING);
+
+    const savedEntriesAfter = await pool.query(
+      `SELECT id, original_text, normalized_text, full_gematria, full_gematria_hebrew,
+              initials, initials_gematria, initials_gematria_hebrew, created_at,
+              tanach_book_slug, tanach_book_label, tanach_chapter, tanach_verse,
+              tanach_start, tanach_end, parsha_id
+       FROM saved_entries ORDER BY id`
+    );
+    const savedWordsAfter = await pool.query(
+      `SELECT id, entry_id, word, normalized_word, gematria, position
+       FROM saved_words ORDER BY id`
+    );
+    assert.equal(savedEntriesAfter.rowCount, savedEntriesBefore.rowCount);
+    assert.equal(savedWordsAfter.rowCount, savedWordsBefore.rowCount);
+    assert.deepEqual(savedEntriesAfter.rows, savedEntriesBefore.rows);
+    assert.deepEqual(savedWordsAfter.rows, savedWordsBefore.rows);
+  } finally {
+    await agent.put('/api/settings/milui').send({ mapping: originalSettings.body.mapping });
+  }
 });
 
 test('matching returns all reasons once per saved entry and preserves word matches', async () => {

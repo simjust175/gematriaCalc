@@ -751,18 +751,16 @@ async function runSearch() {
 }
 
 async function openSearchResult(item) {
+  searchQuery.value = '';
+  searchResults.value = [];
   if (item.type === 'parsha') {
     await openParsha(item.parsha_id);
-    searchQuery.value = '';
-    searchResults.value = [];
     return;
   }
   selectedParshaId.value = '';
   selectedBookSlug.value = item.book_slug;
   selectedChapter.value = item.chapter;
   await loadChapter(item.verse);
-  searchQuery.value = '';
-  searchResults.value = [];
 }
 
 async function saveRange() {

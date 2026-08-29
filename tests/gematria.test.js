@@ -16,6 +16,13 @@ import {
 import { useLiveMatching } from '../src/composables/useLiveMatching.js';
 import { useTanachGematriaMatches } from '../src/composables/useTanachGematriaMatches.js';
 import { getMatchTypeMeta } from '../src/utils/matchTypes.js';
+import {
+  MILUI_BASE_LETTERS,
+  MILUI_DEFAULT_MAPPING,
+  calculateMilui,
+  cloneMiluiMapping,
+  normalizeMiluiMapping,
+} from '../src/utils/milui.js';
 
 // ── Individual letter values ─────────────────────────────────────────────────
 test('letter values — standard alphabet', () => {
@@ -157,6 +164,98 @@ test('normalize preserves spaces for word splitting', () => {
 
 test('normalize collapses multiple spaces', () => {
   assert.equal(normalize('שמע   ישראל'), 'שמע ישראל');
+});
+
+// ── מילוי ─────────────────────────────────────────────────────────────────────
+test('default מילוי table contains the exact 22-letter מילוי רגיל preset', () => {
+  assert.equal(MILUI_BASE_LETTERS.length, 22);
+  assert.deepEqual(MILUI_DEFAULT_MAPPING, {
+    א: 'אלף', ב: 'בית', ג: 'גימל', ד: 'דלת', ה: 'הא', ו: 'ואו',
+    ז: 'זין', ח: 'חית', ט: 'טית', י: 'יוד', כ: 'כף', ל: 'למד',
+    מ: 'מם', נ: 'נון', ס: 'סמך', ע: 'עין', פ: 'פא', צ: 'צדי',
+    ק: 'קוף', ר: 'ריש', ש: 'שין', ת: 'תו',
+  });
+});
+
+test('א מילוי is אלף = 111 and per-letter מילוי בלבד is לף = 110', () => {
+  const result = calculateMilui('א');
+  assert.equal(result.expandedText, 'אלף');
+  assert.equal(result.fullGematria, 111);
+  assert.equal(result.fillingOnlyGematria, 110);
+  assert.equal(result.words[0].letters[0].fillingOnly, 'לף');
+  assert.equal(result.words[0].letters[0].fillingOnlyValue, 110);
+});
+
+test('ב מילוי is בית = 412 and per-letter מילוי בלבד is ית = 410', () => {
+  const result = calculateMilui('ב');
+  assert.equal(result.expandedText, 'בית');
+  assert.equal(result.fullGematria, 412);
+  assert.equal(result.fillingOnlyGematria, 410);
+  assert.equal(result.words[0].letters[0].fillingOnly, 'ית');
+  assert.equal(result.words[0].letters[0].fillingOnlyValue, 410);
+});
+
+test('אב expands to אלף בית = 523 with מילוי בלבד total 520', () => {
+  const result = calculateMilui('אב');
+  assert.equal(result.expandedText, 'אלף בית');
+  assert.equal(result.fullGematria, 523);
+  assert.equal(result.fillingOnlyGematria, 520);
+});
+
+test('מילוי preserves word groups and ignores whitespace, punctuation, niqqud, and cantillation', () => {
+  const plain = calculateMilui('שמע ישראל');
+  const decorated = calculateMilui('שְׁמַ֖ע,   יִשְׂרָאֵֽל!');
+  assert.equal(plain.words.length, 2);
+  assert.equal(decorated.fullGematria, plain.fullGematria);
+  assert.equal(decorated.fillingOnlyGematria, plain.fillingOnlyGematria);
+  assert.equal(calculateMilui('שמעישראל').fullGematria, plain.fullGematria);
+});
+
+test('final letters use their base-letter מילוי mappings', () => {
+  const finalResult = calculateMilui('ךםןףץ');
+  const baseResult = calculateMilui('כמנפצ');
+  assert.equal(finalResult.expandedText, baseResult.expandedText);
+  assert.equal(finalResult.fullGematria, baseResult.fullGematria);
+  assert.equal(finalResult.fillingOnlyGematria, baseResult.fillingOnlyGematria);
+  assert.deepEqual(
+    finalResult.words[0].letters.map(letter => letter.baseLetter),
+    ['כ', 'מ', 'נ', 'פ', 'צ']
+  );
+});
+
+test('custom מילוי changes only מילוי calculations, not standard gematria', () => {
+  const custom = cloneMiluiMapping();
+  custom.ו = 'ויו';
+  const standardBefore = computeAll('ו');
+  const defaultMilui = calculateMilui('ו');
+  const customMilui = calculateMilui('ו', custom);
+  assert.equal(defaultMilui.expandedText, 'ואו');
+  assert.equal(customMilui.expandedText, 'ויו');
+  assert.notEqual(customMilui.fullGematria, defaultMilui.fullGematria);
+  assert.notEqual(customMilui.fillingOnlyGematria, defaultMilui.fillingOnlyGematria);
+  assert.deepEqual(computeAll('ו'), standardBefore);
+});
+
+test('מילוי mapping validation rejects blanks, non-Hebrew text, and wrong leading letters', () => {
+  const blank = cloneMiluiMapping();
+  blank.א = '';
+  assert.equal(normalizeMiluiMapping(blank).valid, false);
+
+  const latin = cloneMiluiMapping();
+  latin.א = 'abc';
+  assert.equal(normalizeMiluiMapping(latin).valid, false);
+
+  const wrongInitial = cloneMiluiMapping();
+  wrongInitial.א = 'לף';
+  assert.equal(normalizeMiluiMapping(wrongInitial).valid, false);
+
+  const finalLetterSetting = cloneMiluiMapping();
+  finalLetterSetting.ך = 'כף';
+  assert.equal(normalizeMiluiMapping(finalLetterSetting).valid, false);
+
+  const arbitrarySetting = cloneMiluiMapping();
+  arbitrarySetting.extra = 'אלף';
+  assert.equal(normalizeMiluiMapping(arbitrarySetting).valid, false);
 });
 
 // ── Live matching presentation and request ordering ───────────────────────────

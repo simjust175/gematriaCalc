@@ -1,5 +1,5 @@
 import pg from 'pg';
-import { computeAll } from '../src/composables/useGematria.js';
+import { MILUI_DEFAULT_MAPPING, MILUI_PRESET_NAME } from '../src/utils/milui.js';
 import { TANACH_PARSHIOT } from './tanachParshiot.js';
 import { UXLC_REPRESENTATION_VERSION } from './uxlcText.js';
 const { Pool } = pg;
@@ -8,6 +8,52 @@ export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 });
+
+let miluiPreferencesReady = null;
+
+export function ensureMiluiPreferences(db = pool) {
+  if (miluiPreferencesReady) return miluiPreferencesReady;
+  miluiPreferencesReady = (async () => {
+    const before = await db.query(`
+      SELECT
+        (SELECT COUNT(*)::int FROM saved_entries) AS saved_entries,
+        (SELECT COUNT(*)::int FROM saved_words) AS saved_words
+    `);
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS milui_preferences (
+        id TEXT PRIMARY KEY,
+        preset_name TEXT NOT NULL,
+        mapping JSONB NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.query(
+      `INSERT INTO milui_preferences (id, preset_name, mapping)
+       VALUES ('private-default', $1, $2::jsonb)
+       ON CONFLICT (id) DO NOTHING`,
+      [MILUI_PRESET_NAME, JSON.stringify(MILUI_DEFAULT_MAPPING)]
+    );
+    const after = await db.query(`
+      SELECT
+        (SELECT COUNT(*)::int FROM saved_entries) AS saved_entries,
+        (SELECT COUNT(*)::int FROM saved_words) AS saved_words
+    `);
+    if (
+      before.rows[0].saved_entries !== after.rows[0].saved_entries
+      || before.rows[0].saved_words !== after.rows[0].saved_words
+    ) {
+      throw new Error('Saved data changed while adding מילוי preferences');
+    }
+    console.log(
+      `Milui preference migration verified: saved_entries ${before.rows[0].saved_entries}, `
+      + `saved_words ${before.rows[0].saved_words}; deleted 0, modified 0`
+    );
+  })().catch(error => {
+    miluiPreferencesReady = null;
+    throw error;
+  });
+  return miluiPreferencesReady;
+}
 
 export async function seedTanachParshiot(db = pool) {
   const availableBooks = await db.query(
@@ -148,34 +194,7 @@ export async function initDb() {
 
   await seedTanachParshiot();
 
-  // Backfill derived ראשי תיבות data for entries created before these fields
-  // became part of the saved-entry contract.
-  const existing = await pool.query(
-    'SELECT id, original_text FROM saved_entries ORDER BY id'
-  );
-  for (const entry of existing.rows) {
-    const calculated = computeAll(entry.original_text);
-    if (!calculated) continue;
-    await pool.query(
-      `UPDATE saved_entries
-       SET normalized_text = $1,
-           full_gematria = $2,
-           full_gematria_hebrew = $3,
-           initials = $4,
-           initials_gematria = $5,
-           initials_gematria_hebrew = $6
-       WHERE id = $7`,
-      [
-        calculated.normalizedText,
-        calculated.fullGematria,
-        calculated.fullHebrewNumber,
-        calculated.initials,
-        calculated.initialsGematria,
-        calculated.initialsHebrewNumber,
-        entry.id,
-      ]
-    );
-  }
+  await ensureMiluiPreferences();
 
   console.log('Database initialized');
 }

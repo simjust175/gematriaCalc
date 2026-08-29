@@ -92,6 +92,31 @@
               </div>
             </div>
 
+            <div class="milui-toggle-row">
+              <button
+                class="milui-toggle"
+                type="button"
+                :aria-expanded="miluiOpen"
+                aria-controls="milui-calculation"
+                @click="toggleMilui"
+              >
+                <span>מילוי</span>
+                <span class="milui-toggle__chevron" aria-hidden="true">{{ miluiOpen ? '⌃' : '⌄' }}</span>
+              </button>
+            </div>
+
+            <MiluiPanel
+              v-if="miluiCalculation"
+              id="milui-calculation"
+              :calculation="miluiCalculation"
+              :settings-disabled="!miluiSettingsLoaded"
+              @open-settings="openMiluiSettings"
+            />
+            <p v-if="miluiOpen && miluiSettingsError && !miluiSettingsLoaded" class="milui-load-error" role="alert">
+              {{ miluiSettingsError }}
+              <button type="button" @click="loadMiluiSettings">נסה שוב</button>
+            </p>
+
             <TanachGematriaMatches
               :target="result.fullGematria"
               @open="emit('openTanach', $event)"
@@ -166,6 +191,15 @@
         :hasInput="hasInput"
       />
     </div>
+
+    <MiluiSettings
+      v-if="miluiSettingsOpen"
+      :mapping="miluiMapping"
+      :saving="miluiSettingsSaving"
+      :error="miluiSettingsError"
+      @close="miluiSettingsOpen = false"
+      @save="saveMiluiMapping"
+    />
   </div>
 </template>
 
@@ -179,6 +213,14 @@ import {
 } from '@/utils/hebrewKeyboard.js';
 import MatchPanel from './MatchPanel.vue';
 import TanachGematriaMatches from './TanachGematriaMatches.vue';
+import MiluiPanel from './MiluiPanel.vue';
+import MiluiSettings from './MiluiSettings.vue';
+import {
+  MILUI_DEFAULT_MAPPING,
+  calculateMilui,
+  cloneMiluiMapping,
+  normalizeMiluiMapping,
+} from '@/utils/milui.js';
 
 const emit = defineEmits(['openTanach']);
 
@@ -199,6 +241,13 @@ const automaticHebrewKeyboard = ref(readAutomaticHebrewKeyboardPreference());
 const expandedWords = ref({});
 const saveStatus  = ref('idle');   // idle | loading | saved
 const saveError   = ref('');
+const miluiOpen = ref(false);
+const miluiSettingsOpen = ref(false);
+const miluiMapping = ref(cloneMiluiMapping(MILUI_DEFAULT_MAPPING));
+const miluiSettingsLoaded = ref(false);
+const miluiSettingsLoading = ref(false);
+const miluiSettingsSaving = ref(false);
+const miluiSettingsError = ref('');
 
 let saveResetTimer = null;
 
@@ -206,6 +255,10 @@ let saveResetTimer = null;
 const result  = computed(() => computeAll(inputText.value));
 const hasInput = computed(() => !!result.value);
 const { matches } = useLiveMatching(result);
+const miluiCalculation = computed(() => {
+  if (!miluiOpen.value || !result.value) return null;
+  return calculateMilui(inputText.value, miluiMapping.value);
+});
 
 // Reset expanded words when text changes; restore min-height when cleared
 watch(inputText, (val) => {
@@ -213,11 +266,70 @@ watch(inputText, (val) => {
   saveStatus.value = 'idle';
   saveError.value = '';
   if (!val) {
+    miluiOpen.value = false;
+    miluiSettingsOpen.value = false;
+  }
+  if (!val) {
     nextTick(() => {
       if (textareaRef.value) textareaRef.value.style.height = '';
     });
   }
 });
+
+async function toggleMilui() {
+  miluiOpen.value = !miluiOpen.value;
+  if (miluiOpen.value) await loadMiluiSettings();
+}
+
+async function loadMiluiSettings() {
+  if (miluiSettingsLoaded.value || miluiSettingsLoading.value) return;
+  miluiSettingsLoading.value = true;
+  miluiSettingsError.value = '';
+  try {
+    const response = await fetch('/api/settings/milui');
+    if (!response.ok) throw new Error('load_failed');
+    const payload = await response.json();
+    const checked = normalizeMiluiMapping(payload.mapping);
+    if (!checked.valid) throw new Error('invalid_saved_mapping');
+    miluiMapping.value = checked.mapping;
+    miluiSettingsLoaded.value = true;
+  } catch {
+    miluiSettingsError.value = 'לא ניתן לטעון את הגדרות המילוי';
+  } finally {
+    miluiSettingsLoading.value = false;
+  }
+}
+
+async function openMiluiSettings() {
+  await loadMiluiSettings();
+  if (miluiSettingsLoaded.value) miluiSettingsOpen.value = true;
+}
+
+async function saveMiluiMapping(mapping) {
+  miluiSettingsSaving.value = true;
+  miluiSettingsError.value = '';
+  try {
+    const response = await fetch('/api/settings/milui', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mapping }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.message || 'save_failed');
+    }
+    const checked = normalizeMiluiMapping(payload.mapping);
+    if (!checked.valid) throw new Error('invalid_saved_mapping');
+    miluiMapping.value = checked.mapping;
+    miluiSettingsLoaded.value = true;
+  } catch (error) {
+    miluiSettingsError.value = error.message === 'save_failed'
+      ? 'לא ניתן לשמור את הגדרות המילוי'
+      : error.message || 'לא ניתן לשמור את הגדרות המילוי';
+  } finally {
+    miluiSettingsSaving.value = false;
+  }
+}
 
 watch(automaticHebrewKeyboard, (enabled) => {
   try {
@@ -604,6 +716,58 @@ async function saveEntry() {
 }
 
 .save-error { font-size: 0.82rem; color: #D32F2F; }
+
+/* ── Optional מילוי control ──────────────────────────────────────────────── */
+.milui-toggle-row {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.milui-toggle {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: inherit;
+  font-size: .8rem;
+  font-weight: 600;
+  gap: 7px;
+  padding: 6px 10px;
+  transition: background .16s, border-color .16s, color .16s;
+}
+
+.milui-toggle:hover,
+.milui-toggle:focus-visible,
+.milui-toggle[aria-expanded="true"] {
+  background: #fbf8f1;
+  border-color: var(--gold);
+  color: var(--navy);
+}
+
+.milui-toggle__chevron {
+  color: var(--gold);
+  font-size: .95rem;
+  line-height: .8;
+}
+
+.milui-load-error {
+  color: #b3261e;
+  font-size: .78rem;
+}
+
+.milui-load-error button {
+  background: transparent;
+  border: 0;
+  color: var(--navy);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  margin-inline-start: 5px;
+  text-decoration: underline;
+}
 
 @media (max-width: 480px) {
   .result-panel { padding-bottom: 0; }

@@ -1,0 +1,345 @@
+Please update the existing #24 — Add On-Demand מילוי Calculation plan with the following clarifications before implementation.
+
+Do NOT broaden the scope beyond these changes.
+
+1. DEFINE THE DEFAULT מילוי TABLE EXPLICITLY
+
+The default preset must be called:
+
+מילוי רגיל
+
+Use this exact initial mapping:
+
+א → אלף
+ב → בית
+ג → גימל
+ד → דלת
+ה → הא
+ו → ואו
+ז → זין
+ח → חית
+ט → טית
+י → יוד
+כ → כף
+ל → למד
+מ → מם
+נ → נון
+ס → סמך
+ע → עין
+פ → פא
+צ → צדי
+ק → קוף
+ר → ריש
+ש → שין
+ת → תו
+
+Final letters normalize to the corresponding base letter:
+
+ך → כ
+ם → מ
+ן → נ
+ף → פ
+ץ → צ
+
+Do not create separate editable mappings for final letters.
+
+The calculation engine must read from the persisted mapping rather than hard-coding these spellings throughout the codebase.
+
+2. DEFINE BOTH מילוי CALCULATIONS PRECISELY
+
+For every original Hebrew letter, support two related values:
+
+A. שם האות במילואה
+
+This means the complete configured spelling.
+
+Example:
+
+א → אלף
+
+Gematria:
+
+111
+
+B. מילוי בלבד
+
+This means the configured spelling WITHOUT the original/base letter at the beginning.
+
+Example:
+
+א → אלף
+
+מילוי בלבד:
+
+לף
+
+Gematria:
+
+110
+
+Another example:
+
+ב → בית
+
+מילוי בלבד:
+
+ית
+
+This must be calculated PER ORIGINAL LETTER before combining word/phrase totals.
+
+Do not implement pure מילוי only as a global subtraction shortcut such as:
+
+expanded total - original total
+
+even if the final numerical result would often agree.
+
+We need the per-letter derivation because the UI must later be able to show exactly how every letter was filled.
+
+3. CLARIFY THE VISUAL HIERARCHY
+
+The מילוי feature is an advanced secondary tool.
+
+It must NOT create another set of giant result cards that competes with:
+
+גימטריה מלאה
+ראשי תיבות
+גימטריית ראשי תיבות
+
+When מילוי is opened, use this hierarchy:
+
+Primary inside the מילוי section
+
+Show:
+
+expanded מילוי text
+גימטריית המילוי המלא
+decimal number
+Hebrew numeral representation
+Secondary / progressive detail
+
+Allow the user to inspect:
+
+מילוי בלבד
+its decimal + Hebrew value
+per-word breakdown
+per-letter breakdown
+
+These details should be compact and expandable where appropriate.
+
+Do not show every letter calculation simultaneously by default.
+
+Preserve the clean aesthetic of the main calculator.
+
+4. CLARIFY CLOSED / OPEN BEHAVIOR
+
+מילוי must be:
+
+CLOSED BY DEFAULT
+
+and it must NEVER open automatically because the user typed something.
+
+The user opens it explicitly using the מילוי control.
+
+While open:
+
+displayed מילוי results recalculate immediately whenever the current Hebrew input changes
+no additional Calculate button is required
+
+While closed:
+
+no מילוי result UI should be rendered
+avoid unnecessary מילוי computation/work where practical
+
+If the user closes the section and later reopens it, calculate/display the CURRENT input immediately.
+
+Do not reopen it automatically between unrelated calculator sessions unless there is already an intentional UI-state persistence convention for similar panels.
+
+5. STRENGTHEN DATABASE SAFETY
+
+This application already contains real client data.
+
+The מילוי feature is an ADDITIVE preference/configuration feature only.
+
+Do NOT:
+
+delete existing saved entries
+modify existing saved entries
+backfill מילוי values into existing saved entries
+rewrite SavedEntry records
+rewrite SavedWord records
+DROP existing tables
+TRUNCATE tables
+reset the database
+reseed production data
+recreate the database
+run destructive test cleanup against production
+alter Tanach corpus records
+
+If a new preference table/row is required, create it additively.
+
+Before applying any production schema migration:
+
+record the relevant existing saved-entry row counts
+apply only the additive migration
+verify the counts again
+
+Required result:
+
+existing saved records deleted = 0
+
+existing saved records modified = 0
+
+If this cannot be guaranteed, STOP before applying the migration and report the issue.
+
+6. KEEP מילוי SETTINGS SEPARATE FROM SAVED GEMATRIA DATA
+
+The editable מילוי mapping is a CALCULATION PREFERENCE.
+
+Changing:
+
+ו → ואו
+
+to:
+
+ו → ויו
+
+must immediately change future/current מילוי calculations.
+
+It must NOT:
+
+change standard gematria
+rewrite existing saved entries
+alter their existing match values
+alter Tanach matching
+trigger any migration of stored gematria data
+
+The existing saved library remains based on the existing standard calculations.
+
+Adding מילוי-based saved matching is explicitly OUT OF SCOPE for #24.
+
+7. SETTINGS VALIDATION
+
+Each editable מילוי value must:
+
+contain Hebrew letters only after normalization
+not be blank
+begin with the corresponding base letter
+
+Examples:
+
+א must be represented by a spelling beginning with א.
+
+ו could validly be:
+
+ואו
+ויו
+וו
+
+depending on the user's chosen convention.
+
+Reject invalid values cleanly with Hebrew-facing feedback.
+
+Do not allow a malformed configuration to break the calculator.
+
+8. RESET BEHAVIOR
+
+The:
+
+החזר לברירת מחדל
+
+action must restore the exact default מילוי רגיל table defined above.
+
+Require confirmation before overwriting a customized mapping.
+
+After reset succeeds:
+
+persist the defaults
+immediately recalculate any currently open מילוי result
+do not alter any saved gematria records
+9. TEST THESE EXACT EXAMPLES
+
+Add explicit regression tests for the default mapping.
+
+א
+
+configured spelling:
+
+אלף
+
+full מילוי value:
+
+111
+
+מילוי בלבד:
+
+לף
+
+pure מילוי value:
+
+110
+
+ב
+
+configured spelling:
+
+בית
+
+full מילוי value:
+
+412
+
+מילוי בלבד:
+
+ית
+
+pure מילוי value:
+
+410
+
+אב
+
+expanded text:
+
+אלף בית
+
+full expanded total:
+
+523
+
+pure מילוי total:
+
+520
+
+Also test:
+
+multi-word Hebrew input
+final letters use base mappings
+spaces ignored
+punctuation ignored
+ניקוד ignored
+טעמים ignored
+custom mapping changes only מילוי results
+standard gematria remains unchanged
+10. FINAL UX ACCEPTANCE
+
+After the modification, the final intended experience is:
+
+User opens the normal calculator.
+Nothing about the existing primary calculator has become busier.
+User enters Hebrew.
+Existing three primary calculations work normally.
+מילוי remains hidden.
+User presses מילוי.
+A polished advanced section opens.
+It displays the expanded spelling and full מילוי gematria.
+Secondary מילוי-only and letter/word detail are available without dominating the view.
+User may open הגדרות מילוי.
+The exact 22-letter default table is visible/editable.
+Changes persist.
+Current open מילוי results update immediately.
+Standard gematria and existing saved records remain untouched.
+Closing מילוי returns the calculator to its original clean state.
+
+Update the #24 plan accordingly, then implement it.
+
+Do not perform unrelated refactors.

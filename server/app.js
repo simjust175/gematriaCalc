@@ -5,7 +5,7 @@
 import express from 'express';
 import session from 'express-session';
 import connectPgSimple from 'connect-pg-simple';
-import { pool } from './db.js';
+import { ensureMiluiPreferences, pool } from './db.js';
 import { computeAll, normalize } from '../src/composables/useGematria.js';
 import { createTanachCursor } from '../src/composables/useTanachCursor.js';
 import { parshaSearchKey } from './tanachParshiot.js';
@@ -18,6 +18,11 @@ import {
   isApplicationReady,
   requireApplicationReady,
 } from './readiness.js';
+import {
+  MILUI_DEFAULT_MAPPING,
+  MILUI_PRESET_NAME,
+  normalizeMiluiMapping,
+} from '../src/utils/milui.js';
 
 export const app = express();
 const PostgresSessionStore = connectPgSimple(session);
@@ -101,6 +106,50 @@ function requireAuth(req, res, next) {
 }
 
 // ── Protected API routes ─────────────────────────────────────────────────────
+
+/** GET /api/settings/milui — retrieve the current private מילוי preference. */
+app.get('/api/settings/milui', requireAuth, async (_req, res) => {
+  try {
+    await ensureMiluiPreferences();
+    const result = await pool.query(
+      `SELECT preset_name, mapping
+       FROM milui_preferences
+       WHERE id = 'private-default'`
+    );
+    const row = result.rows[0];
+    if (!row) {
+      return res.json({ presetName: MILUI_PRESET_NAME, mapping: MILUI_DEFAULT_MAPPING });
+    }
+    res.json({ presetName: row.preset_name, mapping: row.mapping });
+  } catch (err) {
+    console.error('/api/settings/milui GET error:', err.message);
+    res.status(500).json({ error: 'milui_settings_failed' });
+  }
+});
+
+/** PUT /api/settings/milui — validate and persist the current private preference. */
+app.put('/api/settings/milui', requireAuth, async (req, res) => {
+  const checked = normalizeMiluiMapping(req.body?.mapping);
+  if (!checked.valid) {
+    return res.status(400).json({ error: 'invalid_milui_mapping', message: checked.error });
+  }
+
+  try {
+    await ensureMiluiPreferences();
+    const result = await pool.query(
+      `INSERT INTO milui_preferences (id, preset_name, mapping, updated_at)
+       VALUES ('private-default', $1, $2::jsonb, NOW())
+       ON CONFLICT (id) DO UPDATE SET preset_name = EXCLUDED.preset_name,
+         mapping = EXCLUDED.mapping, updated_at = NOW()
+       RETURNING preset_name, mapping`,
+      [MILUI_PRESET_NAME, JSON.stringify(checked.mapping)]
+    );
+    res.json({ presetName: result.rows[0].preset_name, mapping: result.rows[0].mapping });
+  } catch (err) {
+    console.error('/api/settings/milui PUT error:', err.message);
+    res.status(500).json({ error: 'milui_settings_failed' });
+  }
+});
 
 /** GET /api/tanach/books — canonical 24-book navigation and source metadata. */
 app.get('/api/tanach/books', requireAuth, async (_req, res) => {
