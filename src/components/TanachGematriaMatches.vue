@@ -281,7 +281,7 @@ async function selectChapter(value) {
 }
 
 function typeLabel(type) {
-  return { whole_word: 'מילה שלמה', whole_phrase: 'צירוף שלם', partial: 'חלק ממילה' }[type] || 'התאמה';
+  return { whole_word: 'מילה אחת', whole_phrase: 'מילים שלימות', partial: 'חלק ממילה' }[type] || 'התאמה';
 }
 function citation(item) {
   const book = item.bookName || item.book || item.bookSlug || '';
