@@ -110,10 +110,10 @@
             </div>
             <div class="verse-nav">
               <button @click="moveVerse(-1)" title="הפסוק הקודם">
-                <span class="mdi mdi-chevron-right"></span> קודם
+                <span class="ui-chevron ui-chevron--right" aria-hidden="true"></span> קודם
               </button>
               <button @click="moveVerse(1)" title="הפסוק הבא">
-                הבא <span class="mdi mdi-chevron-left"></span>
+                הבא <span class="ui-chevron ui-chevron--left" aria-hidden="true"></span>
               </button>
             </div>
           </header>

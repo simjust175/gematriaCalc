@@ -102,8 +102,8 @@
               >
                 <span>מילוי</span>
                 <span
-                  class="milui-toggle__chevron mdi"
-                  :class="miluiOpen ? 'mdi-chevron-up' : 'mdi-chevron-down'"
+                  class="milui-toggle__chevron ui-chevron"
+                  :class="miluiOpen ? 'ui-chevron--up' : 'ui-chevron--down'"
                   aria-hidden="true"
                 ></span>
               </button>
@@ -149,7 +149,7 @@
                         <span class="word-heb">{{ word.hebrewNumber }}</span>
                       </span>
                     </div>
-                    <span class="word-expand-icon mdi" :class="expandedWords[wi] ? 'mdi-chevron-up' : 'mdi-chevron-down'"></span>
+                    <span class="word-expand-icon ui-chevron" :class="expandedWords[wi] ? 'ui-chevron--up' : 'ui-chevron--down'" aria-hidden="true"></span>
                   </div>
 
                   <!-- Letter breakdown (collapsible) -->
@@ -768,12 +768,9 @@ async function saveEntry() {
 .milui-toggle__chevron {
   align-items: center;
   color: var(--gold);
-  display: inline-flex;
-  font-size: 1rem;
-  height: 18px;
-  justify-content: center;
-  line-height: 1;
-  width: 18px;
+  display: inline-block;
+  height: 9px;
+  width: 9px;
 }
 
 .milui-disclosure .milui-panel {
@@ -881,7 +878,7 @@ async function saveEntry() {
 .word-dot { color: #D4C9B0; font-size: 0.85rem; }
 .word-heb { font-size: 0.9rem; color: var(--text-secondary); font-weight: 500; }
 
-.word-expand-icon { color: #BBBBBB; font-size: 1rem; flex-shrink: 0; }
+.word-expand-icon { color: #BBBBBB; height: 8px; width: 8px; }
 .word-header--expanded .word-expand-icon { color: var(--gold); }
 
 /* Letter breakdown */

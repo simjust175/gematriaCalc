@@ -87,7 +87,7 @@
             >
               <span class="mdi mdi-delete-outline"></span>
             </button>
-            <span class="expand-icon mdi" :class="expandedId === entry.id ? 'mdi-chevron-up' : 'mdi-chevron-down'"></span>
+            <span class="expand-icon ui-chevron" :class="expandedId === entry.id ? 'ui-chevron--up' : 'ui-chevron--down'" aria-hidden="true"></span>
           </div>
         </div>
 
@@ -427,7 +427,7 @@ onMounted(() => fetchEntries());
   display: flex;
 }
 .delete-btn:hover { color: #D32F2F; background: #FFEBEE; }
-.expand-icon { color: var(--text-secondary); font-size: 1.2rem; }
+.expand-icon { color: var(--text-secondary); height: 10px; width: 10px; }
 
 /* Expanded detail */
 .entry-detail {

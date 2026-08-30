@@ -99,6 +99,22 @@ async function onLogout() {
 }
 .mdi-spin { animation: mdi-spin-anim 1s infinite linear; display: inline-block; }
 
+/* Draw chevrons with CSS instead of relying on font glyph metrics. This keeps
+   the small directional controls crisp and consistent across browsers. */
+.ui-chevron {
+  display: inline-block;
+  width: .58rem;
+  height: .58rem;
+  flex: 0 0 auto;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  vertical-align: middle;
+}
+.ui-chevron--down { transform: translateY(-15%) rotate(45deg); }
+.ui-chevron--up { transform: translateY(15%) rotate(225deg); }
+.ui-chevron--right { transform: rotate(-45deg); }
+.ui-chevron--left { transform: rotate(135deg); }
+
 html, body {
   height: 100%;
   font-family: "Source Sans Pro", Arial, sans-serif;
