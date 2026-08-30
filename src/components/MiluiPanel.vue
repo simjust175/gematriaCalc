@@ -37,7 +37,10 @@
     </div>
 
     <details class="milui-details">
-      <summary>פירוט מילים ואותיות</summary>
+      <summary>
+        <span>פירוט מילים ואותיות</span>
+        <span class="milui-summary-chevron ui-chevron ui-chevron--down" aria-hidden="true"></span>
+      </summary>
       <div class="milui-word-list">
         <details v-for="word in calculation.words" :key="`${word.position}-${word.word}`" class="milui-word">
           <summary>
@@ -45,6 +48,7 @@
             <span class="milui-word-total">
               {{ word.fullGematria }} · {{ word.fullHebrewNumber }}
             </span>
+            <span class="milui-summary-chevron ui-chevron ui-chevron--down" aria-hidden="true"></span>
           </summary>
           <div class="milui-word-expanded">{{ word.expandedText }}</div>
           <div class="milui-letter-list">
@@ -197,24 +201,25 @@ const emit = defineEmits(['open-settings']);
 }
 
 .milui-details > summary {
+  align-items: center;
   color: var(--text-secondary);
+  display: flex;
   font-size: .8rem;
   font-weight: 600;
+  justify-content: space-between;
+  gap: 12px;
   padding: 11px 18px;
 }
 
-.milui-details > summary::after,
-.milui-word > summary::after {
+.milui-summary-chevron {
   color: var(--gold);
-  content: '⌄';
-  float: left;
-  font-size: 1rem;
-  line-height: 1;
+  height: 8px;
+  width: 8px;
 }
 
-.milui-details[open] > summary::after,
-.milui-word[open] > summary::after {
-  content: '⌃';
+.milui-details[open] > summary .milui-summary-chevron,
+.milui-word[open] > summary .milui-summary-chevron {
+  transform: translateY(15%) rotate(225deg);
 }
 
 .milui-details > summary:hover,
@@ -251,6 +256,7 @@ const emit = defineEmits(['open-settings']);
   color: var(--gold);
   font-size: .84rem;
   font-weight: 600;
+  margin-inline-start: auto;
 }
 
 .milui-word-expanded {
