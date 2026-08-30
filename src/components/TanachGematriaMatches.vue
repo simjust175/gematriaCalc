@@ -163,9 +163,9 @@ const chapterVersesError = ref('');
 let chapterRequestId = 0;
 const filterOptions = [
   { value: 'all', label: 'הכול' },
-  { value: 'whole_word', label: 'מילה שלמה' },
-  { value: 'whole_phrase', label: 'צירוף שלם' },
-  { value: 'partial', label: 'חלק ממילה' },
+  { value: 'whole_word', label: 'מילה אחת' },
+  { value: 'whole_phrase', label: 'מילים שלימות' },
+  { value: 'partial', label: 'חלקי מילים' },
 ];
 const {
   results, counts, total, loading, error, filter, bookOrder, parshaId, chapterBook, chapter, verse, currentParshah, weeklyParshah,
