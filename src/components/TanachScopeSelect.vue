@@ -180,8 +180,8 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onDocumentPoin
 .scope-select__trigger { display: flex; align-items: center; justify-content: space-between; width: 100%; min-width: 0; min-height: 22px; padding: 0; border: 0; background: transparent; color: var(--navy, #1a2744); font: inherit; font-size: .84rem; font-weight: 700; line-height: 1.25; text-align: right; cursor: pointer; }
 .scope-select__trigger:disabled { color: #8c867c; cursor: wait; }
 .scope-select__value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.scope-select__chevron { width: 8px; height: 8px; margin-inline-start: 9px; color: #9a772d; transition: transform .18s ease; }
-.scope-select__trigger--open .scope-select__chevron { transform: translateY(15%) rotate(225deg); }
+.scope-select__chevron { align-self: center; width: 8px; height: 8px; margin-inline-start: 9px; color: #9a772d; transform: rotate(45deg); transition: transform .18s ease; }
+.scope-select__trigger--open .scope-select__chevron { transform: rotate(225deg); }
 .scope-select__menu { position: absolute; z-index: 20; top: calc(100% + 7px); right: 0; left: 0; max-height: min(360px, calc(100vh - 32px)); overflow-y: auto; padding: 6px; border: 1px solid #dfd1b2; border-radius: 11px; background: #fffdf9; box-shadow: 0 14px 30px rgba(26,39,68,.16); scrollbar-width: thin; scrollbar-color: #cfb46f transparent; }
 .scope-select__menu::-webkit-scrollbar { width: 7px; }
 .scope-select__menu::-webkit-scrollbar-thumb { border: 2px solid #fffdf9; border-radius: 8px; background: #cfb46f; }
