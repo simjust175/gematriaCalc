@@ -264,6 +264,7 @@ test('match type identifiers map to explicit Hebrew badge labels', () => {
   assert.equal(getMatchTypeMeta('initials_text').label, 'ראשי תיבות');
   assert.equal(getMatchTypeMeta('initials_gematria').label, 'גימטריית ר״ת');
   assert.equal(getMatchTypeMeta('saved_word').label, 'התאמה בתיבה');
+  assert.equal(getMatchTypeMeta('milui_gematria').label, 'גימטריית מילוי');
 });
 
 test('live matching clears old reasons and ignores stale A → B → A responses', async () => {
@@ -320,6 +321,20 @@ test('live matching clears old reasons and ignores stale A → B → A responses
 
     assert.equal(live.matches.value.matches[0].id, 3);
     assert.equal(live.matches.value.isAlreadySaved, false);
+  } finally {
+    live.stop();
+  }
+});
+
+test('live matching exposes request failures instead of a valid empty state', async () => {
+  const result = ref(null);
+  const fetchImpl = async () => ({ ok: false, status: 500 });
+  const live = useLiveMatching(result, { fetchImpl, debounceMs: 0 });
+  try {
+    result.value = computeAll('שמע');
+    await new Promise(resolve => setTimeout(resolve, 10));
+    assert.equal(live.matches.value.error, true);
+    assert.deepEqual(live.matches.value.matches, []);
   } finally {
     live.stop();
   }

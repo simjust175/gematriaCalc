@@ -13,7 +13,8 @@
 
       <div v-if="isAlreadySaved" class="already-saved-badge">כבר שמור ✓</div>
 
-      <template v-if="matches.length > 0">
+      <div v-if="error" class="matches-error" role="status">לא ניתן לטעון התאמות כרגע</div>
+      <template v-else-if="matches.length > 0">
         <div
           v-for="match in visibleMatches"
           :key="match.id"
@@ -52,6 +53,9 @@
             <span v-if="hasMatchType(match, 'initials_gematria')" class="match-detail">
               גימטריית ר״ת: {{ match.initials_gematria }}
             </span>
+            <span v-if="hasMatchType(match, 'milui_gematria')" class="match-detail">
+              גימטריית מילוי: {{ match.full_milui_gematria }}
+            </span>
           </div>
 
           <div v-if="match.matched_words?.length" class="matched-word-detail">
@@ -80,6 +84,7 @@ const props = defineProps({
   gematria: { type: Number, default: 0 },
   isAlreadySaved: { type: Boolean, default: false },
   hasInput: { type: Boolean, default: false },
+  error: { type: Boolean, default: false },
 });
 
 const showCount = ref(5);
@@ -237,6 +242,12 @@ function matchedWordNames(match) {
   border-color: #CEE1D6;
 }
 
+.match-badge--milui {
+  color: #765f39;
+  background: #f7f1e6;
+  border-color: #ded0b8;
+}
+
 .match-details {
   display: flex;
   flex-wrap: wrap;
@@ -304,6 +315,14 @@ function matchedWordNames(match) {
   text-align: center;
   padding: 12px 0;
   direction: rtl;
+}
+
+.matches-error {
+  color: #9b2c2c;
+  direction: rtl;
+  font-size: .82rem;
+  padding: 12px 0;
+  text-align: center;
 }
 
 </style>

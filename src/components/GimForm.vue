@@ -182,6 +182,7 @@
           :gematria="result?.fullGematria"
           :isAlreadySaved="matches.isAlreadySaved"
           :hasInput="hasInput"
+          :error="matches.error"
         />
       </aside>
     </div>
@@ -193,6 +194,7 @@
         :gematria="result?.fullGematria"
         :isAlreadySaved="matches.isAlreadySaved"
         :hasInput="hasInput"
+        :error="matches.error"
       />
     </div>
 

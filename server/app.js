@@ -23,6 +23,14 @@ import {
   MILUI_PRESET_NAME,
   normalizeMiluiMapping,
 } from '../src/utils/milui.js';
+import {
+  acquireMiluiSaveLock,
+  deleteMiluiIndexRows,
+  getActiveMiluiMatches,
+  indexSavedEntryForCurrentVersions,
+  invalidateMiluiCoverageCheck,
+  rebuildAndActivateMiluiMapping,
+} from './miluiIndex.js';
 
 export const app = express();
 const PostgresSessionStore = connectPgSimple(session);
@@ -136,17 +144,19 @@ app.put('/api/settings/milui', requireAuth, async (req, res) => {
 
   try {
     await ensureMiluiPreferences();
-    const result = await pool.query(
-      `INSERT INTO milui_preferences (id, preset_name, mapping, updated_at)
-       VALUES ('private-default', $1, $2::jsonb, NOW())
-       ON CONFLICT (id) DO UPDATE SET preset_name = EXCLUDED.preset_name,
-         mapping = EXCLUDED.mapping, updated_at = NOW()
-       RETURNING preset_name, mapping`,
-      [MILUI_PRESET_NAME, JSON.stringify(checked.mapping)]
-    );
-    res.json({ presetName: result.rows[0].preset_name, mapping: result.rows[0].mapping });
+    const activated = await rebuildAndActivateMiluiMapping(checked.mapping, {
+      presetName: MILUI_PRESET_NAME,
+    });
+    res.json({
+      presetName: activated.presetName,
+      mapping: activated.mapping,
+      mappingVersion: activated.version,
+    });
   } catch (err) {
     console.error('/api/settings/milui PUT error:', err.message);
+    if (err.code === 'MILUI_REBUILD_IN_PROGRESS') {
+      return res.status(409).json({ error: 'milui_rebuild_in_progress' });
+    }
     res.status(500).json({ error: 'milui_settings_failed' });
   }
 });
@@ -479,6 +489,25 @@ app.get('/api/matches', requireAuth, async (req, res) => {
         });
       }
 
+      // Compare the current normal gematria with saved entries' full מילוי
+      // values for the one active, completely built mapping version.
+      const miluiMatches = await getActiveMiluiMatches(g);
+      for (const miluiMatch of miluiMatches) {
+        let result = entryMatches.get(miluiMatch.id);
+        if (!result) {
+          result = {
+            type: 'entry',
+            ...miluiMatch,
+            matchTypes: [],
+            matched_words: [],
+          };
+          entryMatches.set(miluiMatch.id, result);
+        }
+        if (!result.matchTypes.includes('milui_gematria')) {
+          result.matchTypes.push('milui_gematria');
+        }
+      }
+
       // Attach matching words to their parent entry instead of duplicating cards.
       const wordsRes = await pool.query(
         `SELECT sw.id AS word_id, sw.word, sw.gematria,
@@ -524,7 +553,16 @@ app.get('/api/matches', requireAuth, async (req, res) => {
       }
     }
 
-    const priority = ['full_gematria', 'initials_text', 'initials_gematria', 'saved_word'];
+    const priority = [
+      'full_gematria',
+      'initials_text',
+      'initials_gematria',
+      'saved_word',
+      'milui_gematria',
+    ];
+    for (const match of entryMatches.values()) {
+      match.matchTypes.sort((a, b) => priority.indexOf(a) - priority.indexOf(b));
+    }
     const matches = [...entryMatches.values()].sort((a, b) => {
       const aPriority = Math.min(...a.matchTypes.map(type => priority.indexOf(type)));
       const bPriority = Math.min(...b.matchTypes.map(type => priority.indexOf(type)));
@@ -554,6 +592,7 @@ app.post('/api/entries', requireAuth, async (req, res) => {
 
     client = await pool.connect();
     await client.query('BEGIN');
+    await acquireMiluiSaveLock(client);
 
     let verifiedContext = null;
     if (tanachContext != null) {
@@ -673,6 +712,12 @@ app.post('/api/entries', requireAuth, async (req, res) => {
     }
 
     await client.query('COMMIT');
+    try {
+      await indexSavedEntryForCurrentVersions(entryId);
+    } catch (indexError) {
+      invalidateMiluiCoverageCheck();
+      console.error(`Saved entry ${entryId}, but מילוי indexing failed:`, indexError.message);
+    }
     res.json({ id: entryId, success: true });
   } catch (err) {
     if (client) await client.query('ROLLBACK').catch(() => {});
@@ -764,13 +809,26 @@ app.get('/api/entries', requireAuth, async (req, res) => {
  * DELETE /api/entries/:id
  */
 app.delete('/api/entries/:id', requireAuth, async (req, res) => {
+  let client;
   try {
     const id = parseInt(req.params.id);
     if (!id || id <= 0) return res.status(400).json({ error: 'invalid_id' });
-    await pool.query('DELETE FROM saved_entries WHERE id = $1', [id]);
+    client = await pool.connect();
+    await client.query('BEGIN');
+    await acquireMiluiSaveLock(client);
+    await client.query(
+      'SELECT id FROM saved_entries WHERE id = $1 FOR UPDATE',
+      [id]
+    );
+    await deleteMiluiIndexRows(client, id);
+    await client.query('DELETE FROM saved_entries WHERE id = $1', [id]);
+    await client.query('COMMIT');
     res.json({ success: true });
   } catch (err) {
+    if (client) await client.query('ROLLBACK').catch(() => {});
     console.error('/api/entries DELETE error:', err.message);
     res.status(500).json({ error: err.message });
+  } finally {
+    client?.release();
   }
 });

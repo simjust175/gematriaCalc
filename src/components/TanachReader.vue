@@ -195,6 +195,7 @@
             :gematria="result.fullGematria"
             :isAlreadySaved="matches.isAlreadySaved"
             :hasInput="true"
+            :error="matches.error"
           />
           <p v-if="saveError" class="save-error">{{ saveError }}</p>
         </section>

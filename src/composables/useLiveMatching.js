@@ -4,6 +4,7 @@ export function emptyMatchState() {
   return {
     matches: [],
     isAlreadySaved: false,
+    error: false,
   };
 }
 
@@ -60,7 +61,12 @@ export function useLiveMatching(result, options = {}) {
         const response = await fetchImpl(`/api/matches?${params}`, {
           signal: controller.signal,
         });
-        if (!response.ok) return;
+        if (!response.ok) {
+          if (requestId === latestRequestId && !controller.signal.aborted) {
+            matches.value = { ...emptyMatchState(), error: true };
+          }
+          return;
+        }
 
         const data = await response.json();
         if (requestId !== latestRequestId || controller.signal.aborted) return;
@@ -68,10 +74,14 @@ export function useLiveMatching(result, options = {}) {
         matches.value = {
           matches: Array.isArray(data.matches) ? data.matches : [],
           isAlreadySaved: data.isAlreadySaved === true,
+          error: false,
         };
       } catch (error) {
         if (error?.name !== 'AbortError') {
           console.warn('Match fetch error:', error);
+          if (requestId === latestRequestId) {
+            matches.value = { ...emptyMatchState(), error: true };
+          }
         }
       } finally {
         if (requestId === latestRequestId) activeController = null;

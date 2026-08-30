@@ -196,6 +196,19 @@ export async function initDb() {
 
   await ensureMiluiPreferences();
 
+  const { initializeMiluiMatching } = await import('./miluiIndex.js');
+  const miluiIndex = await initializeMiluiMatching({
+    // Development owns the candidate schema. Replit Publish compares it with
+    // production and applies the reviewed additive diff before production starts.
+    allowSchemaChanges: process.env.NODE_ENV !== 'production',
+  });
+  if (miluiIndex.schemaAvailable) {
+    console.log(
+      `Milui matching index ready: version ${miluiIndex.version}, `
+      + `${miluiIndex.coverage.indexedEntries}/${miluiIndex.coverage.savedEntries} entries`
+    );
+  }
+
   console.log('Database initialized');
 }
 

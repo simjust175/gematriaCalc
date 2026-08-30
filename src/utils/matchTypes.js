@@ -15,6 +15,10 @@ export const MATCH_TYPE_META = Object.freeze({
     label: 'התאמה בתיבה',
     badgeClass: 'match-badge--word',
   }),
+  milui_gematria: Object.freeze({
+    label: 'גימטריית מילוי',
+    badgeClass: 'match-badge--milui',
+  }),
 });
 
 export function getMatchTypeMeta(type) {

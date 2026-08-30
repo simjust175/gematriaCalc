@@ -22,7 +22,7 @@ test('calculator discovery filters and opens the exact canonical Tanach range', 
     has: page.locator('.citation strong', { hasText: 'בראשית א:א' }),
   }).first();
   await expect(genesis).toBeVisible();
-  await expect(genesis.locator('.type-label')).toHaveText('מילה שלמה');
+  await expect(genesis.locator('.type-label')).toHaveText('מילה אחת');
   await genesis.getByRole('button', { name: 'פתח בקורא' }).click();
 
   await expect(page.locator('.verse-toolbar h2')).toContainText('בראשית א:א');
