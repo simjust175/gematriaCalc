@@ -15,6 +15,10 @@ import {
   validateTanachGematriaScope,
 } from './tanachGematriaDiscovery.js';
 import {
+  parseMultipleDiscoveryQuery,
+  searchSavedMultiples,
+} from './multipleDiscovery.js';
+import {
   isApplicationReady,
   requireApplicationReady,
 } from './readiness.js';
@@ -406,6 +410,19 @@ app.get('/api/tanach/gematria-matches', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('/api/tanach/gematria-matches error:', err.message);
     res.status(500).json({ error: 'tanach_gematria_search_failed' });
+  }
+});
+
+/** GET /api/multiples — exact multiplication relationships in saved values. */
+app.get('/api/multiples', requireAuth, async (req, res) => {
+  const parsed = parseMultipleDiscoveryQuery(req.query);
+  if (parsed.error) return res.status(400).json({ error: parsed.error });
+
+  try {
+    res.json(await searchSavedMultiples(pool, parsed.value));
+  } catch (err) {
+    console.error('/api/multiples error:', err.message);
+    res.status(500).json({ error: 'multiple_discovery_failed' });
   }
 });
 

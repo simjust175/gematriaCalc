@@ -68,3 +68,57 @@ test('live matching shows the dedicated full מילוי badge', async ({ page })
     expect(cleanup.ok()).toBe(true);
   }
 });
+
+test('כפולות stays closed on demand, updates live, and fits a mobile viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await loginAndOpenCalculator(page);
+  const savedText = 'אב';
+  const createResponse = await page.request.post(new URL('/api/entries', page.url()).href, {
+    data: { originalText: savedText },
+  });
+  expect(createResponse.status()).toBe(200);
+  const savedId = (await createResponse.json()).id;
+  const multipleRequests = [];
+  page.on('request', request => {
+    if (new URL(request.url()).pathname === '/api/multiples') {
+      multipleRequests.push(request.url());
+    }
+  });
+
+  try {
+    const input = page.locator('.heb-input');
+    const toggle = page.locator('.multiple-toggle');
+    await input.fill('ו');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.locator('#multiple-discovery-panel')).toHaveCount(0);
+    await page.waitForTimeout(450);
+    expect(multipleRequests).toHaveLength(0);
+
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.locator('.multiple-entry__phrase')).toContainText(savedText);
+    await expect(page.locator('.multiple-equation').filter({ hasText: '3 × 2 = 6' })).toHaveCount(2);
+    await expect(page.locator('.multiple-factor').first()).toContainText('פי ב');
+    expect(multipleRequests).toHaveLength(1);
+
+    await input.fill('יב');
+    await expect(page.locator('.multiple-equation').filter({ hasText: '3 × 4 = 12' })).toHaveCount(2);
+    await expect(page.locator('.multiple-equation').first()).not.toContainText('= 6');
+    expect(multipleRequests).toHaveLength(2);
+
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await input.fill('ו');
+    await page.waitForTimeout(450);
+    expect(multipleRequests).toHaveLength(2);
+
+    const overflow = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+    }));
+    expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
+  } finally {
+    const cleanup = await page.request.delete(new URL(`/api/entries/${savedId}`, page.url()).href);
+    expect(cleanup.ok()).toBe(true);
+  }
+});

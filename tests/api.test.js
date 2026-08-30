@@ -61,6 +61,12 @@ test('GET /api/matches requires authentication (401)', async () => {
   assert.equal(res.body.error, 'not_authenticated');
 });
 
+test('GET /api/multiples requires authentication (401)', async () => {
+  const res = await request(app).get('/api/multiples?value=951');
+  assert.equal(res.status, 401);
+  assert.equal(res.body.error, 'not_authenticated');
+});
+
 test('GET /api/entries requires authentication (401)', async () => {
   const res = await request(app).get('/api/entries');
   assert.equal(res.status, 401);
@@ -158,6 +164,87 @@ test('GET /api/matches with valid session returns 200', async () => {
     .set('Cookie', cookie);
   // 200 OK (may fail with 500 if no DB, but not 401)
   assert.notEqual(res.status, 401);
+});
+
+test('saved multiple discovery validates input and consolidates approved sources by direction', async () => {
+  const agent = request.agent(app);
+  await agent.post('/api/auth/login').send({ password: 'correct-test-password-12345' });
+
+  for (const value of ['', '0', '-1', '2.5', '9007199254740992']) {
+    const invalid = await agent.get('/api/multiples').query({ value });
+    assert.equal(invalid.status, 400);
+    assert.equal(invalid.body.error, 'invalid_multiple_value');
+  }
+  const largeValid = await agent.get('/api/multiples').query({ value: 100400 });
+  assert.equal(largeValid.status, 200);
+  assert.equal(largeValid.body.currentValue, 100400);
+
+  const savedIds = [];
+  try {
+    const smaller = await agent.post('/api/entries').send({ originalText: `${uniqueHebrewToken()} א ב` });
+    assert.equal(smaller.status, 200);
+    savedIds.push(smaller.body.id);
+
+    const larger = await agent.post('/api/entries').send({ originalText: `${uniqueHebrewToken()} ס` });
+    assert.equal(larger.status, 200);
+    savedIds.push(larger.body.id);
+
+    // Use direct fixture values only to isolate the endpoint's source arithmetic;
+    // cleanup removes these test-only rows immediately afterward.
+    await pool.query(
+      `UPDATE saved_entries
+       SET full_gematria = CASE id WHEN $1 THEN 3 WHEN $2 THEN 60 END,
+           initials = CASE id WHEN $1 THEN 'אב' WHEN $2 THEN 'ס' END,
+           initials_gematria = CASE id WHEN $1 THEN 3 WHEN $2 THEN 60 END
+       WHERE id IN ($1, $2)`,
+      savedIds
+    );
+    await pool.query('DELETE FROM saved_words WHERE entry_id = ANY($1::int[])', [savedIds]);
+    await pool.query(
+      `INSERT INTO saved_words (entry_id, word, normalized_word, gematria, position)
+       VALUES ($1, 'א', 'א', 1, 0), ($1, 'ב', 'ב', 2, 1), ($2, 'ס', 'ס', 60, 0)`,
+      savedIds
+    );
+    await pool.query(
+      `UPDATE saved_entry_milui_index idx
+       SET full_milui_gematria = CASE idx.saved_entry_id WHEN $1 THEN 7 WHEN $2 THEN 120 END
+       FROM milui_index_state state
+       WHERE state.id = 'private-default'
+         AND idx.mapping_version = state.active_version
+         AND idx.saved_entry_id IN ($1, $2)`,
+      savedIds
+    );
+
+    const response = await agent.get('/api/multiples').query({ value: 6 });
+    assert.equal(response.status, 200);
+    assert.equal(response.body.currentValue, 6);
+
+    const intoCurrent = response.body.groups.find(group => group.key === 'into_current');
+    const currentIntoSaved = response.body.groups.find(group => group.key === 'current_into_saved');
+    const smallerEntry = intoCurrent.entries.find(entry => entry.entryId === savedIds[0]);
+    const largerEntry = currentIntoSaved.entries.find(entry => entry.entryId === savedIds[1]);
+
+    assert.ok(smallerEntry);
+    assert.deepEqual(
+      smallerEntry.relationships.map(item => item.sourceType),
+      ['full_gematria', 'initials_gematria', 'saved_word']
+    );
+    assert.equal(smallerEntry.relationships.some(item => item.sourceValue === 1), false);
+    assert.ok(largerEntry);
+    assert.ok(largerEntry.relationships.some(item => item.sourceType === 'full_gematria'));
+    assert.ok(largerEntry.relationships.some(item => item.sourceType === 'saved_word'));
+    assert.ok(largerEntry.relationships.some(
+      item => item.sourceType === 'milui_gematria' && item.multiplier === 20
+    ));
+    assert.equal(
+      response.body.groups.flatMap(group => group.entries).some(entry => entry.relationships.some(
+        item => item.multiplier === 1
+      )),
+      false
+    );
+  } finally {
+    for (const id of savedIds) await agent.delete(`/api/entries/${id}`);
+  }
 });
 
 test('מילוי settings persist and never mutate saved gematria records', async () => {

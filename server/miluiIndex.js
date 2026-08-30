@@ -511,6 +511,58 @@ export async function getActiveMiluiMatches(fullGematria, db = pool) {
   return result.rows;
 }
 
+export async function getActiveMiluiMultipleSources(currentValue, db = pool) {
+  if (!runtimeMatchingEnabled || currentValue <= 0) return [];
+  if (!schemaAvailable && !(await detectSchema(db))) return [];
+  await ensureActiveMiluiCoverage(db);
+
+  const readHealth = () => db.query(
+    `SELECT state.matching_enabled,
+            (SELECT COUNT(*)::int FROM saved_entries) AS saved_entries,
+            (SELECT COUNT(*)::int
+             FROM saved_entry_milui_index
+             WHERE mapping_version = state.active_version) AS indexed_entries
+     FROM milui_index_state state
+     WHERE state.id = $1`,
+    [MILUI_STATE_ID]
+  );
+  let healthRow = (await readHealth()).rows[0];
+  if (!healthRow
+      || !healthRow.matching_enabled
+      || healthRow.saved_entries !== healthRow.indexed_entries) {
+    await ensureActiveMiluiCoverage(db, { force: true });
+    healthRow = (await readHealth()).rows[0];
+  }
+  if (!healthRow
+      || !healthRow.matching_enabled
+      || healthRow.saved_entries !== healthRow.indexed_entries) {
+    const error = new Error('Milui matching index is unavailable');
+    error.code = 'MILUI_INDEX_UNAVAILABLE';
+    throw error;
+  }
+
+  const result = await db.query(
+    `SELECT se.id AS entry_id, se.original_text, se.created_at,
+            'milui_gematria'::text AS source_type,
+            idx.full_milui_gematria AS source_value,
+            NULL::text AS source_word
+     FROM milui_index_state state
+     JOIN saved_entry_milui_index idx ON idx.mapping_version = state.active_version
+     JOIN saved_entries se ON se.id = idx.saved_entry_id
+     WHERE state.id = $1
+       AND state.matching_enabled = TRUE
+       AND idx.full_milui_gematria > 1
+       AND idx.full_milui_gematria <> $2::bigint
+       AND (
+         ($2::bigint > idx.full_milui_gematria AND $2::bigint % idx.full_milui_gematria = 0)
+         OR (idx.full_milui_gematria > $2::bigint
+             AND idx.full_milui_gematria % $2::bigint = 0)
+       )`,
+    [MILUI_STATE_ID, currentValue]
+  );
+  return result.rows;
+}
+
 export async function deleteMiluiIndexRows(client, entryId) {
   if (!schemaAvailable && !(await detectSchema(client))) return;
   await client.query(

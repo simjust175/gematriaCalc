@@ -121,6 +121,13 @@
               </p>
             </div>
 
+            <MultipleDiscovery
+              v-if="result"
+              :open="multipleOpen"
+              :state="multipleState"
+              @toggle="multipleOpen = !multipleOpen"
+            />
+
             <TanachGematriaMatches
               :target="result.fullGematria"
               @open="emit('openTanach', $event)"
@@ -213,6 +220,7 @@
 import { ref, computed, watch, nextTick } from 'vue';
 import { computeAll } from '@/composables/useGematria.js';
 import { useLiveMatching } from '@/composables/useLiveMatching.js';
+import { useMultipleDiscovery } from '@/composables/useMultipleDiscovery.js';
 import {
   getMappedHebrewCharacter,
   insertAtSelection,
@@ -221,6 +229,7 @@ import MatchPanel from './MatchPanel.vue';
 import TanachGematriaMatches from './TanachGematriaMatches.vue';
 import MiluiPanel from './MiluiPanel.vue';
 import MiluiSettings from './MiluiSettings.vue';
+import MultipleDiscovery from './MultipleDiscovery.vue';
 import {
   MILUI_DEFAULT_MAPPING,
   calculateMilui,
@@ -254,6 +263,7 @@ const miluiSettingsLoaded = ref(false);
 const miluiSettingsLoading = ref(false);
 const miluiSettingsSaving = ref(false);
 const miluiSettingsError = ref('');
+const multipleOpen = ref(false);
 
 let saveResetTimer = null;
 
@@ -261,6 +271,8 @@ let saveResetTimer = null;
 const result  = computed(() => computeAll(inputText.value));
 const hasInput = computed(() => !!result.value);
 const { matches } = useLiveMatching(result);
+const multipleValue = computed(() => result.value?.fullGematria || 0);
+const { state: multipleState } = useMultipleDiscovery(multipleValue, multipleOpen);
 const miluiCalculation = computed(() => {
   if (!miluiOpen.value || !result.value) return null;
   return calculateMilui(inputText.value, miluiMapping.value);
@@ -273,6 +285,7 @@ watch(inputText, (val) => {
   saveError.value = '';
   if (!val) {
     miluiOpen.value = false;
+    multipleOpen.value = false;
     miluiSettingsOpen.value = false;
   }
   if (!val) {
