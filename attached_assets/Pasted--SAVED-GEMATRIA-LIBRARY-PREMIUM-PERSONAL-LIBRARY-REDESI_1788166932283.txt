@@ -1,0 +1,722 @@
+# SAVED GEMATRIA LIBRARY — PREMIUM PERSONAL LIBRARY REDESIGN
+
+Redesign the existing **שמורים** page of the Gematria application based closely on the attached visual mockup.
+
+## CRITICAL PRINCIPLE
+
+This is a **UI/UX enhancement of the EXISTING saved library**.
+
+It is NOT:
+
+* a database redesign
+* a new saved-entry system
+* a new matching engine
+* an authentication project
+* a new application
+* an excuse to rewrite working logic
+
+The attached mockup is the VISUAL TARGET.
+
+The current application/database is the FUNCTIONAL SOURCE OF TRUTH.
+
+Preserve all existing saved data and all existing save/search/delete/open behavior unless this specification explicitly improves the presentation.
+
+---
+
+# 1. CURRENT PROBLEM
+
+The current שמורים page works, but every saved entry occupies a very wide horizontal row while only using a small part of that width.
+
+This creates:
+
+* too much dead space
+* weak information hierarchy
+* slow visual scanning
+* a database/admin-list feeling
+
+The new page should feel like:
+
+**הספרייה האישית של המשתמש**
+
+A personal Gematria library.
+
+It should feel:
+
+* refined
+* compact
+* warm
+* traditional
+* modern
+* highly readable
+* effortless to scan
+
+Do NOT turn it into a SaaS dashboard.
+
+---
+
+# 2. PRESERVE THE EXISTING DESIGN LANGUAGE
+
+Use the visual system already established throughout the application:
+
+* warm cream/off-white background
+* deep navy Hebrew typography
+* restrained gold accent
+* thin warm borders
+* very soft shadows
+* rounded corners
+* RTL-first layout
+* understated traditional character
+
+Do NOT introduce:
+
+* gradients
+* dark panels
+* bright colors
+* glassmorphism
+* large illustrations
+* excessive icons
+* heavy shadows
+* generic admin-table styling
+
+---
+
+# 3. PAGE HEADER
+
+Keep:
+
+**שמורים**
+
+Subtitle:
+
+**הספרייה האישית שלך**
+
+The heading should remain visually strong but not oversized.
+
+Below it, keep the search field as the main interaction.
+
+---
+
+# 4. SMART SEARCH BAR
+
+Keep one elegant full-width search field.
+
+Placeholder:
+
+**חפש לפי טקסט, מספר גימטריה או ראשי תיבות...**
+
+Search should continue supporting the existing functionality and should be enhanced where safe to support:
+
+* original Hebrew text
+* normalized Hebrew text
+* full gematria number
+* ראשי תיבות text
+* ראשי תיבות gematria
+
+Examples:
+
+Typing:
+
+`יעקב`
+
+→ finds saved text containing יעקב.
+
+Typing:
+
+`251`
+
+→ finds entries whose relevant full gematria equals 251.
+
+Typing:
+
+`יא`
+
+→ may find entries whose ראשי תיבות equals יא if already available in the search model.
+
+Do not create a complex search language in this task.
+
+Keep it fast and intuitive.
+
+---
+
+# 5. LIBRARY TOOLBAR
+
+Directly below the search field, add a refined compact toolbar.
+
+It should contain:
+
+### Library summary
+
+Show:
+
+**X שמורים**
+
+and, if safely derivable from currently loaded/database data:
+
+**Y ערכים שונים**
+
+and:
+
+**Z ערכים משותפים**
+
+Where:
+
+* ערכים שונים = number of distinct full-gematria values
+* ערכים משותפים = gematria values represented by more than one saved entry
+
+Example:
+
+**14 שמורים · 12 ערכים שונים · 2 ערכים משותפים**
+
+Do not make these giant KPI cards.
+
+This should be a subtle inline summary.
+
+---
+
+# 6. VIEW SWITCHER
+
+Add a small elegant view selector:
+
+* card/grid view
+* list view
+
+Use restrained icons from the existing icon library.
+
+Default desktop view:
+
+**grid/cards**
+
+Mobile may automatically use one column.
+
+Persist the view preference only if the application already has an appropriate non-destructive UI preference mechanism.
+
+Do not add database complexity solely for this.
+
+---
+
+# 7. SORT CONTROL
+
+Add a compact sort control.
+
+Preferred initial options:
+
+* אחרונים
+* ישנים
+* לפי גימטריה
+* א״ב
+
+Default:
+
+**אחרונים**
+
+Keep the control visually compact and consistent with existing premium custom dropdowns.
+
+Do not use an ugly browser-native dropdown if the project already has a custom select/listbox component.
+
+---
+
+# 8. GROUP-BY-GEMATRIA CONTROL
+
+Add a useful library-specific toggle:
+
+**קבץ לפי גימטריה**
+
+This is an important Gematria feature.
+
+It should NOT be active by default.
+
+When enabled, entries sharing the same FULL GEMATRIA should be visually grouped together.
+
+Example:
+
+### 811 · תתיא
+
+**2 ערכים שמורים**
+
+Then show the two saved entries inside that group.
+
+This makes numerical relationships in the user's own library visible immediately.
+
+---
+
+# 9. DEFAULT DESKTOP GRID
+
+On desktop, replace the current giant full-width rows with a **two-column responsive card grid**.
+
+Aim for a comfortable content width similar to the attached mockup.
+
+Each card should use space efficiently.
+
+Do NOT make the cards tiny.
+
+Do NOT create three/four narrow columns.
+
+Two columns is the preferred desktop balance.
+
+---
+
+# 10. SAVED ENTRY CARD — COLLAPSED STATE
+
+Each card should immediately show:
+
+### Primary
+
+Original saved Hebrew phrase/text.
+
+This is the most visually important item.
+
+### Full gematria
+
+Show:
+
+decimal + Hebrew numeral
+
+Example:
+
+**251 · רנא**
+
+### ראשי תיבות
+
+Compact line:
+
+**ר״ת: יא**
+
+### גימטריית ראשי תיבות
+
+Compact line:
+
+**גימטריית ר״ת: 11 · יא**
+
+Keep these secondary.
+
+The card should be understandable in approximately one second.
+
+---
+
+# 11. CARD VISUAL HIERARCHY
+
+Preferred hierarchy:
+
+1. saved phrase
+2. full gematria
+3. ראשי תיבות / גימטריית ר״ת
+4. actions
+
+Do NOT make metadata louder than the phrase.
+
+Gold may emphasize the main numerical value.
+
+Use navy for the saved phrase.
+
+Use muted navy/gray for secondary metadata.
+
+---
+
+# 12. CARD HEIGHT
+
+Keep cards compact.
+
+Do not show:
+
+* full word breakdown
+* letter breakdown
+* full מילוי
+* every date/detail
+
+in the collapsed state.
+
+Use progressive disclosure.
+
+The goal is to fit significantly more useful saved material on screen than the old full-width list.
+
+---
+
+# 13. OPEN / EXPAND ACTION
+
+Use an elegant action:
+
+**פתח פירוט**
+
+or an equivalent subtle disclosure.
+
+Opening a card should reveal its existing detailed data.
+
+The expansion behavior can be:
+
+* inline expansion
+* modal/drawer
+* existing detail pattern
+
+Choose whichever best preserves the current application architecture.
+
+Do NOT create a completely new page unless one already exists.
+
+---
+
+# 14. EXPANDED DETAIL
+
+When opened, show existing information such as:
+
+* original text
+* full gematria
+* Hebrew-number representation
+* ראשי תיבות
+* ראשי תיבות gematria
+* word breakdown
+* letter breakdown
+* saved date
+* מילוי disclosure if the current app supports calculating מילוי on saved entries
+* any currently available metadata
+
+Do not duplicate calculations unnecessarily.
+
+---
+
+# 15. ACTION MENU
+
+Remove permanently visible destructive clutter where possible.
+
+Instead of showing a delete icon prominently on every card, use a compact:
+
+**⋯**
+
+menu.
+
+Possible actions:
+
+* פתח
+* העתק
+* מחק
+
+Only include actions already safely supported.
+
+Do not invent edit behavior unless the existing product supports it.
+
+---
+
+# DELETE SAFETY
+
+Delete remains destructive.
+
+Require the existing confirmation behavior if present.
+
+Do NOT make deletion easier to trigger accidentally.
+
+---
+
+# 16. GROUPED GEMATRIA VIEW
+
+When:
+
+**קבץ לפי גימטריה**
+
+is active:
+
+group saved entries by their FULL GEMATRIA.
+
+A group with one entry does not need excessive framing.
+
+A group with multiple entries should become visually meaningful.
+
+Example:
+
+```text
+811 · תתיא
+2 ערכים עם אותו ערך גימטרי
+
+┌─────────────────────┐  ┌─────────────────────┐
+│ תניא                │  │ שמע בני מוסר אביך   │
+│ ...                 │  │ ...                 │
+└─────────────────────┘  └─────────────────────┘
+```
+
+Use one subtle gold-tinted group boundary/background.
+
+Do not make grouped sections enormous.
+
+---
+
+# 17. SHARED VALUES
+
+If several saved entries have the same gematria, that is meaningful.
+
+Consider a small subtle indicator:
+
+**2 ערכים**
+
+or:
+
+**ערך משותף**
+
+Do not show flashy badges.
+
+The relationship should be clear without turning the page into analytics software.
+
+---
+
+# 18. LIST VIEW
+
+The optional list mode should preserve a denser version of the existing list.
+
+Do not simply revert to the old oversized rows.
+
+Each list row should use the width intelligently.
+
+Possible structure:
+
+Saved phrase | full gematria | ר״ת | גימטריית ר״ת | open/menu
+
+Respect RTL ordering.
+
+---
+
+# 19. MOBILE
+
+On mobile:
+
+* one-column cards
+* search full width
+* toolbar wraps naturally
+* stats remain readable
+* sort/view/group controls remain usable
+* no horizontal scrolling
+* card actions remain touch-friendly
+
+Do not shrink desktop cards into unreadably small layouts.
+
+---
+
+# 20. EMPTY STATES
+
+If no entries are saved:
+
+show a tasteful empty library state.
+
+Suggested Hebrew:
+
+**עדיין לא נשמרו ערכים**
+
+with a small supporting line encouraging the user to save calculations from the calculator.
+
+Do not add illustrations unless one already exists in the design system.
+
+If search returns no results:
+
+**לא נמצאו תוצאות**
+
+Keep it quiet and clean.
+
+---
+
+# 21. SEARCH RESULT HIGHLIGHT
+
+If technically straightforward and consistent with existing text highlighting:
+
+when a Hebrew text search matches a phrase, subtly highlight the matched text within the saved phrase.
+
+Use the same pale-gold visual language already used in Tanach / saved-word matching.
+
+Do not over-highlight.
+
+---
+
+# 22. PRESERVE MATCH DATA
+
+Saved entries already contain / expose important calculated fields.
+
+Do not recalculate or rewrite production SavedEntry/SavedWord rows merely for this UI.
+
+Read/display existing canonical data.
+
+This task should not mutate stored calculations.
+
+---
+
+# 23. DATABASE SAFETY — NON-NEGOTIABLE
+
+The client actively uses this production system.
+
+This redesign should ideally require:
+
+**NO DATABASE MIGRATION**
+
+and:
+
+**NO PRODUCTION DATA MODIFICATION**
+
+Do NOT:
+
+* delete entries
+* rewrite entries
+* modify saved words
+* backfill records
+* reset database
+* reseed
+* truncate
+* drop tables
+
+If a schema change appears necessary solely for a visual feature, STOP and reconsider.
+
+Prefer deriving counts/grouping from existing data/API queries.
+
+Required outcome:
+
+**existing saved records modified by redesign = 0**
+
+**existing saved records deleted by redesign = 0**
+
+---
+
+# 24. PERFORMANCE
+
+The library must remain responsive as saved entries grow.
+
+Do not render unnecessarily huge datasets without pagination/virtualization if the existing system already supports server-side pagination.
+
+Search, sorting and grouping should integrate with the existing API architecture intelligently.
+
+For the current small library, avoid overengineering.
+
+But do not design the page in a way that fails at hundreds/thousands of saved records.
+
+---
+
+# 25. GROUPING + SEARCH + SORT MUST COMPOSE
+
+Example:
+
+Search:
+
+`יעקב`
+
+Sort:
+
+לפי גימטריה
+
+Group:
+
+קבץ לפי גימטריה
+
+These controls should compose logically rather than constantly resetting one another.
+
+Similarly:
+
+clearing search should not unnecessarily reset the chosen sort/view/group preference.
+
+---
+
+# 26. VISUAL ALIGNMENT
+
+Pay close attention to:
+
+* card padding
+* RTL alignment
+* baselines
+* grid gaps
+* toolbar spacing
+* identical card radii
+* consistent icon placement
+* numerical alignment
+* vertical rhythm
+
+The quality of this page should come from precision, not decoration.
+
+---
+
+# 27. VISUAL TARGET
+
+Follow the attached mockup closely in spirit:
+
+* compact two-column personal library
+* elegant search
+* useful toolbar
+* meaningful summary
+* subtle grouping
+* strong phrase hierarchy
+* restrained gold numeric emphasis
+* minimal destructive controls
+* generous but efficient spacing
+
+Do NOT blindly copy inaccurate mockup text/numbers.
+
+Use real application data and existing calculation output.
+
+---
+
+# 28. DO NOT CHANGE OTHER PAGES
+
+Do NOT redesign:
+
+* calculator
+* Tanach reader
+* Tanach discovery
+* מילוי
+* כפולות
+* login
+* navigation
+
+Only make tiny shared-component adjustments if absolutely necessary to keep visual consistency.
+
+---
+
+# 29. TESTS / ACCEPTANCE
+
+Verify:
+
+1. Existing  saved entries still load.
+2. Search still works.
+3. Numeric gematria search works.
+4. ראשי תיבות search continues/works if supported.
+5. Default desktop grid is two columns.
+6. Mobile is one column.
+7. View switch works.
+8. Sort works.
+9. Group-by-gematria works.
+10. Multiple entries with same value appear in one group.
+11. Cards do not duplicate.
+12. Open/detail works.
+13. Delete still works with existing safety behavior.
+14. Existing saved data is unchanged.
+15. No database migration occurred unless explicitly justified.
+16. No horizontal overflow.
+17. RTL is correct.
+18. Existing application test suite still passes.
+
+---
+
+# FINAL ACCEPTANCE EXPERIENCE
+
+When the user opens:
+
+**שמורים**
+
+the page should immediately feel like a curated personal Gematria library.
+
+The user can:
+
+* search quickly
+* scan many saved entries comfortably
+* see each phrase's important numbers
+* identify repeated gematria values
+* group related entries
+* sort the collection
+* open deeper detail only when needed
+
+The page should no longer feel like:
+
+**a database list of saved records**
+
+It should feel like:
+
+**a personal ספריית גימטריא.**
+
+Do not perform unrelated refactors.
+
+After implementation, report:
+
+* files changed
+* whether any API behavior changed
+* whether any database/schema changes occurred
+* confirmation that saved production data was not modified
+* test/build results
+* responsive verification
