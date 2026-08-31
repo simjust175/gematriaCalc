@@ -4,7 +4,7 @@
     :class="{ expanded, 'has-shared-value': sharedValue }"
     :data-entry-id="entry.id"
   >
-    <div class="entry-header" @click="$emit('toggle', entry.id)">
+    <div class="entry-body entry-header" @click="$emit('toggle', entry.id)">
       <div class="entry-main-info">
         <div class="entry-text">
           <template v-for="(part, index) in highlightedPhrase" :key="`${part.text}-${index}`">
@@ -31,46 +31,6 @@
         </div>
       </div>
 
-      <div class="entry-actions" @click.stop>
-        <div class="entry-menu-wrap">
-          <button
-            class="menu-btn"
-            type="button"
-            :aria-label="`פעולות עבור ${entry.original_text}`"
-            :aria-expanded="menuOpen"
-            @click="$emit('toggle-menu', entry.id)"
-          >
-            <span aria-hidden="true">⋯</span>
-          </button>
-          <div v-if="menuOpen" class="entry-menu" role="menu">
-            <button type="button" role="menuitem" @click="$emit('toggle', entry.id)">
-              <span class="mdi mdi-open-in-new" aria-hidden="true"></span>
-              {{ expanded ? 'סגור פירוט' : 'פתח פירוט' }}
-            </button>
-            <button type="button" role="menuitem" @click="$emit('copy', entry)">
-              <span class="mdi mdi-content-copy" aria-hidden="true"></span>
-              העתק
-            </button>
-            <button type="button" role="menuitem" class="danger-action" @click="$emit('delete', entry)">
-              <span class="mdi mdi-delete-outline" aria-hidden="true"></span>
-              מחק
-            </button>
-          </div>
-        </div>
-        <button
-          class="detail-btn"
-          type="button"
-          :aria-expanded="expanded"
-          @click="$emit('toggle', entry.id)"
-        >
-          {{ expanded ? 'סגור' : 'פתח פירוט' }}
-          <span
-            class="expand-icon ui-chevron"
-            :class="expanded ? 'ui-chevron--up' : 'ui-chevron--down'"
-            aria-hidden="true"
-          ></span>
-        </button>
-      </div>
     </div>
 
     <div v-if="expanded" class="entry-detail">
@@ -103,6 +63,48 @@
       <div class="detail-meta">
         <span class="mdi mdi-clock-outline" aria-hidden="true"></span>
         {{ formatDate(entry.created_at) }}
+      </div>
+    </div>
+
+    <div class="entry-footer" @click.stop>
+      <button
+        class="detail-btn"
+        type="button"
+        :aria-expanded="expanded"
+        @click="$emit('toggle', entry.id)"
+      >
+        {{ expanded ? 'סגור' : 'פתח פירוט' }}
+        <span
+          class="expand-icon ui-chevron"
+          :class="expanded ? 'ui-chevron--up' : 'ui-chevron--down'"
+          aria-hidden="true"
+        ></span>
+      </button>
+
+      <div class="entry-menu-wrap">
+        <button
+          class="menu-btn"
+          type="button"
+          :aria-label="`פעולות עבור ${entry.original_text}`"
+          :aria-expanded="menuOpen"
+          @click="$emit('toggle-menu', entry.id)"
+        >
+          <span aria-hidden="true">⋯</span>
+        </button>
+        <div v-if="menuOpen" class="entry-menu" role="menu">
+          <button type="button" role="menuitem" @click="$emit('toggle', entry.id)">
+            <span class="mdi mdi-open-in-new" aria-hidden="true"></span>
+            {{ expanded ? 'סגור פירוט' : 'פתח פירוט' }}
+          </button>
+          <button type="button" role="menuitem" @click="$emit('copy', entry)">
+            <span class="mdi mdi-content-copy" aria-hidden="true"></span>
+            העתק
+          </button>
+          <button type="button" role="menuitem" class="danger-action" @click="$emit('delete', entry)">
+            <span class="mdi mdi-delete-outline" aria-hidden="true"></span>
+            מחק
+          </button>
+        </div>
       </div>
     </div>
   </article>
@@ -158,6 +160,10 @@ function formatTanachReference(entry) {
   background: #fff;
   border: 1.5px solid var(--border);
   border-radius: var(--radius);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   min-width: 0;
   overflow: visible;
   position: relative;
@@ -173,10 +179,11 @@ function formatTanachReference(entry) {
   cursor: pointer;
   display: flex;
   gap: 18px;
-  min-height: 184px;
-  padding: 19px 22px;
+  min-height: 142px;
+  padding: 18px 22px;
 }
 
+.entry-body { flex: 1 1 auto; }
 .entry-main-info { flex: 1; min-width: 0; }
 
 .entry-text {
@@ -245,15 +252,6 @@ function formatTanachReference(entry) {
 
 .initials-gematria-label { margin-right: 8px; }
 
-.entry-actions {
-  align-items: center;
-  align-self: flex-start;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  position: relative;
-}
-
 .entry-menu-wrap { position: relative; }
 
 .menu-btn,
@@ -301,8 +299,8 @@ function formatTanachReference(entry) {
   min-width: 142px;
   overflow: hidden;
   position: absolute;
-  right: 0;
-  top: 38px;
+  bottom: 38px;
+  left: 0;
   z-index: 10;
 }
 
@@ -327,11 +325,38 @@ function formatTanachReference(entry) {
 .detail-btn {
   font-size: .75rem;
   gap: 8px;
+  justify-content: flex-start;
   padding: 6px 8px;
   white-space: nowrap;
 }
 
 .expand-icon { height: 8px; width: 8px; }
+
+.entry-footer {
+  align-items: center;
+  border-top: 1px solid #eee9e0;
+  display: flex;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 0 14px;
+}
+
+.entry-footer .detail-btn {
+  color: var(--navy);
+  font-weight: 600;
+}
+
+.entry-footer .detail-btn:hover,
+.entry-footer .detail-btn:focus-visible {
+  background: var(--gold-light);
+}
+
+.entry-footer .menu-btn {
+  color: #8e8a82;
+  height: 32px;
+  padding: 0 6px 7px;
+  width: 32px;
+}
 
 .entry-detail {
   background: #fafaf7;
@@ -399,7 +424,6 @@ function formatTanachReference(entry) {
 @media (max-width: 680px) {
   .entry-header { gap: 10px; min-height: 0; padding: 16px; }
   .entry-text { font-size: 1.08rem; }
-  .entry-actions { gap: 4px; }
   .detail-btn { font-size: .7rem; padding-inline: 4px; }
   .entry-initials { gap: 4px; margin-top: 7px; }
   .initials-gematria-label { margin-right: 5px; }
@@ -407,8 +431,7 @@ function formatTanachReference(entry) {
 
 @media (max-width: 420px) {
   .entry-header { align-items: flex-start; }
-  .entry-actions { flex-direction: row-reverse; }
-  .detail-btn { margin-top: 2px; }
-  .entry-menu { right: auto; left: 0; }
+  .entry-footer { min-height: 42px; }
+  .entry-menu { left: 0; }
 }
 </style>

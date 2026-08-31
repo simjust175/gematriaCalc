@@ -49,6 +49,7 @@ test('saved library composes search, views, sorting, grouping, detail, and delet
 
     const cards = page.locator('.entry-card');
     await expect(cards).toHaveCount(3);
+    await expect(page.locator('.entry-footer')).toHaveCount(3);
     await expect(page.locator('.entry-text mark')).toHaveCount(3);
     await expect(page.locator('.library-summary')).toContainText('3 שמורים');
     await expect(page.locator('.library-summary')).toContainText('2 ערכים שונים');
@@ -62,6 +63,10 @@ test('saved library composes search, views, sorting, grouping, detail, and delet
       expect(Math.abs(boxes[0].x - boxes[1].x)).toBeLessThan(2);
     } else {
       expect(Math.abs(boxes[0].x - boxes[1].x)).toBeGreaterThan(100);
+      const footerBoxes = await page.locator('.entry-footer').evaluateAll(nodes =>
+        nodes.map(node => node.getBoundingClientRect())
+      );
+      expect(Math.abs(footerBoxes[0].y - footerBoxes[1].y)).toBeLessThan(2);
     }
 
     await page.getByTitle('תצוגת רשימה').click();

@@ -1,0 +1,198 @@
+# SAVED LIBRARY CARDS — FIX ACTION PLACEMENT
+
+The new two-column saved-library layout is good, but the action controls inside each card currently feel visually accidental.
+
+This is a focused card-layout refinement.
+
+Do NOT redesign the page.
+
+## CURRENT PROBLEM
+
+Each saved card currently has:
+
+* a `⋯` action floating near the upper-left
+* `פתח פירוט` floating separately lower-left
+* the actual saved-entry content grouped on the right
+
+The controls do not feel anchored to a deliberate card structure.
+
+We want every saved card to have a clear:
+
+**CONTENT AREA + ACTION FOOTER**
+
+---
+
+# 1. REMOVE FLOATING ACTIONS FROM CARD BODY
+
+Do not leave:
+
+* `⋯`
+* `פתח פירוט`
+
+floating independently inside the main card body.
+
+The body should be reserved for:
+
+* saved Hebrew text
+* full gematria
+* ראשי תיבות
+* גימטריית ר״ת
+
+---
+
+# 2. ADD A CONSISTENT CARD FOOTER
+
+At the bottom of EVERY saved card, create a slim action footer.
+
+Separate it from the card body with a very subtle divider.
+
+RTL layout:
+
+### Right side — primary action
+
+**פתח פירוט**
+
+with a small chevron/disclosure icon.
+
+This is the main card action.
+
+### Left side — secondary menu
+
+`⋯`
+
+This opens secondary actions such as existing copy/delete functionality.
+
+Conceptually:
+
+[ ⋯ ]                              [ פתח פירוט ‹ ]
+
+Respect RTL naturally rather than literally copying this order if the current CSS flow already handles it correctly.
+
+---
+
+# 3. FOOTER DESIGN
+
+Use:
+
+* approximately 38–44px height
+* subtle top divider
+* same cream/white card surface
+* no heavy background
+* no large button blocks
+* compact typography
+* restrained hover state
+* consistent padding
+
+The footer should feel integrated into the card, not like two buttons attached underneath.
+
+---
+
+# 4. פתח פירוט
+
+Style this as a lightweight textual action.
+
+Use:
+
+**פתח פירוט**
+
+plus a small chevron.
+
+Do not put it inside a heavy filled button.
+
+The text and chevron should respond together on hover.
+
+The entire action area should be comfortably clickable.
+
+---
+
+# 5. OVERFLOW MENU
+
+Use the existing `⋯` menu for secondary/destructive actions.
+
+Keep it visually quiet.
+
+Do not permanently display a delete icon on every card.
+
+If delete exists in the menu, preserve the existing confirmation/safety behavior.
+
+---
+
+# 6. CARD BODY HEIGHT
+
+After moving actions into the footer, tighten unnecessary vertical whitespace in the card body.
+
+The saved cards currently have more empty vertical space than necessary.
+
+Reduce height modestly while keeping the cards elegant and breathable.
+
+Do NOT make them cramped.
+
+The goal is a denser personal library where more entries can be scanned comfortably.
+
+---
+
+# 7. CONSISTENCY
+
+Every card must use exactly the same:
+
+* body padding
+* footer height
+* divider position
+* primary-action position
+* overflow-menu position
+
+Longer Hebrew phrases must not cause the actions to move unpredictably.
+
+The footer remains anchored at the bottom.
+
+---
+
+# 8. RESPONSIVE
+
+Desktop:
+
+two-column grid remains.
+
+Mobile:
+
+one-column cards.
+
+The footer remains:
+
+primary detail action on one side
+secondary menu on the other
+
+with no horizontal overflow.
+
+---
+
+# DO NOT CHANGE
+
+Do not change:
+
+* search
+* sorting
+* grouping
+* saved-entry content
+* gematria calculations
+* database/API
+* card colors
+* global typography
+* page layout
+
+This task is specifically to make card actions feel deliberately designed.
+
+---
+
+# ACCEPTANCE
+
+After the change:
+
+1. `⋯` no longer floats in the card body.
+2. `פתח פירוט` no longer floats independently.
+3. Every card has a clear bottom action footer.
+4. `פתח פירוט` is the obvious primary card action.
+5. `⋯` is clearly secondary.
+6. All card footers line up perfectly across the grid.
+7. Cards are slightly more compact.
+8. Nothing functional changed.
