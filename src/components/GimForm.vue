@@ -92,41 +92,46 @@
               </div>
             </div>
 
-            <div class="milui-disclosure">
-              <button
-                class="milui-toggle"
-                type="button"
-                :aria-expanded="miluiOpen"
-                aria-controls="milui-calculation"
-                @click="toggleMilui"
-              >
-                <span>מילוי</span>
-                <span
-                  class="milui-toggle__chevron ui-chevron"
-                  :class="miluiOpen ? 'ui-chevron--up' : 'ui-chevron--down'"
-                  aria-hidden="true"
-                ></span>
-              </button>
+            <div class="advanced-tools">
+              <div class="milui-disclosure">
+                <button
+                  class="milui-toggle"
+                  type="button"
+                  :aria-expanded="miluiOpen"
+                  aria-controls="milui-calculation"
+                  @click="toggleMilui"
+                >
+                  <span class="advanced-toggle__copy">
+                    <span class="advanced-toggle__label">מילוי</span>
+                    <small class="advanced-toggle__subtitle">חישוב לפי שמות האותיות</small>
+                  </span>
+                  <span
+                    class="milui-toggle__chevron ui-chevron"
+                    :class="miluiOpen ? 'ui-chevron--up' : 'ui-chevron--down'"
+                    aria-hidden="true"
+                  ></span>
+                </button>
 
-              <MiluiPanel
-                v-if="miluiCalculation"
-                id="milui-calculation"
-                :calculation="miluiCalculation"
-                :settings-disabled="!miluiSettingsLoaded"
-                @open-settings="openMiluiSettings"
+                <MiluiPanel
+                  v-if="miluiCalculation"
+                  id="milui-calculation"
+                  :calculation="miluiCalculation"
+                  :settings-disabled="!miluiSettingsLoaded"
+                  @open-settings="openMiluiSettings"
+                />
+                <p v-if="miluiOpen && miluiSettingsError && !miluiSettingsLoaded" class="milui-load-error" role="alert">
+                  {{ miluiSettingsError }}
+                  <button type="button" @click="loadMiluiSettings">נסה שוב</button>
+                </p>
+              </div>
+
+              <MultipleDiscovery
+                v-if="result"
+                :open="multipleOpen"
+                :state="multipleState"
+                @toggle="multipleOpen = !multipleOpen"
               />
-              <p v-if="miluiOpen && miluiSettingsError && !miluiSettingsLoaded" class="milui-load-error" role="alert">
-                {{ miluiSettingsError }}
-                <button type="button" @click="loadMiluiSettings">נסה שוב</button>
-              </p>
             </div>
-
-            <MultipleDiscovery
-              v-if="result"
-              :open="multipleOpen"
-              :state="multipleState"
-              @toggle="multipleOpen = !multipleOpen"
-            />
 
             <TanachGematriaMatches
               :target="result.fullGematria"
@@ -484,6 +489,8 @@ async function saveEntry() {
 }
 
 .calc-col   { display: flex; flex-direction: column; gap: 14px; }
+.advanced-tools { display: flex; flex-direction: column; gap: 9px; }
+:deep(.gematria-discovery) { margin-top: 10px; }
 .match-col  { position: sticky; top: 88px; }
 
 /* Hide mobile match panel on desktop, desktop aside on mobile */
@@ -748,16 +755,14 @@ async function saveEntry() {
   align-items: center;
   background: #fffdf8;
   border: 0;
-  border-bottom: 0 solid var(--border);
+  border-bottom: 1px solid transparent;
   color: var(--navy);
   cursor: pointer;
   display: flex;
   font-family: inherit;
-  font-size: .84rem;
-  font-weight: 600;
   justify-content: space-between;
   min-height: 48px;
-  padding: 10px 16px;
+  padding: 9px 16px;
   text-align: right;
   transition: background .16s, color .16s;
   width: 100%;
@@ -775,7 +780,27 @@ async function saveEntry() {
 }
 
 .milui-toggle[aria-expanded="true"] {
-  border-bottom-width: 1px;
+  border-bottom-color: var(--border);
+}
+
+.advanced-toggle__copy {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  text-align: right;
+}
+
+.advanced-toggle__label {
+  color: var(--navy);
+  font-size: .84rem;
+  font-weight: 600;
+}
+
+.advanced-toggle__subtitle {
+  color: var(--text-secondary);
+  font-size: .69rem;
+  font-weight: 500;
 }
 
 .milui-toggle__chevron {
@@ -824,6 +849,8 @@ async function saveEntry() {
     border-inline-start: none;
     border-top: 1px solid var(--border);
   }
+  .advanced-toggle__copy { gap: 5px; }
+  .advanced-toggle__subtitle { flex-basis: 100%; }
   .save-btn { padding-inline: 10px; }
 }
 

@@ -1,0 +1,447 @@
+# FINAL CALCULATOR POLISH — DO NOT REDESIGN
+
+The current Gematria calculator design is approved.
+
+This is NOT a redesign task.
+
+The goal is to take the existing interface from “very good” to **finished, deliberate, premium, and visually coherent** through small hierarchy, spacing, and interaction refinements.
+
+Do not introduce a new visual direction.
+
+## NON-NEGOTIABLE
+
+Preserve:
+
+* current cream / off-white background
+* navy typography
+* restrained gold accents
+* existing fonts
+* current header/navigation
+* three primary calculation results
+* saved-match sidebar
+* Tanach result design
+* current widths
+* RTL structure
+* current functionality
+
+Do not add gradients, decorative graphics, oversized icons, stronger shadows, or unnecessary animation.
+
+---
+
+# 1. ADVANCED TOOLS SHOULD FEEL LIKE ONE SYSTEM
+
+The existing advanced tools:
+
+**מילוי**
+
+and
+
+**כפולות**
+
+currently work, but visually they still feel slightly like generic rows.
+
+Refine them into a consistent pair of premium disclosure controls.
+
+Both must use EXACTLY the same:
+
+* height
+* padding
+* border radius
+* border color
+* typography hierarchy
+* chevron position
+* hover treatment
+* expanded-state treatment
+
+They should clearly look related.
+
+Conceptually:
+
+**מילוי**
+חישוב לפי שמות האותיות
+
+**כפולות**
+קשרים מספריים מדויקים
+
+The explanatory text should be small and quiet.
+
+Do not make the subtitles compete with the labels.
+
+---
+
+# 2. DISCLOSURE VISUAL HIERARCHY
+
+Each closed disclosure should contain:
+
+### Primary label
+
+Navy, medium/semi-bold:
+
+מילוי
+
+or:
+
+כפולות
+
+### Secondary explanation
+
+Small muted text:
+
+For מילוי:
+
+**חישוב לפי שמות האותיות**
+
+For כפולות:
+
+**קשרים מספריים מדויקים**
+
+### Chevron
+
+Small, restrained, aligned consistently.
+
+The entire row is clickable.
+
+Do not make the chevron itself the visual focus.
+
+---
+
+# 3. OPTIONAL ICONS
+
+If the current icon library already contains appropriate simple line icons, add one small icon to each advanced tool.
+
+For example:
+
+מילוי → subtle letters/settings-style icon
+
+כפולות → subtle relation/link/multiplication-style icon
+
+Requirements:
+
+* same icon size
+* same stroke weight
+* muted gold/navy
+* no custom illustrations
+* no emoji
+* no oversized decorative symbols
+
+If available icons do not improve the design, omit them.
+
+Do not install a new library solely for this.
+
+---
+
+# 4. CLOSED STATE
+
+Closed disclosures should feel lighter than the three primary calculation cards.
+
+Use:
+
+* white or very light warm surface
+* thin warm border
+* minimal/no shadow
+* approximately 46–54px minimum height
+* comfortable but compact padding
+
+The user should understand:
+
+“These are optional advanced calculations.”
+
+They must NOT visually compete with:
+
+גימטריה מלאה
+ראשי תיבות
+גימטריית ר״ת
+
+---
+
+# 5. OPEN STATE
+
+When opened:
+
+the disclosure header and its content should become one continuous section.
+
+Avoid:
+
+button
+gap
+separate card
+
+Instead:
+
+header
+→ subtle divider
+→ advanced content
+
+Use connected borders/radii.
+
+The transition should be subtle:
+
+approximately 150–220ms ease.
+
+No bouncing, scaling, or dramatic animation.
+
+---
+
+# 6. VERTICAL RHYTHM
+
+Review the spacing from:
+
+three primary results
+
+→ advanced tools
+
+→ Tanach discovery
+
+The page currently has slightly too much visual separation in some areas.
+
+Create a deliberate rhythm.
+
+Suggested relationships:
+
+Primary results → advanced tools:
+approximately 12–16px
+
+Between מילוי and כפולות:
+approximately 8–10px
+
+Advanced tools → Tanach section:
+approximately 24–32px
+
+Do not blindly apply these exact numbers if existing variables/design tokens produce better alignment.
+
+The important point is:
+
+the calculator should feel like ONE continuous research workspace.
+
+---
+
+# 7. SECTION DIVIDER BEFORE TANACH
+
+Keep the Tanach section separate, but make the transition elegant.
+
+If the existing divider is used:
+
+* keep it very light
+* generous horizontal width
+* no heavy rule
+
+Do not add another large card around the entire Tanach section.
+
+The hierarchy should naturally read:
+
+CALCULATION
+
+ADVANCED CALCULATIONS
+
+TANACH DISCOVERY
+
+without needing large headings for each.
+
+---
+
+# 8. PRIMARY RESULT ROW CONSISTENCY
+
+Do NOT redesign the three existing results.
+
+Only verify:
+
+* equal vertical alignment
+* consistent label baseline
+* consistent result baseline
+* separators centered
+* save control aligned naturally
+* no accidental visual dominance of one result
+
+גימטריה מלאה, ראשי תיבות, and גימטריית ר״ת should continue to feel equally important.
+
+---
+
+# 9. SAVED MATCH SIDEBAR
+
+Keep the existing sidebar design.
+
+However, ensure the reason for every match is immediately understandable.
+
+For word-inside-phrase matches:
+
+* retain `התאמה בתיבה`
+* subtly highlight the exact matching word
+* use the same pale-gold highlight language as Tanach matches
+
+For other match types, preserve compact badges such as:
+
+* גימטריה מלאה
+* ראשי תיבות
+* גימטריית ר״ת
+* גימטריית מילוי
+
+Do not make match cards larger merely to explain them.
+
+---
+
+# 10. HOVER / FOCUS STATES
+
+Create one consistent interaction language across:
+
+* שמור
+* מילוי
+* כפולות
+* Tanach filters
+* dropdowns
+* saved match cards where clickable
+
+Hover:
+
+very subtle warm/gold surface or border enhancement.
+
+Keyboard focus:
+
+visible refined focus ring.
+
+Avoid browser-default bright blue outlines where the existing accessible component system supports custom focus styling.
+
+Do not sacrifice accessibility.
+
+---
+
+# 11. TYPOGRAPHY CONSISTENCY
+
+Audit small labels.
+
+Ensure similar concepts use the same typography:
+
+* card labels
+* disclosure subtitles
+* section kickers
+* match badges
+* metadata
+
+Do not introduce five different small-text sizes.
+
+Prefer a controlled hierarchy such as:
+
+Primary Hebrew phrase
+→ result
+→ label
+→ metadata
+
+Use existing design tokens where possible.
+
+---
+
+# 12. BORDER CONSISTENCY
+
+Audit all calculator-area borders.
+
+The three primary results, advanced disclosures, Tanach toolbar, and saved-match cards should feel like they belong to one family.
+
+Avoid slightly different random:
+
+* beige borders
+* grey borders
+* gold borders
+* radii
+
+Create/reuse consistent CSS variables/design tokens where appropriate.
+
+Do not refactor the whole CSS architecture solely for this.
+
+---
+
+# 13. GOLD USAGE
+
+Gold should remain an accent.
+
+Use it mainly for:
+
+* active states
+* key numeric emphasis
+* selected filters
+* subtle border/focus details
+* matched text
+
+Do not turn every advanced control gold.
+
+There should always be significantly more cream/navy than gold.
+
+---
+
+# 14. RESPONSIVE QUALITY
+
+Verify the polished hierarchy at:
+
+* large desktop
+* 1280px desktop
+* tablet
+* mobile
+
+On mobile:
+
+* three result cards may stack/reflow according to current responsive behavior
+* advanced disclosures become full-width
+* subtitles remain readable
+* no horizontal overflow
+* Tanach controls remain usable
+* saved matches move naturally according to existing layout
+
+Do not create a separate mobile visual design.
+
+---
+
+# 15. NO NEW FEATURES
+
+Do NOT add:
+
+* explanatory tooltips everywhere
+* onboarding
+* animations beyond subtle disclosure transitions
+* new buttons
+* new navigation
+* charts
+* graphics
+* extra result cards
+
+This is a refinement task.
+
+---
+
+# 16. FINAL VISUAL TEST
+
+At normal desktop width, the eye should naturally move through:
+
+1. Hebrew input
+2. three core calculations
+3. optional מילוי / כפולות tools
+4. Tanach discovery
+5. saved matches when relevant
+
+Nothing should feel visually accidental.
+
+The advanced tools should clearly say:
+
+**“More depth is available here if I want it.”**
+
+without demanding attention during normal use.
+
+---
+
+# 17. ACCEPTANCE CHECK
+
+After implementation verify:
+
+* מילוי and כפולות are perfectly consistent with one another
+* both have refined subtitles
+* no floating/isolated advanced buttons remain
+* vertical spacing feels intentional
+* advanced tools remain visually subordinate
+* Tanach section connects naturally to the calculator
+* existing saved-match highlighting remains clear
+* no logic changed
+* no database changes
+* no API changes
+* no production data touched
+* no regressions on mobile
+
+Report the files changed.
+
+Do not perform unrelated refactors.

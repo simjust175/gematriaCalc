@@ -7,9 +7,9 @@
       aria-controls="multiple-discovery-panel"
       @click="emit('toggle')"
     >
-      <span class="multiple-toggle__copy">
-        <span>כפולות</span>
-        <small>יחסים מדויקים בספרייה</small>
+      <span class="advanced-toggle__copy">
+        <span class="advanced-toggle__label">כפולות</span>
+        <small class="advanced-toggle__subtitle">קשרים מספריים מדויקים</small>
       </span>
       <span
         class="multiple-toggle__chevron ui-chevron"
@@ -170,6 +170,7 @@ function equationLabel(group, relationship) {
   min-height: 48px;
   padding: 9px 16px;
   border: 0;
+  border-bottom: 1px solid transparent;
   background: #fffdf8;
   color: var(--navy);
   cursor: pointer;
@@ -182,6 +183,7 @@ function equationLabel(group, relationship) {
 .multiple-toggle:focus-visible,
 .multiple-toggle[aria-expanded="true"] {
   background: #fbf8f1;
+  border-bottom-color: var(--border);
 }
 
 .multiple-toggle:focus-visible {
@@ -189,16 +191,21 @@ function equationLabel(group, relationship) {
   outline-offset: -3px;
 }
 
-.multiple-toggle__copy {
+.advanced-toggle__copy {
   align-items: baseline;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  text-align: right;
+}
+
+.advanced-toggle__label {
+  color: var(--navy);
   font-size: .84rem;
   font-weight: 600;
 }
 
-.multiple-toggle__copy small {
+.advanced-toggle__subtitle {
   color: var(--text-secondary);
   font-size: .69rem;
   font-weight: 500;
@@ -211,7 +218,6 @@ function equationLabel(group, relationship) {
 }
 
 .multiple-panel {
-  border-top: 1px solid var(--border);
   padding: 14px;
 }
 
@@ -363,8 +369,8 @@ function equationLabel(group, relationship) {
 
 @media (max-width: 480px) {
   .multiple-panel { padding: 11px; }
-  .multiple-toggle__copy { gap: 5px; }
-  .multiple-toggle__copy small { flex-basis: 100%; }
+  .advanced-toggle__copy { gap: 5px; }
+  .advanced-toggle__subtitle { flex-basis: 100%; }
   .multiple-equation-row { align-items: flex-start; flex-direction: column; gap: 3px; }
   .multiple-equation { white-space: normal; }
 }
