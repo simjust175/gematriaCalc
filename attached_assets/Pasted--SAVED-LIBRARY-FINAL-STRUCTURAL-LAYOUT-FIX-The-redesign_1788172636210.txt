@@ -1,0 +1,554 @@
+# SAVED LIBRARY — FINAL STRUCTURAL LAYOUT FIX
+
+The redesigned שמורים page is close, but there are still several layout problems.
+
+This task is NOT a redesign.
+
+Preserve the approved visual language and fix only the structural issues described below.
+
+## CURRENT PROBLEMS
+
+### 1. Collapsed cards are too tall
+
+The cards still contain too much empty vertical space relative to the amount of information shown.
+
+They should feel compact and easy to scan.
+
+### 2. Expanding one card breaks the two-column grid
+
+Currently, opening one saved entry makes that one grid card much taller while the neighboring card remains short.
+
+This creates a large awkward empty area and destroys the visual rhythm of the library.
+
+### 3. Group-by-gematria creates giant wrappers even for unique values
+
+When `קבץ לפי גימטריה` is enabled, even a gematria value with only ONE saved entry receives a large full-width beige group container.
+
+This creates enormous dead space and defeats the purpose of the compact library.
+
+### 4. Toolbar still feels slightly split
+
+The stats on the right and controls on the left are correct conceptually, but spacing should be tightened so they read as one intentional toolbar.
+
+---
+
+# 1. MAKE COLLAPSED CARDS MORE COMPACT
+
+Reduce unnecessary vertical whitespace inside collapsed cards.
+
+Keep:
+
+* saved Hebrew phrase
+* full gematria
+* Hebrew numeral
+* ראשי תיבות
+* גימטריית ר״ת
+* action footer
+
+Do not remove useful information.
+
+Instead:
+
+* reduce excess body padding
+* tighten vertical gaps
+* keep comfortable readability
+* keep consistent card height where practical
+
+The cards should feel refined and breathable, but materially denser than they are now.
+
+Do NOT make them cramped.
+
+---
+
+# 2. PRESERVE THE TWO-COLUMN GRID
+
+Desktop default remains:
+
+**2-column card grid**
+
+Do not change this.
+
+Mobile remains:
+
+**1 column**
+
+---
+
+# 3. CHANGE HOW DETAILS OPEN ON DESKTOP
+
+This is the most important correction.
+
+Do NOT expand the selected card vertically inside one grid cell.
+
+Instead:
+
+when the user clicks:
+
+**פתח פירוט**
+
+render a dedicated FULL-WIDTH detail panel directly BELOW the grid row containing that selected card.
+
+The detail panel should span BOTH desktop columns.
+
+Example:
+
+```text
+[ Card A ]       [ Card B ]
+
+────────────────────────────────
+       Detail panel for B
+────────────────────────────────
+
+[ Card C ]       [ Card D ]
+```
+
+This preserves the grid rhythm.
+
+The neighboring card must NOT stretch or sit beside a giant blank area.
+
+---
+
+# 4. SELECTED CARD STATE
+
+When a card is open:
+
+keep the original compact card in place.
+
+Give it a very subtle selected state, such as:
+
+* slightly stronger warm border
+* restrained gold accent
+* no heavy fill
+
+Then render its detail panel below the row.
+
+Do not duplicate the card's entire appearance inside the panel unnecessarily.
+
+---
+
+# 5. DETAIL PANEL DESIGN
+
+The full-width detail panel should feel like an extension of the selected card.
+
+Use:
+
+* current cream/white surface
+* thin warm border
+* current radius
+* subtle connection to selected card
+* proper RTL layout
+
+Show the existing detailed data such as:
+
+* original phrase
+* full gematria
+* ראשי תיבות
+* גימטריית ר״ת
+* word breakdown
+* letter breakdown
+* saved date
+* מילוי if already supported
+* other currently available details
+
+Do not add new functionality in this task.
+
+---
+
+# 6. CLOSING DETAIL
+
+The detail panel should have a clear but subtle:
+
+**סגור**
+
+or existing collapse action.
+
+Clicking the same `פתח פירוט` action again may also close it if consistent with current behavior.
+
+Only ONE saved-entry detail panel should normally be open at once.
+
+Opening another card should switch the detail panel to that entry rather than stacking multiple giant detail panels.
+
+---
+
+# 7. MOBILE BEHAVIOR
+
+On mobile / narrow layouts:
+
+inline expansion directly beneath the selected single-column card is acceptable.
+
+Do not force the desktop two-column spanning implementation onto mobile.
+
+Requirements:
+
+* no horizontal overflow
+* detail remains immediately associated with selected card
+* actions remain touch-friendly
+
+---
+
+# 8. FIX GROUP-BY-GEMATRIA LOGIC
+
+When:
+
+**קבץ לפי גימטריה**
+
+is ON, distinguish between:
+
+### UNIQUE VALUE
+
+Only one saved entry has this full gematria.
+
+### SHARED VALUE
+
+Two or more saved entries have this full gematria.
+
+These must NOT receive the same visual treatment.
+
+---
+
+# 9. UNIQUE GEMATRIA VALUES
+
+If a gematria value has only ONE saved entry:
+
+do NOT create a large group wrapper.
+
+Do NOT show a giant beige full-width section around it.
+
+Simply render that entry as a normal compact card in the regular two-column flow.
+
+Unique values should remain visually lightweight.
+
+---
+
+# 10. SHARED GEMATRIA VALUES
+
+Only when a gematria value has **2 or more saved entries**, create a visible group.
+
+Example:
+
+```text
+811 · תתיא
+2 ערכים שמורים
+
+[ Entry A ]       [ Entry B ]
+```
+
+Use:
+
+* subtle warm group background or border
+* compact group header
+* gematria number
+* Hebrew numeral
+* number of entries
+
+Do not make the group container excessively tall.
+
+---
+
+# 11. GROUP HEADER
+
+For shared groups, show something like:
+
+**811 · תתיא**
+
+small secondary text:
+
+**2 ערכים שמורים**
+
+or:
+
+**2 ערכים עם אותה גימטריה**
+
+Keep wording concise.
+
+Do not create analytics-style KPIs.
+
+---
+
+# 12. GROUP CARD GRID
+
+Within a shared gematria group:
+
+use the same normal card component.
+
+Do not invent a second card design.
+
+Desktop:
+
+2 columns where space allows.
+
+Mobile:
+
+1 column.
+
+The grouped cards should still support:
+
+* פתח פירוט
+* overflow menu
+* current detail behavior
+
+---
+
+# 13. DETAIL PANEL INSIDE GROUPED MODE
+
+If the user opens a card inside a shared gematria group:
+
+the detail panel should span the FULL WIDTH of that group's card area beneath the row containing the selected card.
+
+Do not break the group grid.
+
+Do not expand one card alone vertically.
+
+---
+
+# 14. TOOLBAR COHESION
+
+Keep the current layout logic:
+
+### RIGHT
+
+Library summary:
+
+* X שמורים
+* Y ערכים שונים
+* Z ערכים משותפים
+
+### LEFT
+
+Controls:
+
+* קבץ לפי גימטריה
+* grid/list toggle
+* מיון
+
+But tighten spacing so the toolbar feels like one deliberate control strip.
+
+Use:
+
+* consistent control heights
+* consistent gaps
+* vertical centering
+* proper RTL alignment
+
+Do NOT wrap each control in unnecessary extra containers.
+
+---
+
+# 15. CONTROL ORDER
+
+Keep the controls visually grouped.
+
+Preferred logical group:
+
+**קבץ לפי גימטריה**
+**תצוגה**
+**מיון**
+
+Do not scatter them across unrelated positions.
+
+---
+
+# 16. CARD ACTION FOOTER
+
+Preserve the approved footer pattern:
+
+### Primary RTL side
+
+**פתח פירוט**
+
+with a subtle chevron.
+
+### Secondary opposite side
+
+`⋯`
+
+for existing secondary actions.
+
+Do not move these controls back into the main card body.
+
+---
+
+# 17. EQUAL FOOTERS
+
+Every collapsed card must use:
+
+* same footer height
+* same divider position
+* same action alignment
+* same padding
+
+Longer saved phrases must not move footer actions unpredictably.
+
+---
+
+# 18. GRID RHYTHM
+
+After all corrections, visually inspect multiple rows.
+
+The page should feel like a consistent library grid:
+
+```text
+[ compact ] [ compact ]
+[ compact ] [ compact ]
+[ compact ] [ compact ]
+```
+
+Opening one item:
+
+```text
+[ compact ] [ selected compact ]
+
+[        full-width detail        ]
+
+[ compact ] [ compact ]
+```
+
+No giant blank neighbor.
+
+---
+
+# 19. NO GIANT GROUP WRAPPERS
+
+Specifically verify this failure no longer exists:
+
+A unique value such as:
+
+203
+
+must NOT produce:
+
+* huge full-width cream group
+* one tiny card sitting on one side
+* massive empty region
+
+Only genuinely shared gematria values deserve group framing.
+
+---
+
+# 20. TRANSITIONS
+
+Use only subtle transitions.
+
+For detail opening:
+
+approximately 150–220ms if already consistent with the app.
+
+No large slide animations.
+
+No bounce.
+
+No scale effects.
+
+---
+
+# 21. ACCESSIBILITY
+
+Ensure:
+
+* `פתח פירוט` is keyboard accessible
+* expanded state has appropriate semantics
+* focus remains logical
+* closing/opening does not unexpectedly jump the page
+* `aria-expanded` is used where appropriate
+
+---
+
+# 22. PRESERVE EXISTING FUNCTIONALITY
+
+Do NOT change:
+
+* save logic
+* delete logic
+* search
+* search matching rules
+* sort semantics
+* grouping calculation
+* gematria values
+* ראשי תיבות
+* מילוי
+* database
+* API unless absolutely required for current UI data
+* production data
+* Tanach
+* main calculator
+
+---
+
+# 23. DATABASE SAFETY
+
+This task should require:
+
+**NO database migration**
+
+and:
+
+**NO saved-data modifications**
+
+Do not:
+
+* update existing saved rows
+* delete rows
+* backfill data
+* create new schema merely for layout
+* reset/reseed
+
+Required:
+
+existing saved records modified = 0
+existing saved records deleted = 0
+
+---
+
+# 24. RESPONSIVE ACCEPTANCE
+
+Verify at:
+
+* wide desktop
+* ~1280px desktop
+* tablet
+* mobile
+
+Desktop:
+
+* two-column compact grid
+* full-width detail panel below selected row
+
+Mobile:
+
+* one-column cards
+* detail directly beneath selected card
+
+No horizontal overflow.
+
+---
+
+# 25. FINAL ACCEPTANCE CHECK
+
+The task is complete only when:
+
+1. Collapsed cards are visibly more compact.
+2. Two-column grid remains intact.
+3. Opening a card never stretches one grid cell vertically beside a blank neighbor.
+4. Detail spans both columns beneath the selected row.
+5. Only one detail panel is open at a time.
+6. Unique gematria values remain ordinary cards even in group mode.
+7. Only values with 2+ entries receive group framing.
+8. Shared groups remain compact and easy to scan.
+9. Card footers remain consistent.
+10. Toolbar controls feel cohesive.
+11. RTL alignment is correct.
+12. Mobile works cleanly.
+13. No database/API/data changes were introduced unnecessarily.
+14. Existing tests continue to pass.
+
+Do not perform unrelated refactors.
+
+After implementation report:
+
+* files changed
+* card-height/layout changes
+* how full-width detail insertion works
+* how unique/shared grouping is determined
+* responsive behavior
+* confirmation of no database changes
+* test/build results
