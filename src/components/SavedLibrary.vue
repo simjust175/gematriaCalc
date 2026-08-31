@@ -579,33 +579,37 @@ onBeforeUnmount(() => {
   color: var(--navy);
   cursor: pointer;
   display: inline-flex;
-  font-size: .78rem;
-  gap: 7px;
+  font-size: .82rem;
+  gap: 8px;
   user-select: none;
 }
 
 .group-toggle input { height: 1px; opacity: 0; position: absolute; width: 1px; }
 .group-toggle__track {
-  background: #d9d4c9;
+  background: #c9c3b8;
+  border: 1px solid #b7b0a3;
   border-radius: 999px;
-  height: 18px;
-  padding: 2px;
-  transition: background .15s;
-  width: 31px;
+  box-sizing: border-box;
+  direction: ltr;
+  height: 20px;
+  padding: 1px;
+  transition: background .15s, border-color .15s;
+  width: 36px;
 }
 
 .group-toggle__track span {
   background: #fff;
   border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(32, 48, 71, .28);
   display: block;
-  height: 14px;
-  transform: translateX(13px);
+  height: 16px;
+  transform: translateX(0);
   transition: transform .15s;
-  width: 14px;
+  width: 16px;
 }
 
-.group-toggle input:checked + .group-toggle__track { background: var(--gold); }
-.group-toggle input:checked + .group-toggle__track span { transform: translateX(0); }
+.group-toggle input:checked + .group-toggle__track { background: var(--gold); border-color: #b99645; }
+.group-toggle input:checked + .group-toggle__track span { transform: translateX(16px); }
 .group-toggle input:focus-visible + .group-toggle__track { outline: 2px solid var(--gold); outline-offset: 2px; }
 
 .entries-list { align-items: start; display: grid; gap: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
