@@ -2,6 +2,7 @@
   <div id="app">
     <!-- Loading splash while checking auth -->
     <div v-if="authState === 'checking'" class="auth-loading">
+      <img class="auth-loading-logo" src="/images/gemariaLogo.png" alt="" aria-hidden="true">
       <span class="mdi mdi-loading mdi-spin" style="font-size:2rem;color:#C09840;"></span>
     </div>
 
@@ -127,10 +128,19 @@ html, body {
 #app { min-height: 100vh; background: var(--bg); }
 
 .auth-loading {
-  min-height: 100vh;
-  display: flex;
   align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
   justify-content: center;
+  min-height: 100vh;
+}
+
+.auth-loading-logo {
+  height: 56px;
+  object-fit: contain;
+  width: 56px;
+  filter: brightness(0) saturate(100%) invert(16%) sepia(18%) saturate(1360%) hue-rotate(186deg) brightness(88%) contrast(94%);
 }
 
 .main-content {

@@ -3,8 +3,11 @@
     <div class="header-inner">
       <!-- Logo -->
       <div class="logo" @click="$emit('navigate', 'calculator')" title="מחשבון">
-        <span class="logo-main">גימטריה</span>
-        <span class="logo-sub">מחשבון</span>
+        <img class="brand-mark" src="/images/gemariaLogo.png" alt="" aria-hidden="true">
+        <span class="logo-copy">
+          <span class="logo-main">גימטריה</span>
+          <span class="logo-sub">מחשבון</span>
+        </span>
       </div>
 
       <!-- Nav -->
@@ -68,11 +71,24 @@ defineEmits(['navigate', 'logout']);
 }
 
 .logo {
+  align-items: center;
   display: flex;
-  align-items: baseline;
-  gap: 8px;
+  gap: 9px;
   cursor: pointer;
   user-select: none;
+}
+
+.brand-mark {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  filter: brightness(0) saturate(100%) invert(16%) sepia(18%) saturate(1360%) hue-rotate(186deg) brightness(88%) contrast(94%);
+}
+
+.logo-copy {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
 }
 
 .logo-main {
@@ -131,6 +147,7 @@ defineEmits(['navigate', 'logout']);
   .logo-sub { display: none; }
   .header-inner { padding: 0 12px; }
   .logo-main { font-size: 1.25rem; }
+  .brand-mark { height: 28px; width: 28px; }
   .header-nav { gap: 0; }
   .nav-btn { padding: 6px 7px; font-size: 0.76rem; }
   .nav-btn.logout-btn { padding-inline: 6px; }

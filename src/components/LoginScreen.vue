@@ -1,7 +1,10 @@
 <template>
   <div class="login-page">
     <div class="login-card">
-      <div class="login-logo">גימטריה</div>
+      <div class="login-brand">
+        <img class="login-brand-mark" src="/images/gemariaLogo.png" alt="" aria-hidden="true">
+        <div class="login-logo">גימטריה</div>
+      </div>
       <div class="login-subtitle">מחשבון אישי</div>
 
       <form class="login-form" @submit.prevent="doLogin">
@@ -110,6 +113,19 @@ async function doLogin() {
   font-weight: 700;
   color: var(--navy);
   margin-bottom: 4px;
+}
+
+.login-brand {
+  align-items: center;
+  display: inline-flex;
+  gap: 10px;
+}
+
+.login-brand-mark {
+  height: 54px;
+  object-fit: contain;
+  width: 54px;
+  filter: brightness(0) saturate(100%) invert(16%) sepia(18%) saturate(1360%) hue-rotate(186deg) brightness(88%) contrast(94%);
 }
 
 .login-subtitle {
