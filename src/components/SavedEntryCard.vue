@@ -33,44 +33,12 @@
 
     </div>
 
-    <div v-if="expanded" class="entry-detail">
-      <div v-if="entry.tanach_book_slug" class="detail-row detail-reference">
-        <span class="detail-label">מקור בתנ״ך:</span>
-        <span class="detail-value">{{ formatTanachReference(entry) }}</span>
-        <span class="detail-gematria">אותיות {{ entry.tanach_start + 1 }}–{{ entry.tanach_end + 1 }}</span>
-      </div>
-      <div class="detail-row">
-        <span class="detail-label">ראשי תיבות:</span>
-        <span class="detail-value">{{ entry.initials }}</span>
-        <span class="detail-gematria">{{ entry.initials_gematria }} · {{ entry.initials_gematria_hebrew }}</span>
-      </div>
-
-      <div v-if="entry.words && entry.words.length > 0" class="detail-words">
-        <div class="detail-label detail-words-title">פירוט מילים:</div>
-        <div v-for="word in getWordBreakdown(entry.original_text)" :key="word.position" class="detail-word-block">
-          <div class="detail-word-row">
-            <span class="word-text">{{ word.word }}</span>
-            <span class="word-gematria">{{ word.gematria }}</span>
-          </div>
-          <div class="detail-letter-list">
-            <span v-for="letter in word.letters" :key="`${word.position}-${letter.letter}-${letter.value}`" class="detail-letter">
-              {{ letter.letter }} · {{ letter.value }}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div class="detail-meta">
-        <span class="mdi mdi-clock-outline" aria-hidden="true"></span>
-        {{ formatDate(entry.created_at) }}
-      </div>
-    </div>
-
     <div class="entry-footer" @click.stop>
       <button
         class="detail-btn"
         type="button"
         :aria-expanded="expanded"
+        :aria-controls="expanded ? `saved-entry-detail-${entry.id}` : undefined"
         @click="$emit('toggle', entry.id)"
       >
         {{ expanded ? 'סגור' : 'פתח פירוט' }}
@@ -112,7 +80,7 @@
 
 <script setup>
 import { computed } from 'vue';
-import { getWordBreakdown, normalize, toHebrewNumber } from '@/composables/useGematria.js';
+import { normalize, toHebrewNumber } from '@/composables/useGematria.js';
 
 const props = defineProps({
   entry: { type: Object, required: true },
@@ -140,19 +108,11 @@ const highlightedPhrase = computed(() => {
   ].filter(part => part.text);
 });
 
-function formatDate(iso) {
-  if (!iso) return '';
-  return new Date(iso).toLocaleDateString('he-IL', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
-}
-
 function formatTanachReference(entry) {
   const reference = `${entry.tanach_book_label} ${toHebrewNumber(entry.tanach_chapter)}:${toHebrewNumber(entry.tanach_verse)}`;
   return entry.parsha_name ? `${reference} · פרשת ${entry.parsha_name}` : reference;
 }
+
 </script>
 
 <style scoped>
@@ -171,7 +131,10 @@ function formatTanachReference(entry) {
 }
 
 .entry-card:hover { box-shadow: var(--shadow); }
-.entry-card.expanded { border-color: var(--gold); overflow: hidden; }
+.entry-card.expanded {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 1px rgba(192, 152, 64, .14);
+}
 .entry-card.has-shared-value:not(.expanded) { border-color: #d8c79f; }
 
 .entry-header {
@@ -179,8 +142,8 @@ function formatTanachReference(entry) {
   cursor: pointer;
   display: flex;
   gap: 18px;
-  min-height: 142px;
-  padding: 18px 22px;
+  min-height: 112px;
+  padding: 14px 18px;
 }
 
 .entry-body { flex: 1 1 auto; }
@@ -190,8 +153,8 @@ function formatTanachReference(entry) {
   color: var(--navy);
   font-size: 1.18rem;
   font-weight: 700;
-  line-height: 1.45;
-  margin-bottom: 9px;
+  line-height: 1.4;
+  margin-bottom: 5px;
   overflow-wrap: anywhere;
   text-align: right;
 }
@@ -212,7 +175,7 @@ function formatTanachReference(entry) {
   font-size: .72rem;
   font-weight: 600;
   gap: 5px;
-  margin-bottom: 7px;
+  margin-bottom: 5px;
   max-width: 100%;
   overflow-wrap: anywhere;
   padding: 2px 8px;
@@ -242,7 +205,7 @@ function formatTanachReference(entry) {
   font-size: .78rem;
   gap: 5px;
   line-height: 1.3;
-  margin-top: 9px;
+  margin-top: 6px;
 }
 
 .entry-initials strong {
@@ -337,8 +300,8 @@ function formatTanachReference(entry) {
   border-top: 1px solid #eee9e0;
   display: flex;
   justify-content: space-between;
-  min-height: 44px;
-  padding: 0 14px;
+  min-height: 42px;
+  padding: 0 12px;
 }
 
 .entry-footer .detail-btn {
@@ -358,71 +321,8 @@ function formatTanachReference(entry) {
   width: 32px;
 }
 
-.entry-detail {
-  background: #fafaf7;
-  border-top: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 18px 22px;
-}
-
-.detail-row {
-  align-items: center;
-  display: flex;
-  font-size: .88rem;
-  gap: 8px;
-}
-
-.detail-reference {
-  border-bottom: 1px solid #eee9e0;
-  padding-bottom: 12px;
-}
-
-.detail-label {
-  color: var(--text-secondary);
-  font-size: .82rem;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.detail-value { color: var(--navy); font-size: 1rem; font-weight: 600; }
-.detail-gematria { color: var(--text-secondary); font-size: .82rem; margin-right: auto; }
-.detail-words { font-size: .88rem; }
-.detail-words-title { margin-bottom: 8px; }
-
-.detail-word-row {
-  border-bottom: 1px solid #f0ece4;
-  display: flex;
-  justify-content: space-between;
-  padding: 5px 0;
-}
-
-.detail-word-block:last-child .detail-word-row { border-bottom: 0; }
-.word-text { color: var(--navy); font-weight: 500; }
-.word-gematria { color: var(--gold); font-weight: 600; }
-
-.detail-letter-list {
-  color: var(--text-secondary);
-  display: flex;
-  flex-wrap: wrap;
-  font-size: .75rem;
-  gap: 5px 10px;
-  padding: 6px 0 9px;
-}
-
-.detail-letter { white-space: nowrap; }
-
-.detail-meta {
-  align-items: center;
-  color: #aaad;
-  display: flex;
-  font-size: .75rem;
-  gap: 4px;
-}
-
 @media (max-width: 680px) {
-  .entry-header { gap: 10px; min-height: 0; padding: 16px; }
+  .entry-header { gap: 10px; min-height: 0; padding: 14px 16px; }
   .entry-text { font-size: 1.08rem; }
   .detail-btn { font-size: .7rem; padding-inline: 4px; }
   .entry-initials { gap: 4px; margin-top: 7px; }

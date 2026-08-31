@@ -69,22 +69,65 @@ test('saved library composes search, views, sorting, grouping, detail, and delet
       expect(Math.abs(footerBoxes[0].y - footerBoxes[1].y)).toBeLessThan(2);
     }
 
+    const initialFirstCard = cards.first();
+    const initialFirstId = await initialFirstCard.getAttribute('data-entry-id');
+    await initialFirstCard.getByRole('button', { name: 'פתח פירוט', exact: true }).click();
+    const initialDetail = page.locator(`[data-detail-entry-id="${initialFirstId}"]`);
+    await expect(initialDetail).toBeVisible();
+    await expect(initialFirstCard).toHaveClass(/expanded/);
+    await expect(initialFirstCard.locator('.entry-detail')).toHaveCount(0);
+    const selectedBox = await initialFirstCard.boundingBox();
+    const detailBox = await initialDetail.boundingBox();
+    expect(detailBox.y).toBeGreaterThanOrEqual(selectedBox.y + selectedBox.height - 1);
+    if (testInfo.project.name !== 'mobile-chromium') {
+      const listBox = await entriesList.boundingBox();
+      const rowCardBoxes = await cards.evaluateAll(nodes =>
+        nodes.slice(0, 2).map(node => node.getBoundingClientRect())
+      );
+      expect(Math.abs(detailBox.x - listBox.x)).toBeLessThan(2);
+      expect(Math.abs(detailBox.width - listBox.width)).toBeLessThan(2);
+      expect(Math.abs(rowCardBoxes[0].height - rowCardBoxes[1].height)).toBeLessThan(2);
+      expect(detailBox.y).toBeGreaterThanOrEqual(
+        Math.max(...rowCardBoxes.map(box => box.y + box.height)) - 1
+      );
+    }
+    await initialFirstCard.getByRole('button', { name: 'סגור', exact: true }).click();
+    await expect(initialDetail).toHaveCount(0);
+
     await page.getByTitle('תצוגת רשימה').click();
     await expect(entriesList).toHaveClass(/list-mode/);
+    await page.getByTitle('תצוגת כרטיסים').click();
+    await expect(entriesList).not.toHaveClass(/list-mode/);
     await page.getByRole('combobox', { name: 'מיון הספרייה' }).selectOption('gematria');
     await expect(cards).toHaveCount(3);
 
     await page.locator('.group-toggle').click();
     await expect(page.getByLabel('קבץ לפי גימטריה')).toBeChecked();
     await expect(entriesList).toHaveClass(/grouped-mode/);
-    await expect(page.locator('.entry-group')).toHaveCount(2);
+    await expect(page.locator('.entry-group')).toHaveCount(1);
+    await expect(page.locator('.entries-list.grouped-mode > .entry-card')).toHaveCount(1);
     await expect(page.locator('.shared-group .entry-card')).toHaveCount(2);
     await expect(cards).toHaveCount(3);
+    if (testInfo.project.name !== 'mobile-chromium') {
+      const groupedListBox = await entriesList.boundingBox();
+      const sharedGroupBox = await page.locator('.shared-group').boundingBox();
+      const uniqueCardBox = await page.locator('.entries-list.grouped-mode > .entry-card').boundingBox();
+      expect(Math.abs(sharedGroupBox.x - groupedListBox.x)).toBeLessThan(2);
+      expect(Math.abs(sharedGroupBox.width - groupedListBox.width)).toBeLessThan(2);
+      expect(Math.abs(sharedGroupBox.y - uniqueCardBox.y)).toBeGreaterThan(2);
+    }
 
     const firstCard = cards.first();
     await firstCard.getByRole('button', { name: 'פתח פירוט', exact: true }).click();
-    await expect(firstCard.locator('.entry-detail')).toBeVisible();
-    await expect(firstCard.locator('.detail-words')).toBeVisible();
+    const groupedDetail = page.locator('.shared-group .detail-panel');
+    await expect(groupedDetail).toBeVisible();
+    await expect(groupedDetail.locator('.detail-words')).toBeVisible();
+    if (testInfo.project.name !== 'mobile-chromium') {
+      const groupGridBox = await page.locator('.shared-group .group-entries').boundingBox();
+      const groupedDetailBox = await groupedDetail.boundingBox();
+      expect(Math.abs(groupedDetailBox.x - groupGridBox.x)).toBeLessThan(2);
+      expect(Math.abs(groupedDetailBox.width - groupGridBox.width)).toBeLessThan(2);
+    }
 
     await firstCard.getByRole('button', { name: /פעולות עבור/ }).click();
     await firstCard.getByRole('menuitem', { name: 'העתק' }).click();
@@ -181,7 +224,8 @@ test('saved library loads later pages before grouping cross-page values', async 
   await page.locator('.group-toggle').click();
   await expect(page.getByLabel('קבץ לפי גימטריה')).toBeChecked();
   await expect(page.locator('.entry-card')).toHaveCount(21);
-  await expect(page.locator('.entry-group')).toHaveCount(20);
+  await expect(page.locator('.entry-group')).toHaveCount(1);
+  await expect(page.locator('.entries-list.grouped-mode > .entry-card')).toHaveCount(19);
   await expect(page.locator('.shared-group .entry-card')).toHaveCount(2);
 
   await page.getByRole('button', { name: 'מחשבון', exact: true }).click();

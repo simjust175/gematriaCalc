@@ -107,52 +107,75 @@
       :class="{ 'list-mode': viewMode === 'list', 'grouped-mode': groupByGematria }"
     >
       <template v-if="groupByGematria">
-        <section
-          v-for="group in groupedEntries"
-          :key="group.key"
-          class="entry-group"
-          :class="{ 'shared-group': group.entries.length > 1 }"
-        >
-          <header class="group-header">
-            <div class="group-value">
-              <strong>{{ group.value }}</strong>
-              <span>·</span>
-              <span>{{ group.hebrewValue }}</span>
+        <template v-for="item in groupedFlow" :key="item.key">
+          <section v-if="item.type === 'shared'" class="entry-group shared-group">
+            <header class="group-header">
+              <div class="group-value">
+                <strong>{{ item.group.value }}</strong>
+                <span>·</span>
+                <span>{{ item.group.hebrewValue }}</span>
+              </div>
+              <span>{{ item.group.entries.length }} ערכים שמורים</span>
+            </header>
+            <div class="group-entries">
+              <template v-for="(entry, index) in item.group.entries" :key="entry.id">
+                <SavedEntryCard
+                  :entry="entry"
+                  :expanded="expandedId === entry.id"
+                  :menu-open="menuOpenId === entry.id"
+                  :search-query="searchQuery"
+                  :shared-value="true"
+                  @toggle="toggleExpand"
+                  @toggle-menu="toggleMenu"
+                  @copy="copyEntry"
+                  @delete="confirmDelete"
+                />
+                <SavedEntryDetail
+                  v-if="shouldShowDetailAfter(index, item.group.entries)"
+                  :entry="expandedEntry"
+                />
+              </template>
             </div>
-            <span>{{ group.entries.length }} {{ group.entries.length === 1 ? 'ערך שמור' : 'ערכים שמורים' }}</span>
-          </header>
-          <div class="group-entries">
+          </section>
+
+          <template v-else>
             <SavedEntryCard
-              v-for="entry in group.entries"
-              :key="entry.id"
-              :entry="entry"
-              :expanded="expandedId === entry.id"
-              :menu-open="menuOpenId === entry.id"
+              :entry="item.entry"
+              :expanded="expandedId === item.entry.id"
+              :menu-open="menuOpenId === item.entry.id"
               :search-query="searchQuery"
-              :shared-value="group.entries.length > 1"
+              :shared-value="false"
               @toggle="toggleExpand"
               @toggle-menu="toggleMenu"
               @copy="copyEntry"
               @delete="confirmDelete"
             />
-          </div>
-        </section>
+            <SavedEntryDetail
+              v-if="item.detailEntry"
+              :entry="item.detailEntry"
+            />
+          </template>
+        </template>
       </template>
 
       <template v-else>
-        <SavedEntryCard
-          v-for="entry in entries"
-          :key="entry.id"
-          :entry="entry"
-          :expanded="expandedId === entry.id"
-          :menu-open="menuOpenId === entry.id"
-          :search-query="searchQuery"
-          :shared-value="sharedValueIds.has(entry.id)"
-          @toggle="toggleExpand"
-          @toggle-menu="toggleMenu"
-          @copy="copyEntry"
-          @delete="confirmDelete"
-        />
+        <template v-for="(entry, index) in entries" :key="entry.id">
+          <SavedEntryCard
+            :entry="entry"
+            :expanded="expandedId === entry.id"
+            :menu-open="menuOpenId === entry.id"
+            :search-query="searchQuery"
+            :shared-value="sharedValueIds.has(entry.id)"
+            @toggle="toggleExpand"
+            @toggle-menu="toggleMenu"
+            @copy="copyEntry"
+            @delete="confirmDelete"
+          />
+          <SavedEntryDetail
+            v-if="shouldShowDetailAfter(index, entries)"
+            :entry="expandedEntry"
+          />
+        </template>
       </template>
     </div>
 
@@ -192,6 +215,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import SavedEntryCard from '@/components/SavedEntryCard.vue';
+import SavedEntryDetail from '@/components/SavedEntryDetail.vue';
 
 const LIMIT = 100;
 const GROUP_LIMIT = 20;
@@ -215,10 +239,13 @@ const libraryHeading = ref(null);
 const deleteError = ref('');
 const copyNotice = ref('');
 const offset = ref(0);
+const isWideViewport = ref(true);
 let debounceTimer = null;
 let copyNoticeTimer = null;
 let requestId = 0;
 let activeController = null;
+let viewportMedia = null;
+let updateViewport = null;
 
 const sharedValueIds = computed(() => {
   const counts = new Map();
@@ -245,6 +272,64 @@ const groupedEntries = computed(() => {
   }
   return [...groups.values()];
 });
+
+const expandedEntry = computed(() =>
+  entries.value.find(entry => entry.id === expandedId.value) || null
+);
+
+const gridColumns = computed(() =>
+  viewMode.value === 'list' || !isWideViewport.value ? 1 : 2
+);
+
+const groupedFlow = computed(() => {
+  const flow = [];
+  let occupiedColumns = 0;
+
+  for (const group of groupedEntries.value) {
+    if (group.entries.length > 1) {
+      if (occupiedColumns > 0 && flow.length > 0) {
+        flow[flow.length - 1].rowEnd = true;
+      }
+      flow.push({ key: `group-${group.key}`, type: 'shared', group, rowEnd: true });
+      occupiedColumns = 0;
+      continue;
+    }
+
+    const entry = group.entries[0];
+    occupiedColumns += 1;
+    const rowEnd = occupiedColumns === gridColumns.value;
+    flow.push({ key: `entry-${entry.id}`, type: 'unique', entry, rowEnd });
+    if (rowEnd) occupiedColumns = 0;
+  }
+
+  if (occupiedColumns > 0 && flow.length > 0) {
+    flow[flow.length - 1].rowEnd = true;
+  }
+
+  const selectedIndex = flow.findIndex(item =>
+    item.type === 'unique' && item.entry.id === expandedId.value
+  );
+  if (selectedIndex >= 0) {
+    let rowEndIndex = selectedIndex;
+    while (rowEndIndex < flow.length - 1 && !flow[rowEndIndex].rowEnd) {
+      rowEndIndex += 1;
+    }
+    flow[rowEndIndex].detailEntry = flow[selectedIndex].entry;
+  }
+
+  return flow;
+});
+
+function shouldShowDetailAfter(index, collection) {
+  if (!expandedEntry.value) return false;
+  const selectedIndex = collection.findIndex(entry => entry.id === expandedId.value);
+  if (selectedIndex < 0) return false;
+  const rowEndIndex = Math.min(
+    Math.floor(selectedIndex / gridColumns.value) * gridColumns.value + gridColumns.value - 1,
+    collection.length - 1
+  );
+  return index === rowEndIndex;
+}
 
 async function fetchEntries(reset = true) {
   const currentRequestId = ++requestId;
@@ -433,6 +518,10 @@ onMounted(() => {
     // Storage can be unavailable in privacy-restricted browsers.
   }
   document.addEventListener('click', closeMenus);
+  viewportMedia = window.matchMedia('(min-width: 801px)');
+  updateViewport = event => { isWideViewport.value = event.matches; };
+  isWideViewport.value = viewportMedia.matches;
+  viewportMedia.addEventListener('change', updateViewport);
   refreshEntries();
 });
 
@@ -441,6 +530,9 @@ onBeforeUnmount(() => {
   clearTimeout(copyNoticeTimer);
   activeController?.abort();
   document.removeEventListener('click', closeMenus);
+  if (viewportMedia && updateViewport) {
+    viewportMedia.removeEventListener('change', updateViewport);
+  }
 });
 </script>
 
@@ -509,9 +601,9 @@ onBeforeUnmount(() => {
 .library-toolbar {
   align-items: center;
   display: flex;
-  gap: 18px;
+  gap: 16px;
   justify-content: space-between;
-  margin-bottom: 18px;
+  margin-bottom: 16px;
   min-height: 34px;
 }
 
@@ -521,11 +613,11 @@ onBeforeUnmount(() => {
   display: flex;
   flex-wrap: wrap;
   font-size: .8rem;
-  gap: 7px;
+  gap: 6px;
 }
 
 .library-summary strong { color: var(--navy); font-size: .87rem; }
-.library-controls { align-items: center; display: flex; flex-wrap: wrap; gap: 10px; }
+.library-controls { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; }
 
 .sort-control {
   align-items: center;
@@ -612,23 +704,27 @@ onBeforeUnmount(() => {
 .group-toggle input:checked + .group-toggle__track span { transform: translateX(16px); }
 .group-toggle input:focus-visible + .group-toggle__track { outline: 2px solid var(--gold); outline-offset: 2px; }
 
-.entries-list { align-items: start; display: grid; gap: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.entries-list { align-items: stretch; display: grid; gap: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .entries-list.list-mode { grid-template-columns: minmax(0, 1fr); }
 .entries-list.list-mode :deep(.entry-header) { min-height: 0; padding-block: 14px; }
 .entry-group { display: contents; }
 .group-header { display: none; }
 .group-entries { display: contents; }
 
-.grouped-mode .entry-group {
+.grouped-mode .entry-group.shared-group {
   background: rgba(245, 237, 216, .28);
   border: 1px solid #e4d7b8;
   border-radius: var(--radius);
+  box-sizing: border-box;
   display: block;
   grid-column: 1 / -1;
   padding: 14px;
+  width: 100%;
 }
 
-.grouped-mode .group-header {
+.grouped-mode .entry-group:not(.shared-group) { display: contents; }
+
+.grouped-mode .shared-group .group-header {
   align-items: baseline;
   color: var(--text-secondary);
   display: flex;
@@ -641,8 +737,18 @@ onBeforeUnmount(() => {
 .group-value strong { color: var(--gold); font-size: 1.15rem; }
 .group-value span { font-size: .85rem; }
 .group-header > span { font-size: .75rem; }
-.grouped-mode .group-entries { align-items: start; display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.grouped-mode.list-mode .group-entries { grid-template-columns: minmax(0, 1fr); }
+.grouped-mode .shared-group .group-entries { align-items: stretch; display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grouped-mode.list-mode .shared-group .group-entries { grid-template-columns: minmax(0, 1fr); }
+
+.detail-panel {
+  animation: detail-reveal .18s ease-out;
+  grid-column: 1 / -1;
+}
+
+@keyframes detail-reveal {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
 .loading-spinner {
   align-items: center;
@@ -733,7 +839,7 @@ onBeforeUnmount(() => {
 @media (max-width: 800px) {
   .library-toolbar { align-items: flex-start; flex-direction: column; gap: 12px; }
   .library-controls { width: 100%; }
-  .entries-list, .grouped-mode .group-entries { grid-template-columns: minmax(0, 1fr); }
+  .entries-list, .grouped-mode .shared-group .group-entries { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (max-width: 480px) {

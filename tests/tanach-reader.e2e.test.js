@@ -188,7 +188,8 @@ test('signed-in Tanach reader supports cursor, navigation, search, and cited sav
     await expect(savedCard).toBeVisible();
     await expect(savedCard.locator('.tanach-reference')).toContainText('בראשית א:א');
     await savedCard.locator('.entry-header').click();
-    await expect(savedCard.locator('.detail-reference')).toContainText(`אותיות 1–${selectedEnd + 1}`);
+    await expect(page.locator(`[data-detail-entry-id="${savedId}"] .detail-reference`))
+      .toContainText(`אותיות 1–${selectedEnd + 1}`);
 
     const deleteUrl = new URL(`/api/entries/${savedId}`, page.url()).href;
     const cleanup = await page.context().request.delete(deleteUrl);
