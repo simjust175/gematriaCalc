@@ -166,6 +166,111 @@ test('GET /api/matches with valid session returns 200', async () => {
   assert.notEqual(res.status, 401);
 });
 
+test('saved library search, summaries, and sorting compose without changing saved data', async () => {
+  const agent = request.agent(app);
+  await agent.post('/api/auth/login').send({ password: 'correct-test-password-12345' });
+  const before = await pool.query(
+    `SELECT id, original_text, normalized_text, full_gematria, full_gematria_hebrew,
+            initials, initials_gematria, initials_gematria_hebrew, created_at,
+            tanach_book_slug, tanach_book_label, tanach_chapter, tanach_verse,
+            tanach_start, tanach_end, parsha_id
+     FROM saved_entries ORDER BY id`
+  );
+  const token = uniqueHebrewToken();
+  const texts = [`${token} אב`, `${token} ג`, `${token} ד`];
+  const calculations = texts.map(computeAll);
+  const savedIds = [];
+
+  try {
+    for (const originalText of texts) {
+      const saved = await agent.post('/api/entries').send({ originalText });
+      assert.equal(saved.status, 200);
+      savedIds.push(saved.body.id);
+    }
+
+    const filtered = await agent.get('/api/entries').query({
+      search: token,
+      sort: 'oldest',
+      limit: 100,
+    });
+    assert.equal(filtered.status, 200);
+    const filteredIds = filtered.body.entries
+      .filter(entry => savedIds.includes(entry.id))
+      .map(entry => entry.id);
+    assert.deepEqual(filteredIds, savedIds);
+    assert.equal(filtered.body.total, 3);
+    assert.deepEqual(filtered.body.stats, {
+      saved: 3,
+      distinctValues: 2,
+      sharedValues: 1,
+    });
+
+    const initials = await agent.get('/api/entries').query({
+      search: calculations[0].initials,
+      limit: 100,
+    });
+    assert.equal(initials.status, 200);
+    assert.ok(initials.body.entries.some(entry => entry.id === savedIds[0]));
+
+    const initialsValue = await agent.get('/api/entries').query({
+      search: calculations[0].initialsGematria,
+      limit: 100,
+    });
+    assert.equal(initialsValue.status, 200);
+    assert.ok(initialsValue.body.entries.some(entry => entry.id === savedIds[0]));
+
+    const gematriaSort = await agent.get('/api/entries').query({
+      search: token,
+      sort: 'gematria',
+      limit: 100,
+    });
+    assert.equal(gematriaSort.status, 200);
+    assert.deepEqual(
+      gematriaSort.body.entries.map(entry => entry.full_gematria),
+      [...gematriaSort.body.entries.map(entry => entry.full_gematria)].sort((a, b) => a - b)
+    );
+
+    const firstGroupPage = await agent.get('/api/entries').query({
+      search: token,
+      sort: 'gematria',
+      grouped: 'true',
+      limit: 1,
+      offset: 0,
+    });
+    assert.equal(firstGroupPage.status, 200);
+    assert.equal(firstGroupPage.body.entries.length, 2);
+    assert.equal(new Set(firstGroupPage.body.entries.map(entry => entry.full_gematria)).size, 1);
+    assert.deepEqual(firstGroupPage.body.pagination, {
+      unit: 'groups',
+      pageCount: 1,
+      nextOffset: 1,
+      hasMore: true,
+    });
+
+    const secondGroupPage = await agent.get('/api/entries').query({
+      search: token,
+      sort: 'gematria',
+      grouped: 'true',
+      limit: 1,
+      offset: 1,
+    });
+    assert.equal(secondGroupPage.status, 200);
+    assert.equal(secondGroupPage.body.entries.length, 1);
+    assert.equal(secondGroupPage.body.pagination.hasMore, false);
+  } finally {
+    for (const id of savedIds) await agent.delete(`/api/entries/${id}`);
+  }
+
+  const after = await pool.query(
+    `SELECT id, original_text, normalized_text, full_gematria, full_gematria_hebrew,
+            initials, initials_gematria, initials_gematria_hebrew, created_at,
+            tanach_book_slug, tanach_book_label, tanach_chapter, tanach_verse,
+            tanach_start, tanach_end, parsha_id
+     FROM saved_entries ORDER BY id`
+  );
+  assert.deepEqual(after.rows, before.rows);
+});
+
 test('saved multiple discovery validates input and consolidates approved sources by direction', async () => {
   const agent = request.agent(app);
   await agent.post('/api/auth/login').send({ password: 'correct-test-password-12345' });

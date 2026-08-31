@@ -753,69 +753,125 @@ app.post('/api/entries', requireAuth, async (req, res) => {
  */
 app.get('/api/entries', requireAuth, async (req, res) => {
   try {
-    const { search, limit = 50, offset = 0 } = req.query;
-    const lim = Math.min(parseInt(limit) || 50, 100);
-    const off = parseInt(offset) || 0;
+    const rawSearch = typeof req.query.search === 'string' ? req.query.search.trim() : '';
+    const limitParam = Number.parseInt(req.query.limit, 10);
+    const offsetParam = Number.parseInt(req.query.offset, 10);
+    const lim = Math.min(Math.max(Number.isInteger(limitParam) ? limitParam : 50, 1), 100);
+    const off = Math.max(Number.isInteger(offsetParam) ? offsetParam : 0, 0);
+    const sort = typeof req.query.sort === 'string' ? req.query.sort : 'recent';
+    const grouped = req.query.grouped === 'true';
+    const orderBy = {
+      recent: 'se.created_at DESC, se.id DESC',
+      oldest: 'se.created_at ASC, se.id ASC',
+      gematria: 'se.full_gematria ASC, se.created_at DESC, se.id DESC',
+      alphabetical: 'se.normalized_text ASC, se.created_at DESC, se.id DESC',
+    }[sort] || 'se.created_at DESC, se.id DESC';
+    const groupOrderBy = {
+      recent: 'MAX(se.created_at) DESC, MAX(se.id) DESC',
+      oldest: 'MIN(se.created_at) ASC, MIN(se.id) ASC',
+      gematria: 'se.full_gematria ASC',
+      alphabetical: 'MIN(se.normalized_text) ASC, MIN(se.id) ASC',
+    }[sort] || 'MAX(se.created_at) DESC, MAX(se.id) DESC';
 
-    let rows, countVal;
-
-    if (search && !isNaN(search) && search.trim() !== '') {
-      const g = parseInt(search);
-      const r = await pool.query(
-        `SELECT se.id, se.original_text, se.normalized_text, se.full_gematria,
-                se.full_gematria_hebrew, se.initials, se.initials_gematria,
-                 se.initials_gematria_hebrew, se.created_at,
-                 se.tanach_book_slug, se.tanach_book_label, se.tanach_chapter,
-                 se.tanach_verse, se.tanach_start, se.tanach_end, se.parsha_id,
-                 (SELECT name_he FROM tanach_parshiot WHERE id = se.parsha_id) AS parsha_name,
-                COALESCE(json_agg(sw ORDER BY sw.position) FILTER (WHERE sw.id IS NOT NULL), '[]') AS words
-         FROM saved_entries se
-         LEFT JOIN saved_words sw ON sw.entry_id = se.id
-         WHERE se.full_gematria = $1
-         GROUP BY se.id ORDER BY se.created_at DESC LIMIT $2 OFFSET $3`,
-        [g, lim, off]
-      );
-      const c = await pool.query('SELECT COUNT(*) FROM saved_entries WHERE full_gematria = $1', [g]);
-      rows = r.rows; countVal = parseInt(c.rows[0].count);
-    } else if (search) {
-      const r = await pool.query(
-        `SELECT se.id, se.original_text, se.normalized_text, se.full_gematria,
-                se.full_gematria_hebrew, se.initials, se.initials_gematria,
-                 se.initials_gematria_hebrew, se.created_at,
-                 se.tanach_book_slug, se.tanach_book_label, se.tanach_chapter,
-                 se.tanach_verse, se.tanach_start, se.tanach_end, se.parsha_id,
-                 (SELECT name_he FROM tanach_parshiot WHERE id = se.parsha_id) AS parsha_name,
-                COALESCE(json_agg(sw ORDER BY sw.position) FILTER (WHERE sw.id IS NOT NULL), '[]') AS words
-         FROM saved_entries se
-         LEFT JOIN saved_words sw ON sw.entry_id = se.id
-         WHERE se.original_text ILIKE $1 OR se.normalized_text ILIKE $1
-         GROUP BY se.id ORDER BY se.created_at DESC LIMIT $2 OFFSET $3`,
-        [`%${search}%`, lim, off]
-      );
-      const c = await pool.query(
-        'SELECT COUNT(*) FROM saved_entries WHERE original_text ILIKE $1 OR normalized_text ILIKE $1',
-        [`%${search}%`]
-      );
-      rows = r.rows; countVal = parseInt(c.rows[0].count);
-    } else {
-      const r = await pool.query(
-        `SELECT se.id, se.original_text, se.normalized_text, se.full_gematria,
-                se.full_gematria_hebrew, se.initials, se.initials_gematria,
-                 se.initials_gematria_hebrew, se.created_at,
-                 se.tanach_book_slug, se.tanach_book_label, se.tanach_chapter,
-                 se.tanach_verse, se.tanach_start, se.tanach_end, se.parsha_id,
-                 (SELECT name_he FROM tanach_parshiot WHERE id = se.parsha_id) AS parsha_name,
-                COALESCE(json_agg(sw ORDER BY sw.position) FILTER (WHERE sw.id IS NOT NULL), '[]') AS words
-         FROM saved_entries se
-         LEFT JOIN saved_words sw ON sw.entry_id = se.id
-         GROUP BY se.id ORDER BY se.created_at DESC LIMIT $1 OFFSET $2`,
-        [lim, off]
-      );
-      const c = await pool.query('SELECT COUNT(*) FROM saved_entries');
-      rows = r.rows; countVal = parseInt(c.rows[0].count);
+    let whereSql = '';
+    let searchParams = [];
+    if (rawSearch) {
+      if (/^\d+$/.test(rawSearch)) {
+        const value = Number(rawSearch);
+        whereSql = 'WHERE se.full_gematria = $1 OR se.initials_gematria = $1';
+        searchParams = [value];
+      } else {
+        const normalizedSearch = normalize(rawSearch);
+        const compactInitials = normalizedSearch.replace(/\s+/g, '');
+        whereSql = `WHERE se.original_text ILIKE $1
+             OR se.normalized_text ILIKE $2
+             OR se.initials ILIKE $1
+             OR REPLACE(se.initials, ' ', '') = $3`;
+        searchParams = [
+          `%${rawSearch}%`,
+          `%${normalizedSearch || rawSearch}%`,
+          compactInitials,
+        ];
+      }
     }
 
-    res.json({ entries: rows, total: countVal });
+    const entrySelect = `SELECT se.id, se.original_text, se.normalized_text, se.full_gematria,
+              se.full_gematria_hebrew, se.initials, se.initials_gematria,
+              se.initials_gematria_hebrew, se.created_at,
+              se.tanach_book_slug, se.tanach_book_label, se.tanach_chapter,
+              se.tanach_verse, se.tanach_start, se.tanach_end, se.parsha_id,
+              (SELECT name_he FROM tanach_parshiot WHERE id = se.parsha_id) AS parsha_name,
+               COUNT(*) OVER (PARTITION BY se.full_gematria)::int AS value_entry_count,
+              COALESCE(json_agg(sw ORDER BY sw.position) FILTER (WHERE sw.id IS NOT NULL), '[]') AS words
+       FROM saved_entries se`;
+    const paginationParams = [...searchParams, lim, off];
+    const rows = grouped
+      ? await pool.query(
+        `WITH page_values AS (
+           SELECT se.full_gematria,
+                  ROW_NUMBER() OVER (ORDER BY ${groupOrderBy}) AS group_rank
+           FROM saved_entries se
+           ${whereSql}
+           GROUP BY se.full_gematria
+           ORDER BY ${groupOrderBy}
+           LIMIT $${searchParams.length + 1} OFFSET $${searchParams.length + 2}
+         )
+         ${entrySelect}
+         JOIN page_values pv ON pv.full_gematria = se.full_gematria
+         LEFT JOIN saved_words sw ON sw.entry_id = se.id
+         GROUP BY se.id, pv.group_rank
+         ORDER BY pv.group_rank, ${orderBy}`,
+        paginationParams
+      )
+      : await pool.query(
+        `${entrySelect}
+         LEFT JOIN saved_words sw ON sw.entry_id = se.id
+         ${whereSql}
+         GROUP BY se.id
+         ORDER BY ${orderBy}
+         LIMIT $${searchParams.length + 1} OFFSET $${searchParams.length + 2}`,
+        paginationParams
+      );
+
+    const stats = await pool.query(
+      `WITH filtered AS (
+         SELECT se.full_gematria
+         FROM saved_entries se
+         ${whereSql}
+       ),
+       value_groups AS (
+         SELECT full_gematria, COUNT(*)::int AS entry_count
+         FROM filtered
+         GROUP BY full_gematria
+       )
+       SELECT COALESCE(SUM(entry_count), 0)::int AS saved_count,
+              COUNT(*)::int AS distinct_values,
+              COUNT(*) FILTER (WHERE entry_count > 1)::int AS shared_values
+       FROM value_groups`,
+      searchParams
+    );
+    const summary = stats.rows[0];
+    const libraryStats = {
+      saved: summary.saved_count,
+      distinctValues: summary.distinct_values,
+      sharedValues: summary.shared_values,
+    };
+    const pageCount = grouped
+      ? new Set(rows.rows.map(entry => entry.full_gematria)).size
+      : rows.rows.length;
+    const paginationTotal = grouped ? libraryStats.distinctValues : libraryStats.saved;
+
+    res.json({
+      entries: rows.rows,
+      total: libraryStats.saved,
+      stats: libraryStats,
+      pagination: {
+        unit: grouped ? 'groups' : 'entries',
+        pageCount,
+        nextOffset: off + pageCount,
+        hasMore: off + pageCount < paginationTotal,
+      },
+    });
   } catch (err) {
     console.error('/api/entries GET error:', err.message);
     res.status(500).json({ error: err.message });

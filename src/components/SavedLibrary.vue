@@ -1,148 +1,188 @@
 <template>
   <div class="library-page">
-    <!-- Header -->
-    <div class="library-header">
-      <h1 class="library-title">שמורים</h1>
+    <header class="library-header">
+      <h1 ref="libraryHeading" class="library-title" tabindex="-1">שמורים</h1>
       <p class="library-subtitle">הספרייה האישית שלך</p>
-    </div>
+    </header>
 
-    <!-- Search -->
     <div class="search-bar">
-      <span class="mdi mdi-magnify search-icon"></span>
+      <label class="sr-only" for="saved-library-search">חיפוש בספרייה</label>
+      <span class="mdi mdi-magnify search-icon" aria-hidden="true"></span>
       <input
+        id="saved-library-search"
         v-model="searchQuery"
         class="search-input"
-        placeholder="חפש לפי טקסט או מספר גימטריה..."
+        type="search"
+        placeholder="חפש לפי טקסט, מספר גימטריה או ראשי תיבות..."
         dir="rtl"
         @input="onSearch"
       />
-      <button v-if="searchQuery" class="clear-btn" @click="clearSearch">
-        <span class="mdi mdi-close"></span>
+      <button
+        v-if="searchQuery"
+        class="clear-btn"
+        type="button"
+        aria-label="נקה חיפוש"
+        @click="clearSearch"
+      >
+        <span class="mdi mdi-close" aria-hidden="true"></span>
       </button>
     </div>
 
-    <!-- Stats -->
-    <div class="library-stats" v-if="!searchQuery">
-      <span>{{ total }} רשומות שמורות</span>
-    </div>
-    <div class="library-stats" v-else>
-      <span>{{ total }} תוצאות עבור &ldquo;{{ searchQuery }}&rdquo;</span>
+    <div class="library-toolbar">
+      <div class="library-summary" aria-live="polite">
+        <strong>{{ stats.saved }} שמורים</strong>
+        <span aria-hidden="true">·</span>
+        <span>{{ stats.distinctValues }} ערכים שונים</span>
+        <span aria-hidden="true">·</span>
+        <span>{{ stats.sharedValues }} ערכים משותפים</span>
+      </div>
+
+      <div class="library-controls">
+        <label class="sort-control">
+          <span>מיון</span>
+          <select v-model="sort" aria-label="מיון הספרייה" @change="onSortChange">
+            <option value="recent">אחרונים</option>
+            <option value="oldest">ישנים</option>
+            <option value="gematria">לפי גימטריה</option>
+            <option value="alphabetical">א״ב</option>
+          </select>
+          <span class="select-chevron ui-chevron ui-chevron--down" aria-hidden="true"></span>
+        </label>
+
+        <div class="view-switcher" role="group" aria-label="תצוגת הספרייה">
+          <button
+            type="button"
+            class="view-btn"
+            :class="{ active: viewMode === 'grid' }"
+            :aria-pressed="viewMode === 'grid'"
+            title="תצוגת כרטיסים"
+            @click="setViewMode('grid')"
+          >
+            <span class="mdi mdi-view-grid-outline" aria-hidden="true"></span>
+            <span class="sr-only">כרטיסים</span>
+          </button>
+          <button
+            type="button"
+            class="view-btn"
+            :class="{ active: viewMode === 'list' }"
+            :aria-pressed="viewMode === 'list'"
+            title="תצוגת רשימה"
+            @click="setViewMode('list')"
+          >
+            <span class="mdi mdi-view-list-outline" aria-hidden="true"></span>
+            <span class="sr-only">רשימה</span>
+          </button>
+        </div>
+
+        <label class="group-toggle">
+          <input v-model="groupByGematria" type="checkbox" @change="onGroupChange" />
+          <span class="group-toggle__track" aria-hidden="true"><span></span></span>
+          <span>קבץ לפי גימטריה</span>
+        </label>
+      </div>
     </div>
 
-    <!-- Loading -->
-    <div class="loading-spinner" v-if="loading">
-      <span class="mdi mdi-loading mdi-spin"></span>
+    <div v-if="loading" class="loading-spinner" role="status">
+      <span class="mdi mdi-loading mdi-spin" aria-hidden="true"></span>
       טוען...
     </div>
 
-    <!-- Empty state -->
-    <div class="empty-state" v-else-if="entries.length === 0 && !loading">
-      <div class="empty-icon">
-        <span class="mdi mdi-bookshelf" style="font-size:3rem;color:#D0CBB4;"></span>
-      </div>
-      <div class="empty-text" v-if="!searchQuery">
-        עדיין אין רשומות שמורות.<br/>
-        <small>חזור למחשבון ולחץ <strong>שמור</strong> כדי להוסיף.</small>
-      </div>
-      <div class="empty-text" v-else>
-        לא נמצאו תוצאות.
-      </div>
+    <div v-else-if="error" class="library-state error-state" role="alert">
+      <strong>לא ניתן לטעון את הספרייה</strong>
+      <span>{{ error }}</span>
+      <button type="button" class="state-action" @click="refreshEntries">נסה שוב</button>
     </div>
 
-    <!-- Entry list -->
-    <div class="entries-list" v-else>
-      <div
-        v-for="entry in entries"
-        :key="entry.id"
-        class="entry-card"
-        :class="{ expanded: expandedId === entry.id }"
-      >
-        <!-- Card header -->
-        <div class="entry-header" @click="toggleExpand(entry.id)">
-          <div class="entry-main-info">
-            <div class="entry-text">{{ entry.original_text }}</div>
-            <div v-if="entry.tanach_book_slug" class="tanach-reference">
-              <span class="mdi mdi-book-open-page-variant-outline"></span>
-              {{ formatTanachReference(entry) }}
-            </div>
-            <div class="entry-gematria">
-              <span class="gematria-num">{{ entry.full_gematria }}</span>
-              <span class="gematria-dot">·</span>
-              <span class="gematria-heb">{{ entry.full_gematria_hebrew }}</span>
-            </div>
-            <div class="entry-initials">
-              <span>ר״ת:</span>
-              <strong>{{ entry.initials }}</strong>
-              <span class="initials-gematria-label">גימטריית ר״ת:</span>
-              <strong>{{ entry.initials_gematria }}</strong>
-              <span class="gematria-dot">·</span>
-              <span>{{ entry.initials_gematria_hebrew }}</span>
-            </div>
-          </div>
-          <div class="entry-actions">
-            <button
-              class="delete-btn"
-              @click.stop="confirmDelete(entry)"
-              title="מחק"
-            >
-              <span class="mdi mdi-delete-outline"></span>
-            </button>
-            <span class="expand-icon ui-chevron" :class="expandedId === entry.id ? 'ui-chevron--up' : 'ui-chevron--down'" aria-hidden="true"></span>
-          </div>
-        </div>
-
-        <!-- Expanded detail -->
-        <div class="entry-detail" v-if="expandedId === entry.id">
-          <div v-if="entry.tanach_book_slug" class="detail-row detail-reference">
-            <span class="detail-label">מקור בתנ״ך:</span>
-            <span class="detail-value">{{ formatTanachReference(entry) }}</span>
-            <span class="detail-gematria">אותיות {{ entry.tanach_start + 1 }}–{{ entry.tanach_end + 1 }}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">ראשי תיבות:</span>
-            <span class="detail-value">{{ entry.initials }}</span>
-            <span class="detail-gematria">{{ entry.initials_gematria }} · {{ entry.initials_gematria_hebrew }}</span>
-          </div>
-
-          <div class="detail-words" v-if="entry.words && entry.words.length > 0">
-            <div class="detail-label" style="margin-bottom:8px;">פירוט מילים:</div>
-            <div class="detail-word-block" v-for="w in getEntryBreakdown(entry.original_text)" :key="w.position">
-              <div class="detail-word-row">
-                <span class="word-text">{{ w.word }}</span>
-                <span class="word-gematria">{{ w.gematria }}</span>
-              </div>
-              <div class="detail-letter-list">
-                <span v-for="letter in w.letters" :key="letter.letter + letter.value" class="detail-letter">
-                  {{ letter.letter }} · {{ letter.value }}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div class="detail-meta">
-            <span class="mdi mdi-clock-outline"></span>
-            {{ formatDate(entry.created_at) }}
-          </div>
-        </div>
-      </div>
+    <div v-else-if="entries.length === 0" class="library-state empty-state">
+      <span class="mdi mdi-bookshelf empty-icon" aria-hidden="true"></span>
+      <strong v-if="!searchQuery">עדיין לא נשמרו ערכים</strong>
+      <strong v-else>לא נמצאו תוצאות</strong>
+      <span v-if="!searchQuery">חזור למחשבון ולחץ <b>שמור</b> כדי להוסיף לספרייה.</span>
+      <span v-else>נסה לחפש לפי טקסט, גימטריה או ראשי תיבות אחרים.</span>
     </div>
 
-    <!-- Load more -->
+    <div
+      v-else
+      class="entries-list"
+      :class="{ 'list-mode': viewMode === 'list', 'grouped-mode': groupByGematria }"
+    >
+      <template v-if="groupByGematria">
+        <section
+          v-for="group in groupedEntries"
+          :key="group.key"
+          class="entry-group"
+          :class="{ 'shared-group': group.entries.length > 1 }"
+        >
+          <header class="group-header">
+            <div class="group-value">
+              <strong>{{ group.value }}</strong>
+              <span>·</span>
+              <span>{{ group.hebrewValue }}</span>
+            </div>
+            <span>{{ group.entries.length }} {{ group.entries.length === 1 ? 'ערך שמור' : 'ערכים שמורים' }}</span>
+          </header>
+          <div class="group-entries">
+            <SavedEntryCard
+              v-for="entry in group.entries"
+              :key="entry.id"
+              :entry="entry"
+              :expanded="expandedId === entry.id"
+              :menu-open="menuOpenId === entry.id"
+              :search-query="searchQuery"
+              :shared-value="group.entries.length > 1"
+              @toggle="toggleExpand"
+              @toggle-menu="toggleMenu"
+              @copy="copyEntry"
+              @delete="confirmDelete"
+            />
+          </div>
+        </section>
+      </template>
+
+      <template v-else>
+        <SavedEntryCard
+          v-for="entry in entries"
+          :key="entry.id"
+          :entry="entry"
+          :expanded="expandedId === entry.id"
+          :menu-open="menuOpenId === entry.id"
+          :search-query="searchQuery"
+          :shared-value="sharedValueIds.has(entry.id)"
+          @toggle="toggleExpand"
+          @toggle-menu="toggleMenu"
+          @copy="copyEntry"
+          @delete="confirmDelete"
+        />
+      </template>
+    </div>
+
     <button
-      v-if="entries.length < total && !loading"
+      v-if="hasMore && !loading"
       class="load-more-btn"
+      type="button"
       @click="loadMore"
     >
       הצג עוד ({{ total - entries.length }} נותרו)
     </button>
 
-    <!-- Delete confirm dialog -->
-    <div class="modal-overlay" v-if="deleteTarget" @click.self="deleteTarget = null">
-      <div class="modal-box">
-        <p class="modal-text">למחוק את <strong>{{ deleteTarget.original_text }}</strong>?</p>
+    <div v-if="copyNotice" class="copy-notice" role="status">{{ copyNotice }}</div>
+
+    <div v-if="deleteTarget" class="modal-overlay" @click.self="closeDeleteDialog">
+      <div
+        ref="deleteDialog"
+        class="modal-box"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-title"
+        @keydown="onDialogKeydown"
+      >
+        <p id="delete-title" class="modal-text">
+          למחוק את <strong>{{ deleteTarget.original_text }}</strong>?
+        </p>
+        <p v-if="deleteError" class="modal-error" role="alert">{{ deleteError }}</p>
         <div class="modal-actions">
-          <button class="modal-btn cancel" @click="deleteTarget = null">ביטול</button>
-          <button class="modal-btn confirm" @click="doDelete">מחק</button>
+          <button ref="cancelDeleteButton" type="button" class="modal-btn cancel" @click="closeDeleteDialog">ביטול</button>
+          <button type="button" class="modal-btn confirm" @click="doDelete">מחק</button>
         </div>
       </div>
     </div>
@@ -150,408 +190,555 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
-import { getWordBreakdown, toHebrewNumber } from '@/composables/useGematria.js';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import SavedEntryCard from '@/components/SavedEntryCard.vue';
 
+const LIMIT = 100;
+const GROUP_LIMIT = 20;
+const VIEW_STORAGE_KEY = 'gematria-library-view';
 const entries = ref([]);
 const total = ref(0);
+const hasMore = ref(false);
+const stats = ref({ saved: 0, distinctValues: 0, sharedValues: 0 });
 const loading = ref(false);
+const error = ref('');
 const searchQuery = ref('');
+const sort = ref('recent');
+const viewMode = ref('grid');
+const groupByGematria = ref(false);
 const expandedId = ref(null);
+const menuOpenId = ref(null);
 const deleteTarget = ref(null);
+const deleteDialog = ref(null);
+const cancelDeleteButton = ref(null);
+const libraryHeading = ref(null);
+const deleteError = ref('');
+const copyNotice = ref('');
 const offset = ref(0);
-const LIMIT = 20;
 let debounceTimer = null;
+let copyNoticeTimer = null;
+let requestId = 0;
+let activeController = null;
+
+const sharedValueIds = computed(() => {
+  const counts = new Map();
+  for (const entry of entries.value) {
+    counts.set(entry.full_gematria, (counts.get(entry.full_gematria) || 0) + 1);
+  }
+  return new Set(entries.value
+    .filter(entry => Number(entry.value_entry_count) > 1 || counts.get(entry.full_gematria) > 1)
+    .map(entry => entry.id));
+});
+
+const groupedEntries = computed(() => {
+  const groups = new Map();
+  for (const entry of entries.value) {
+    if (!groups.has(entry.full_gematria)) {
+      groups.set(entry.full_gematria, {
+        key: entry.full_gematria,
+        value: entry.full_gematria,
+        hebrewValue: entry.full_gematria_hebrew,
+        entries: [],
+      });
+    }
+    groups.get(entry.full_gematria).entries.push(entry);
+  }
+  return [...groups.values()];
+});
 
 async function fetchEntries(reset = true) {
+  const currentRequestId = ++requestId;
+  activeController?.abort();
+  activeController = new AbortController();
   loading.value = true;
+  error.value = '';
   if (reset) {
     offset.value = 0;
     entries.value = [];
+    expandedId.value = null;
+    menuOpenId.value = null;
   }
+
   try {
-    const params = new URLSearchParams({ limit: LIMIT, offset: offset.value });
+    const params = new URLSearchParams({
+      limit: String(groupByGematria.value ? GROUP_LIMIT : LIMIT),
+      offset: String(offset.value),
+      sort: sort.value,
+      grouped: String(groupByGematria.value),
+    });
     if (searchQuery.value.trim()) params.set('search', searchQuery.value.trim());
-    const res = await fetch(`/api/entries?${params}`);
-    const data = await res.json();
-    if (reset) {
-      entries.value = data.entries;
-    } else {
-      entries.value.push(...data.entries);
-    }
+    const response = await fetch(`/api/entries?${params}`, { signal: activeController.signal });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'הבקשה נכשלה');
+    if (currentRequestId !== requestId) return;
+    if (reset) entries.value = data.entries;
+    else entries.value.push(...data.entries);
     total.value = data.total;
-    offset.value += data.entries.length;
-  } catch (e) {
-    console.error(e);
+    hasMore.value = data.pagination?.hasMore ?? entries.value.length < data.total;
+    stats.value = data.stats || {
+      saved: data.total,
+      distinctValues: new Set(data.entries.map(entry => entry.full_gematria)).size,
+      sharedValues: 0,
+    };
+    offset.value = data.pagination?.nextOffset ?? offset.value + data.entries.length;
+    return true;
+  } catch (requestError) {
+    if (requestError.name !== 'AbortError' && currentRequestId === requestId) {
+      error.value = 'אירעה שגיאה זמנית. אפשר לנסות שוב.';
+    }
+    return false;
+  } finally {
+    if (currentRequestId === requestId) loading.value = false;
   }
-  loading.value = false;
+}
+
+async function refreshEntries() {
+  await fetchEntries();
 }
 
 function onSearch() {
   clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(() => fetchEntries(true), 300);
+  debounceTimer = setTimeout(() => refreshEntries(), 300);
 }
 
 function clearSearch() {
+  clearTimeout(debounceTimer);
   searchQuery.value = '';
-  fetchEntries(true);
+  refreshEntries();
+}
+
+function onSortChange() {
+  refreshEntries();
+}
+
+function onGroupChange() {
+  refreshEntries();
 }
 
 function loadMore() {
-  fetchEntries(false);
+  if (!loading.value && hasMore.value) fetchEntries(false);
+}
+
+function setViewMode(mode) {
+  viewMode.value = mode;
+  try {
+    localStorage.setItem(VIEW_STORAGE_KEY, mode);
+  } catch {
+    // Storage can be unavailable in privacy-restricted browsers.
+  }
 }
 
 function toggleExpand(id) {
   expandedId.value = expandedId.value === id ? null : id;
+  menuOpenId.value = null;
 }
 
-function confirmDelete(entry) {
+function toggleMenu(id) {
+  menuOpenId.value = menuOpenId.value === id ? null : id;
+}
+
+async function copyEntry(entry) {
+  menuOpenId.value = null;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(entry.original_text);
+    } else {
+      const helper = document.createElement('textarea');
+      helper.value = entry.original_text;
+      helper.setAttribute('readonly', '');
+      helper.style.position = 'fixed';
+      helper.style.opacity = '0';
+      document.body.appendChild(helper);
+      helper.select();
+      let copied = false;
+      try {
+        copied = document.execCommand('copy');
+      } finally {
+        helper.remove();
+      }
+      if (!copied) throw new Error('copy_failed');
+    }
+    copyNotice.value = 'הטקסט הועתק';
+    clearTimeout(copyNoticeTimer);
+    copyNoticeTimer = setTimeout(() => { copyNotice.value = ''; }, 1800);
+  } catch {
+    clearTimeout(copyNoticeTimer);
+    copyNotice.value = 'לא ניתן להעתיק כרגע';
+    copyNoticeTimer = setTimeout(() => { copyNotice.value = ''; }, 1800);
+  }
+}
+
+async function confirmDelete(entry) {
+  menuOpenId.value = null;
+  deleteError.value = '';
   deleteTarget.value = entry;
+  await nextTick();
+  cancelDeleteButton.value?.focus();
+}
+
+function closeDeleteDialog() {
+  const triggerId = deleteTarget.value?.id;
+  deleteTarget.value = null;
+  deleteError.value = '';
+  nextTick(() => {
+    document.querySelector(`[data-entry-id="${triggerId}"] .menu-btn`)?.focus();
+  });
+}
+
+function onDialogKeydown(event) {
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    closeDeleteDialog();
+    return;
+  }
+  if (event.key !== 'Tab') return;
+  const focusable = [...deleteDialog.value.querySelectorAll('button:not([disabled])')];
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
 }
 
 async function doDelete() {
   if (!deleteTarget.value) return;
+  const id = deleteTarget.value.id;
   try {
-    await fetch(`/api/entries/${deleteTarget.value.id}`, { method: 'DELETE' });
-    entries.value = entries.value.filter(e => e.id !== deleteTarget.value.id);
-    total.value = Math.max(0, total.value - 1);
-    if (expandedId.value === deleteTarget.value.id) expandedId.value = null;
+    const response = await fetch(`/api/entries/${id}`, { method: 'DELETE' });
+    if (!response.ok) throw new Error('delete_failed');
     deleteTarget.value = null;
-  } catch (e) {
-    console.error(e);
+    deleteError.value = '';
+    await refreshEntries();
+    await nextTick();
+    libraryHeading.value?.focus();
+  } catch {
+    deleteError.value = 'לא ניתן למחוק את הערך כרגע. נסה שוב.';
   }
 }
 
-function formatDate(iso) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  return d.toLocaleDateString('he-IL', { day: 'numeric', month: 'long', year: 'numeric' });
+function closeMenus(event) {
+  if (!event.target.closest('.entry-menu-wrap')) menuOpenId.value = null;
 }
 
-function getEntryBreakdown(text) {
-  return getWordBreakdown(text);
-}
+onMounted(() => {
+  try {
+    const savedView = localStorage.getItem(VIEW_STORAGE_KEY);
+    if (savedView === 'grid' || savedView === 'list') viewMode.value = savedView;
+  } catch {
+    // Storage can be unavailable in privacy-restricted browsers.
+  }
+  document.addEventListener('click', closeMenus);
+  refreshEntries();
+});
 
-function formatTanachReference(entry) {
-  const reference = `${entry.tanach_book_label} ${toHebrewNumber(entry.tanach_chapter)}:${toHebrewNumber(entry.tanach_verse)}`;
-  return entry.parsha_name ? `${reference} · פרשת ${entry.parsha_name}` : reference;
-}
-
-onMounted(() => fetchEntries());
+onBeforeUnmount(() => {
+  clearTimeout(debounceTimer);
+  clearTimeout(copyNoticeTimer);
+  activeController?.abort();
+  document.removeEventListener('click', closeMenus);
+});
 </script>
 
 <style scoped>
 .library-page {
   direction: rtl;
-  width: 100%;
-  max-width: 1350px;
   margin-inline: auto;
+  max-width: 1180px;
+  width: 100%;
 }
 
-.library-header {
-  margin-bottom: 24px;
-}
-.library-title {
-  font-size: 2.2rem;
-  font-weight: 700;
-  color: var(--navy);
-  margin-bottom: 6px;
-}
-.library-subtitle {
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-}
+.library-header { margin-bottom: 22px; }
+.library-title { color: var(--navy); font-size: 2.15rem; font-weight: 700; margin-bottom: 5px; }
+.library-subtitle { color: var(--text-secondary); font-size: .92rem; }
 
-/* Search */
 .search-bar {
-  display: flex;
   align-items: center;
-  background: #fff;
-  border: 2px solid var(--border);
-  border-radius: var(--radius);
-  padding: 0 16px;
-  margin-bottom: 20px;
-  gap: 8px;
-  transition: border-color 0.15s, box-shadow 0.15s;
-  box-shadow: 0 2px 8px rgba(26, 39, 68, 0.05);
-}
-.search-bar:focus-within {
-  border-color: var(--gold);
-  box-shadow: 0 0 0 3px rgba(192, 152, 64, 0.1);
-}
-.search-icon { color: var(--text-secondary); font-size: 1.1rem; }
-.search-input {
-  flex: 1;
-  border: none;
-  outline: none;
-  padding: 14px 0;
-  font-size: 1rem;
-  background: transparent;
-  font-family: inherit;
-  color: var(--text-primary);
-  text-align: right;
-}
-.search-input::placeholder { color: #AAAD; }
-.clear-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--text-secondary);
-  padding: 4px;
-  display: flex;
-  align-items: center;
-  border-radius: 50%;
-}
-.clear-btn:hover { color: var(--navy); }
-
-.library-stats {
-  font-size: 0.82rem;
-  color: var(--text-secondary);
-  margin-bottom: 16px;
-}
-
-.loading-spinner {
-  text-align: center;
-  padding: 40px;
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 60px 20px;
-  color: var(--text-secondary);
-}
-.empty-text { margin-top: 16px; line-height: 1.8; font-size: 0.95rem; }
-
-.entries-list { display: flex; flex-direction: column; gap: 17px; }
-
-/* Entry card */
-.entry-card {
   background: #fff;
   border: 1.5px solid var(--border);
   border-radius: var(--radius);
-  overflow: hidden;
-  transition: box-shadow 0.15s, border-color 0.15s;
-}
-.entry-card:hover { box-shadow: var(--shadow); }
-.entry-card.expanded { border-color: var(--gold); }
-
-.entry-header {
+  box-shadow: 0 2px 8px rgba(26, 39, 68, .04);
   display: flex;
-  align-items: center;
-  padding: 20px 26px;
-  cursor: pointer;
-  gap: 14px;
+  gap: 9px;
+  margin-bottom: 16px;
+  padding: 0 16px;
+  transition: border-color .15s, box-shadow .15s;
 }
-.entry-card:not(.expanded) .entry-header { padding: 14px 24px; }
-.entry-main-info { flex: 1; min-width: 0; }
-.entry-text {
-  font-size: 1.15rem;
-  font-weight: 700;
-  color: var(--navy);
-  margin-bottom: 5px;
+
+.search-bar:focus-within {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(192, 152, 64, .1);
+}
+
+.search-icon { color: var(--text-secondary); font-size: 1.08rem; }
+.search-input {
+  background: transparent;
+  border: 0;
+  color: var(--text-primary);
+  flex: 1;
+  font-family: inherit;
+  font-size: .98rem;
+  min-width: 0;
+  outline: 0;
+  padding: 14px 0;
   text-align: right;
-  word-break: break-all;
 }
-.entry-card:not(.expanded) .entry-text { margin-bottom: 3px; line-height: 1.25; }
-.tanach-reference {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  margin-bottom: 5px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--gold-light);
-  color: #80601d;
-  font-size: .72rem;
-  font-weight: 600;
-}
-.entry-card:not(.expanded) .tanach-reference { margin-bottom: 3px; padding-block: 1px; font-size: .7rem; line-height: 1.2; }
-.entry-gematria {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.entry-card:not(.expanded) .entry-gematria { gap: 6px; line-height: 1.15; }
-.gematria-num {
-  font-size: 1.35rem;
-  font-weight: 700;
-  color: var(--gold);
-}
-.entry-card:not(.expanded) .gematria-num { font-size: 1.2rem; }
-.gematria-dot { color: #CCC; }
-.gematria-heb {
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-}
-.entry-card:not(.expanded) .gematria-heb { font-size: .85rem; }
 
-.entry-initials {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin-top: 5px;
-  color: var(--text-secondary);
-  font-size: 0.78rem;
-}
-.entry-card:not(.expanded) .entry-initials { margin-top: 4px; gap: 4px; font-size: .74rem; line-height: 1.2; }
-.entry-initials strong {
-  color: var(--navy);
-  font-size: 0.9rem;
-}
-.entry-card:not(.expanded) .entry-initials strong { font-size: .84rem; }
-.initials-gematria-label {
-  margin-right: 7px;
-}
-.entry-card:not(.expanded) .initials-gematria-label { margin-right: 6px; }
+.search-input::-webkit-search-cancel-button { display: none; }
+.search-input::placeholder { color: #9ba1ac; }
 
-.entry-actions {
-  display: flex;
+.clear-btn {
   align-items: center;
-  gap: 8px;
-}
-.delete-btn {
-  background: none;
-  border: none;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  color: var(--text-secondary);
   cursor: pointer;
-  color: #CCC;
-  font-size: 1.1rem;
-  padding: 6px;
-  border-radius: 6px;
-  transition: all 0.15s;
   display: flex;
+  font-size: 1rem;
+  padding: 5px;
 }
-.delete-btn:hover { color: #D32F2F; background: #FFEBEE; }
-.expand-icon { color: var(--text-secondary); height: 10px; width: 10px; }
 
-/* Expanded detail */
-.entry-detail {
-  border-top: 1px solid var(--border);
-  padding: 18px 22px;
-  background: #FAFAF7;
+.clear-btn:hover { color: var(--navy); }
+.clear-btn:focus-visible, .state-action:focus-visible, .modal-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.library-toolbar {
+  align-items: center;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  min-height: 34px;
+}
+
+.library-summary {
+  align-items: baseline;
+  color: var(--text-secondary);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: .8rem;
+  gap: 7px;
+}
+
+.library-summary strong { color: var(--navy); font-size: .87rem; }
+.library-controls { align-items: center; display: flex; flex-wrap: wrap; gap: 10px; }
+
+.sort-control {
+  align-items: center;
+  color: var(--text-secondary);
+  display: inline-flex;
+  font-size: .78rem;
+  gap: 6px;
+  position: relative;
+}
+
+.sort-control select {
+  appearance: none;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--navy);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: .78rem;
+  min-width: 112px;
+  padding: 6px 10px 6px 25px;
+}
+
+.sort-control select:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.select-chevron { color: var(--text-secondary); height: 7px; pointer-events: none; position: absolute; left: 9px; width: 7px; }
+
+.view-switcher {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  overflow: hidden;
+}
+
+.view-btn {
+  background: transparent;
+  border: 0;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: .95rem;
+  line-height: 1;
+  padding: 7px 9px;
+}
+
+.view-btn + .view-btn { border-right: 1px solid var(--border); }
+.view-btn:hover, .view-btn.active { background: var(--gold-light); color: var(--navy); }
+.view-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+
+.group-toggle {
+  align-items: center;
+  color: var(--navy);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: .78rem;
+  gap: 7px;
+  user-select: none;
+}
+
+.group-toggle input { height: 1px; opacity: 0; position: absolute; width: 1px; }
+.group-toggle__track {
+  background: #d9d4c9;
+  border-radius: 999px;
+  height: 18px;
+  padding: 2px;
+  transition: background .15s;
+  width: 31px;
+}
+
+.group-toggle__track span {
+  background: #fff;
+  border-radius: 50%;
+  display: block;
+  height: 14px;
+  transform: translateX(13px);
+  transition: transform .15s;
+  width: 14px;
+}
+
+.group-toggle input:checked + .group-toggle__track { background: var(--gold); }
+.group-toggle input:checked + .group-toggle__track span { transform: translateX(0); }
+.group-toggle input:focus-visible + .group-toggle__track { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.entries-list { align-items: start; display: grid; gap: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.entries-list.list-mode { grid-template-columns: minmax(0, 1fr); }
+.entries-list.list-mode :deep(.entry-header) { min-height: 0; padding-block: 14px; }
+.entry-group { display: contents; }
+.group-header { display: none; }
+.group-entries { display: contents; }
+
+.grouped-mode .entry-group {
+  background: rgba(245, 237, 216, .28);
+  border: 1px solid #e4d7b8;
+  border-radius: var(--radius);
+  display: block;
+  grid-column: 1 / -1;
+  padding: 14px;
+}
+
+.grouped-mode .group-header {
+  align-items: baseline;
+  color: var(--text-secondary);
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  margin-bottom: 11px;
+}
+
+.group-value { align-items: baseline; color: var(--navy); display: flex; gap: 6px; }
+.group-value strong { color: var(--gold); font-size: 1.15rem; }
+.group-value span { font-size: .85rem; }
+.group-header > span { font-size: .75rem; }
+.grouped-mode .group-entries { align-items: start; display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grouped-mode.list-mode .group-entries { grid-template-columns: minmax(0, 1fr); }
+
+.loading-spinner {
+  align-items: center;
+  color: var(--text-secondary);
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  min-height: 180px;
+}
+
+.library-state {
+  align-items: center;
+  color: var(--text-secondary);
   display: flex;
   flex-direction: column;
-  gap: 14px;
-}
-
-.detail-row {
-  display: flex;
-  align-items: center;
   gap: 8px;
-  font-size: 0.88rem;
-}
-.detail-reference {
-  border-bottom: 1px solid #eee9e0;
-  padding-bottom: 12px;
-}
-.detail-label {
-  color: var(--text-secondary);
-  font-size: 0.82rem;
-  font-weight: 500;
-  white-space: nowrap;
-}
-.detail-value {
-  font-weight: 600;
-  color: var(--navy);
-  font-size: 1rem;
-}
-.detail-gematria {
-  color: var(--text-secondary);
-  font-size: 0.82rem;
-  margin-right: auto;
+  justify-content: center;
+  min-height: 250px;
+  text-align: center;
 }
 
-.detail-words { font-size: 0.88rem; }
-.detail-word-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 5px 0;
-  border-bottom: 1px solid #F0ECE4;
-}
-.detail-word-block:last-child .detail-word-row { border-bottom: none; }
-.word-text { color: var(--navy); font-weight: 500; }
-.word-gematria { color: var(--gold); font-weight: 600; }
-.detail-letter-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px 10px;
-  padding: 6px 0 9px;
-  color: var(--text-secondary);
-  font-size: 0.75rem;
-}
-.detail-letter {
-  white-space: nowrap;
-}
+.empty-icon { color: #d0cbb4; font-size: 2.6rem; margin-bottom: 5px; }
+.library-state strong { color: var(--navy); font-size: 1.05rem; }
+.library-state span { font-size: .86rem; }
+.error-state strong { color: #9a403a; }
+.state-action { background: var(--gold-light); border: 1px solid var(--border); border-radius: 8px; color: var(--navy); cursor: pointer; font-family: inherit; margin-top: 4px; padding: 7px 14px; }
 
-.detail-meta {
-  font-size: 0.75rem;
-  color: #AAAD;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-/* Load more */
 .load-more-btn {
-  width: 100%;
-  margin-top: 16px;
-  padding: 12px;
-  font-size: 0.88rem;
-  color: var(--text-secondary);
   background: #fff;
   border: 1.5px dashed var(--border);
   border-radius: var(--radius);
+  color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.15s;
-  font-family: inherit;
   direction: rtl;
+  font-family: inherit;
+  font-size: .86rem;
+  margin-top: 16px;
+  padding: 11px;
+  transition: background .15s, border-color .15s, color .15s;
+  width: 100%;
 }
-.load-more-btn:hover { background: var(--gold-light); border-color: var(--gold); color: var(--navy); }
 
-/* Modal */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(26,39,68,0.35);
-  z-index: 200;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.modal-box {
-  background: #fff;
-  border-radius: var(--radius);
-  padding: 28px 24px;
-  max-width: 340px;
-  width: 90%;
-  text-align: center;
-  box-shadow: 0 8px 40px rgba(26,39,68,0.18);
-}
-.modal-text {
-  font-size: 0.95rem;
-  color: var(--navy);
-  margin-bottom: 20px;
-  line-height: 1.5;
-  direction: rtl;
-}
-.modal-actions { display: flex; gap: 10px; justify-content: center; }
-.modal-btn {
-  padding: 9px 24px;
+.load-more-btn:hover { background: var(--gold-light); border-color: var(--gold); color: var(--navy); }
+.load-more-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.copy-notice {
+  background: var(--navy);
   border-radius: 8px;
-  border: none;
-  font-size: 0.9rem;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: inherit;
-  transition: all 0.15s;
+  bottom: 22px;
+  color: #fff;
+  font-size: .8rem;
+  left: 22px;
+  padding: 9px 14px;
+  position: fixed;
+  z-index: 150;
 }
-.modal-btn.cancel { background: #F0EDE7; color: var(--navy); }
-.modal-btn.cancel:hover { background: #E6E0D5; }
-.modal-btn.confirm { background: #D32F2F; color: #fff; }
-.modal-btn.confirm:hover { background: #B71C1C; }
+
+.modal-overlay {
+  align-items: center;
+  background: rgba(26, 39, 68, .35);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  position: fixed;
+  z-index: 200;
+}
+
+.modal-box { background: #fff; border-radius: var(--radius); box-shadow: 0 8px 40px rgba(26, 39, 68, .18); max-width: 340px; padding: 28px 24px; text-align: center; width: 90%; }
+.modal-text { color: var(--navy); direction: rtl; font-size: .95rem; line-height: 1.5; margin-bottom: 20px; }
+.modal-error { color: #9a403a; font-size: .8rem; line-height: 1.5; margin: -10px 0 16px; }
+.modal-actions { display: flex; gap: 10px; justify-content: center; }
+.modal-btn { border: 0; border-radius: 8px; cursor: pointer; font-family: inherit; font-size: .9rem; font-weight: 600; padding: 9px 24px; }
+.modal-btn.cancel { background: #f0ede7; color: var(--navy); }
+.modal-btn.confirm { background: #d32f2f; color: #fff; }
+.modal-btn.cancel:hover { background: #e6e0d5; }
+.modal-btn.confirm:hover { background: #b71c1c; }
+
+.sr-only {
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+@media (max-width: 800px) {
+  .library-toolbar { align-items: flex-start; flex-direction: column; gap: 12px; }
+  .library-controls { width: 100%; }
+  .entries-list, .grouped-mode .group-entries { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 480px) {
+  .library-title { font-size: 1.9rem; }
+  .library-controls { gap: 8px; }
+  .library-summary { line-height: 1.7; }
+  .sort-control { flex: 1; justify-content: space-between; }
+  .sort-control select { flex: 1; }
+  .group-toggle { margin-inline-start: auto; }
+  .copy-notice { bottom: 16px; left: 16px; }
+}
 </style>
