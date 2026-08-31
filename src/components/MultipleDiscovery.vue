@@ -218,7 +218,7 @@ function equationLabel(group, relationship) {
 }
 
 .multiple-panel {
-  padding: 14px;
+  padding: 12px;
 }
 
 .multiple-state {
@@ -259,7 +259,7 @@ function equationLabel(group, relationship) {
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .multiple-group__header h3 {
@@ -275,7 +275,7 @@ function equationLabel(group, relationship) {
 }
 
 .multiple-entry {
-  padding: 10px 11px;
+  padding: 9px 10px;
   border: 1px solid #e8e2d7;
   border-radius: 9px;
   background: #fdfcf9;
@@ -290,12 +290,12 @@ function equationLabel(group, relationship) {
   color: var(--navy);
   font-size: .9rem;
   font-weight: 700;
-  line-height: 1.45;
+  line-height: 1.35;
 }
 
 .multiple-relationship {
-  margin-top: 8px;
-  padding-top: 8px;
+  margin-top: 6px;
+  padding-top: 6px;
   border-top: 1px solid #eee8dc;
 }
 
@@ -304,7 +304,7 @@ function equationLabel(group, relationship) {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 9px;
+  gap: 5px 8px;
 }
 
 .multiple-relationship__source {
@@ -313,12 +313,20 @@ function equationLabel(group, relationship) {
 }
 
 .multiple-source-label {
+  background: var(--gold-light);
+  border: 1px solid #e8d9b8;
+  border-radius: 999px;
   color: #87671f;
   font-weight: 700;
+  padding: 2px 7px;
 }
 
 .multiple-source-word {
-  color: var(--navy-light);
+  background: var(--gold-light);
+  border-radius: 4px;
+  color: var(--navy);
+  font-weight: 600;
+  padding: 1px 4px;
 }
 
 .multiple-source-value {
@@ -327,14 +335,15 @@ function equationLabel(group, relationship) {
 }
 
 .multiple-equation-row {
-  justify-content: space-between;
-  margin-top: 5px;
-  gap: 10px;
+  direction: ltr;
+  justify-content: flex-start;
+  margin-top: 4px;
+  gap: 9px;
 }
 
 .multiple-equation {
   color: var(--navy);
-  font-size: .86rem;
+  font-size: .9rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -342,7 +351,8 @@ function equationLabel(group, relationship) {
 
 .multiple-factor {
   color: #98732b;
-  font-size: .75rem;
+  direction: rtl;
+  font-size: .77rem;
   font-weight: 700;
   white-space: nowrap;
 }

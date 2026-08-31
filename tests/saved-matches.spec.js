@@ -99,6 +99,9 @@ test('כפולות stays closed on demand, updates live, and fits a mobile viewp
     await expect(page.locator('.multiple-entry__phrase')).toContainText(savedText);
     await expect(page.locator('.multiple-equation').filter({ hasText: '3 × 2 = 6' })).toHaveCount(2);
     await expect(page.locator('.multiple-factor').first()).toContainText('פי ב');
+    await expect(page.locator('.multiple-source-label').first()).toBeVisible();
+    await expect(page.locator('.multiple-source-word').filter({ hasText: 'ב' }).first()).toBeVisible();
+    await expect(page.locator('.multiple-equation').first()).toHaveAttribute('dir', 'ltr');
     expect(multipleRequests).toHaveLength(1);
 
     await input.fill('יב');

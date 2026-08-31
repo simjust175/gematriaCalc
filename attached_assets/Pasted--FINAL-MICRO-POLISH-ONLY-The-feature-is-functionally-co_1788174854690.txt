@@ -1,0 +1,301 @@
+# כפולות — FINAL MICRO-POLISH ONLY
+
+The כפולות feature is functionally correct and the overall design is approved.
+
+Do NOT redesign it.
+
+This task is ONLY to improve the hierarchy, compactness, and clarity of the individual relationship results.
+
+Do not change:
+
+* multiplication logic
+* source values
+* matching
+* sorting
+* database
+* APIs
+* saved entries
+* מילוי
+* Tanach
+* main calculator
+* disclosure behavior
+
+---
+
+# 1. MAKE THE EQUATION THE VISUAL CENTER
+
+Inside each כפולות result, the mathematical relationship should be the clearest visual element.
+
+Example:
+
+**8 × 13 = 104**
+
+Increase its visual weight slightly through:
+
+* modestly stronger font weight
+* slightly larger type than secondary metadata
+* clean spacing around it
+
+Do NOT make it oversized.
+
+The user should immediately understand:
+
+“This is why this result appeared.”
+
+---
+
+# 2. EMPHASIZE THE DISCOVERY
+
+Directly beside or beneath the equation, show:
+
+**פי י״ג**
+
+or:
+
+**פי כ״ו**
+
+using the existing restrained gold accent.
+
+This should feel like the human-readable discovery.
+
+Example:
+
+**8 × 13 = 104**
+**פי י״ג**
+
+or, if more elegant in one line:
+
+**8 × 13 = 104 · פי י״ג**
+
+Choose whichever works best responsively.
+
+Use the existing corrected Hebrew numeral converter.
+
+---
+
+# 3. SOURCE TYPE AS A SMALL BADGE
+
+Make the source of the saved value instantly understandable.
+
+Use a compact subtle badge such as:
+
+* גימטריה מלאה
+* תיבה
+* גימטריית ר״ת
+* גימטריית מילוי
+
+Do not leave source type as tiny plain metadata that is easy to miss.
+
+The badge should:
+
+* remain secondary
+* use a very light cream/blue/gold-tinted treatment consistent with existing match badges
+* not dominate the card
+
+---
+
+# 4. RESULT HIERARCHY
+
+Each result should read in this order:
+
+1. Saved phrase / saved item
+2. Source badge
+3. Exact equation
+4. פי X
+
+Example:
+
+**ושמחת בחגך**
+
+`גימטריית ר״ת`
+
+**8 × 13 = 104 · פי י״ג**
+
+This should be understandable without any explanatory paragraph.
+
+---
+
+# 5. TIGHTEN RESULT HEIGHT
+
+The current relationship cards/rows still have slightly too much vertical empty space.
+
+Reduce:
+
+* excess top/bottom padding
+* gaps between phrase, source, equation, and multiplier
+
+Keep enough breathing room to remain elegant.
+
+Do not make the results cramped.
+
+The goal is:
+
+**compact discovery rows, not large dashboard cards.**
+
+---
+
+# 6. ONE RESULT = ONE COMPACT VISUAL UNIT
+
+Avoid spreading related information across opposite ends of a large card.
+
+Phrase, source, equation, and multiplier should feel visually connected.
+
+Do not make the user scan across large blank areas to understand one relationship.
+
+---
+
+# 7. DIRECTION LABELS
+
+If results exist in both directions, clearly preserve two subtle sections:
+
+### נכנס בערך הנוכחי
+
+Meaning:
+
+saved value × multiplier = current value
+
+Example:
+
+26 × 4 = 104
+
+### הערך הנוכחי נכנס ב־
+
+Meaning:
+
+current value × multiplier = saved value
+
+Example:
+
+104 × 3 = 312
+
+These labels should be visually clear but not large headings.
+
+Do not mix the two directions together.
+
+---
+
+# 8. EMPTY DIRECTION
+
+If one direction has no results:
+
+do not render a large empty section.
+
+Only show the direction that contains results, unless a tiny empty indication genuinely helps comprehension.
+
+---
+
+# 9. MULTIPLE RELATIONSHIPS ON ONE SAVED ENTRY
+
+If one saved phrase has more than one valid relationship:
+
+do not duplicate the entire card.
+
+Keep one saved item and show compact relationship lines inside it.
+
+Example:
+
+**שמע ישראל**
+
+`גימטריית ר״ת`
+310 × 3 = 930 · פי ג׳
+
+`גימטריית מילוי`
+465 × 2 = 930 · פי ב׳
+
+Keep this compact.
+
+---
+
+# 10. WORD SOURCE
+
+If the relationship comes from an individual word inside a saved phrase:
+
+highlight the exact word using the existing subtle pale-gold text highlight.
+
+Example:
+
+Saved phrase:
+
+קולי שמע וראה דמע
+
+Source:
+
+קולי = 146
+
+Show:
+
+`תיבה`
+
+**146 × 4 = 584 · פי ד׳**
+
+The exact source word should be immediately visible.
+
+---
+
+# 11. RTL POLISH
+
+Verify carefully:
+
+* phrase alignment
+* badge placement
+* multiplication equation direction
+* spacing around × and =
+* Hebrew multiplier placement
+* chevrons/disclosure icons
+
+The mathematical expression should remain readable naturally even inside RTL layout.
+
+Do not allow CSS directionality to reorder:
+
+8 × 13 = 104
+
+incorrectly.
+
+Use an appropriate LTR/isolation wrapper for the equation if needed while keeping the surrounding UI RTL.
+
+---
+
+# 12. RESPONSIVE
+
+Desktop:
+
+keep relationship lines elegant and horizontal where space allows.
+
+Mobile:
+
+allow source badge / equation / multiplier to wrap cleanly.
+
+Never compress the equation until it becomes difficult to read.
+
+No horizontal overflow.
+
+---
+
+# 13. COLOR DISCIPLINE
+
+Use:
+
+* navy for saved phrase/equation
+* restrained gold for פי X / key accent
+* muted treatment for metadata/badges
+
+Do NOT add new colors.
+
+Do not make every number gold.
+
+---
+
+# FINAL ACCEPTANCE
+
+After this pass:
+
+* saved phrase is immediately identifiable
+* source type is immediately identifiable
+* equation is the strongest relationship clue
+* פי X feels like the discovery
+* cards are more compact
+* both directions are unmistakable
+* math stays readable in RTL
+* no logic or data changed
+
+Do not perform unrelated refactors.
