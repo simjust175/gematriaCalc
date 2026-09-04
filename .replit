@@ -50,6 +50,22 @@ isValidation = true
 localPort = 3001
 externalPort = 80
 
+[[ports]]
+localPort = 4173
+externalPort = 3001
+
+[[ports]]
+localPort = 4174
+externalPort = 3002
+
+[[ports]]
+localPort = 5000
+externalPort = 5000
+
+[[ports]]
+localPort = 23636
+externalPort = 3000
+
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 180000
