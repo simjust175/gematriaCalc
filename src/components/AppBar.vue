@@ -28,6 +28,10 @@
           <span class="mdi mdi-bookshelf nav-icon" aria-hidden="true"></span>
           שמורים
         </button>
+        <button class="nav-btn" :class="{ active: currentPage === 'base-words' }" @click="$emit('navigate', 'base-words')">
+          <span class="mdi mdi-format-letter-case" aria-hidden="true"></span>
+          מילות יסוד
+        </button>
         <button
           class="nav-btn"
           :class="{ active: currentPage === 'calculator' }"
@@ -144,9 +148,8 @@ defineEmits(['navigate', 'logout']);
 }
 
 @media (max-width: 480px) {
-  .logo-sub { display: none; }
-  .header-inner { padding: 0 12px; }
-  .logo-main { font-size: 1.25rem; }
+  .logo-copy { display: none; }
+  .header-inner { padding: 0 8px; }
   .brand-mark { height: 28px; width: 28px; }
   .header-nav { gap: 0; }
   .nav-btn { padding: 6px 7px; font-size: 0.76rem; }

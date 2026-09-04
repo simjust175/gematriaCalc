@@ -29,6 +29,11 @@ test('Genesis 1:1 drag selection updates live in both directions', async ({ page
   await page.setViewportSize({ width: 1440, height: 1000 });
   await loginAndOpenTanach(page);
 
+  const split = page.locator('.primary-result .save-split');
+  await split.locator('.save-split__toggle').click();
+  await expect(page.getByRole('menuitem', { name: 'שמור כמילת יסוד' })).toBeDisabled();
+  await page.keyboard.press('Escape');
+
   const first = await centerOfLetter(page, 0);
   const endOfBereshit = await centerOfLetter(page, 5);
   const endOfBara = await centerOfLetter(page, 8);
@@ -71,6 +76,45 @@ test('Genesis 1:1 drag selection updates live in both directions', async ({ page
 
   await page.locator('.verse-display').press('Shift+ArrowLeft');
   await expect.poll(() => selectedLetterCount(page)).toBe(4);
+});
+
+test('Tanach save-as stores exactly the selected range as one base word', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-chromium');
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await loginAndOpenTanach(page);
+  const split = page.locator('.primary-result .save-split');
+
+  const first = await centerOfLetter(page, 0);
+  const endOfBereshit = await centerOfLetter(page, 5);
+  await page.mouse.move(first.x, first.y);
+  await page.mouse.down();
+  await page.mouse.move(endOfBereshit.x, endOfBereshit.y, { steps: 6 });
+  await page.mouse.up();
+  await expect.poll(() => runningGematria(page)).toBe(913);
+
+  let baseWordId;
+  try {
+    await split.locator('.save-split__toggle').click();
+    await page.getByRole('menuitem', { name: 'שמור כמילת יסוד' }).click();
+    await expect(page.getByText('נוסף למילות יסוד', { exact: true })).toBeVisible();
+
+    const response = await page.request.get(new URL('/api/base-words', page.url()).href);
+    expect(response.ok()).toBe(true);
+    const items = (await response.json()).items;
+    const saved = items.find(item => item.normalizedText === 'בראשית' && item.sourceType === 'tanach');
+    expect(saved).toBeTruthy();
+    expect(saved.fullGematria).toBe(913);
+    baseWordId = saved.id;
+
+    await split.locator('.save-split__toggle').click();
+    await page.getByRole('menuitem', { name: 'שמור כמילת יסוד' }).click();
+    await expect(page.getByText('כבר קיים במילות יסוד', { exact: true })).toBeVisible();
+  } finally {
+    if (baseWordId) {
+      const cleanup = await page.request.delete(new URL(`/api/base-words/${baseWordId}`, page.url()).href);
+      expect(cleanup.ok()).toBe(true);
+    }
+  }
 });
 
 test('Tanach selection remains readable without horizontal scrolling on mobile', async ({ page }, testInfo) => {

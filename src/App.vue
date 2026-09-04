@@ -15,6 +15,7 @@
       <main class="main-content">
         <GimForm v-if="currentPage === 'calculator'" @open-tanach="openTanachDiscovery" />
         <SavedLibrary v-else-if="currentPage === 'library'" />
+        <BaseWords v-else-if="currentPage === 'base-words'" />
         <TanachReader
           v-else-if="currentPage === 'tanach'"
           :open-reference="pendingTanachReference"
@@ -32,6 +33,7 @@ import GimForm       from '@/components/GimForm.vue';
 import SavedLibrary  from '@/components/SavedLibrary.vue';
 import TanachReader   from '@/components/TanachReader.vue';
 import LoginScreen   from '@/components/LoginScreen.vue';
+import BaseWords     from '@/components/BaseWords.vue';
 import { resolveAuthentication } from '@/composables/useAuthentication.js';
 
 // 'checking' | 'authenticated' | 'unauthenticated'

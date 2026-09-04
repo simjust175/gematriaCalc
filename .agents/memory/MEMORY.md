@@ -7,3 +7,4 @@
 - [Reliable browser tests](browser-tests-nix.md) — Use Nix Chromium, isolate saved data, and keep decorative icons out of accessible names
 - [Production startup readiness](production-startup-readiness.md) — Autoscale health checks need the app shell before corpus/database initialization completes
 - [Production recovery](production-recovery.md) — Production PostgreSQL has a verified seven-day point-in-time restore window
+- [Managed schema releases](managed-schema-releases.md) — Post-merge applies additive SQL to dev; Publish owns production schema diffs

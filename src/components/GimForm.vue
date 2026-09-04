@@ -47,21 +47,13 @@
             <div class="result-panel">
               <div class="result-panel-toolbar">
                 <div class="save-row">
-                  <button
-                    class="save-btn"
-                    :class="{
-                      'save-btn--saved': saveStatus === 'saved' || matches.isAlreadySaved,
-                      'save-btn--loading': saveStatus === 'loading',
-                    }"
+                  <SaveSplitButton
+                    :primary-label="matches.isAlreadySaved ? 'כבר שמור' : saveStatus === 'saved' ? 'נשמר' : 'שמור'"
                     :disabled="saveStatus === 'loading' || matches.isAlreadySaved"
-                    @click="saveEntry"
-                  >
-                    <span v-if="matches.isAlreadySaved" class="mdi mdi-bookmark-check-outline"></span>
-                    <span v-else-if="saveStatus === 'loading'" class="mdi mdi-loading mdi-spin"></span>
-                    <span v-else-if="saveStatus === 'saved'" class="mdi mdi-bookmark-check-outline"></span>
-                    <span v-else class="mdi mdi-bookmark-outline"></span>
-                    {{ matches.isAlreadySaved ? 'כבר שמור' : saveStatus === 'saved' ? 'נשמר' : 'שמור' }}
-                  </button>
+                    @primary="saveEntry"
+                    @base-word="saveAsBaseWord"
+                  />
+                  <span v-if="baseWordFeedback" class="save-error">{{ baseWordFeedback }}</span>
                   <span v-if="saveError" class="save-error">{{ saveError }}</span>
                 </div>
               </div>
@@ -125,12 +117,7 @@
                 </p>
               </div>
 
-              <MultipleDiscovery
-                v-if="result"
-                :open="multipleOpen"
-                :state="multipleState"
-                @toggle="multipleOpen = !multipleOpen"
-              />
+              <BaseWordsDisclosure v-if="result" :value="result.fullGematria" />
             </div>
 
             <TanachGematriaMatches
@@ -225,7 +212,9 @@
 import { ref, computed, watch, nextTick } from 'vue';
 import { computeAll } from '@/composables/useGematria.js';
 import { useLiveMatching } from '@/composables/useLiveMatching.js';
-import { useMultipleDiscovery } from '@/composables/useMultipleDiscovery.js';
+import BaseWordsDisclosure from './BaseWordsDisclosure.vue';
+import SaveSplitButton from './SaveSplitButton.vue';
+import { useBaseWords } from '@/composables/useBaseWords.js';
 import {
   getMappedHebrewCharacter,
   insertAtSelection,
@@ -234,7 +223,6 @@ import MatchPanel from './MatchPanel.vue';
 import TanachGematriaMatches from './TanachGematriaMatches.vue';
 import MiluiPanel from './MiluiPanel.vue';
 import MiluiSettings from './MiluiSettings.vue';
-import MultipleDiscovery from './MultipleDiscovery.vue';
 import {
   MILUI_DEFAULT_MAPPING,
   calculateMilui,
@@ -268,7 +256,8 @@ const miluiSettingsLoaded = ref(false);
 const miluiSettingsLoading = ref(false);
 const miluiSettingsSaving = ref(false);
 const miluiSettingsError = ref('');
-const multipleOpen = ref(false);
+const saveMenuOpen = ref(false);
+const baseWordFeedback = ref('');
 
 let saveResetTimer = null;
 
@@ -276,8 +265,6 @@ let saveResetTimer = null;
 const result  = computed(() => computeAll(inputText.value));
 const hasInput = computed(() => !!result.value);
 const { matches } = useLiveMatching(result);
-const multipleValue = computed(() => result.value?.fullGematria || 0);
-const { state: multipleState } = useMultipleDiscovery(multipleValue, multipleOpen);
 const miluiCalculation = computed(() => {
   if (!miluiOpen.value || !result.value) return null;
   return calculateMilui(inputText.value, miluiMapping.value);
@@ -290,7 +277,6 @@ watch(inputText, (val) => {
   saveError.value = '';
   if (!val) {
     miluiOpen.value = false;
-    multipleOpen.value = false;
     miluiSettingsOpen.value = false;
   }
   if (!val) {
@@ -474,6 +460,16 @@ async function saveEntry() {
   if (saveStatus.value === 'saved') {
     saveResetTimer = setTimeout(() => { saveStatus.value = 'idle'; }, 3000);
   }
+}
+
+const baseWords = useBaseWords();
+async function saveAsBaseWord() {
+  if (!inputText.value.trim()) return;
+  saveMenuOpen.value = false;
+  const saved = await baseWords.save(inputText.value, 'calculator');
+  baseWordFeedback.value = saved.ok ? 'נוסף למילות יסוד' : saved.message;
+  clearTimeout(saveResetTimer);
+  saveResetTimer = setTimeout(() => { baseWordFeedback.value = ''; }, 3000);
 }
 </script>
 
@@ -706,7 +702,6 @@ async function saveEntry() {
   gap: 8px;
   flex: 0 0 auto;
 }
-
 .save-btn {
   display: inline-flex;
   align-items: center;

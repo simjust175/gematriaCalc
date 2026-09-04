@@ -46,8 +46,8 @@ test('automatic Hebrew keyboard maps physical keys and preserves calculator edit
   const resultSections = page.locator('.result-panel .result-section');
   await expect(page.locator('.result-panel')).toHaveCount(1);
   await expect(resultSections).toHaveCount(3);
-  await expect(page.locator('.result-panel-toolbar .save-btn')).toBeVisible();
-  await expect(page.locator('.result-grid .save-btn')).toHaveCount(0);
+  await expect(page.locator('.result-panel-toolbar .save-split__main')).toBeVisible();
+  await expect(page.locator('.result-grid .save-split')).toHaveCount(0);
   const desktopResultLayout = await page.locator('.result-grid').evaluate((grid) => {
     const cards = [...grid.children];
     const cardBoxes = cards.map((card) => card.getBoundingClientRect());

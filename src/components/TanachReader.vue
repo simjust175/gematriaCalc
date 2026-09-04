@@ -160,15 +160,13 @@
                 <b>{{ result.fullHebrewNumber }}</b>
               </div>
             </div>
-            <button
-              class="save-range"
-              :class="{ saved: saveStatus === 'saved' || matches.isAlreadySaved }"
+            <SaveSplitButton
+              :primary-label="matches.isAlreadySaved ? 'כבר שמור' : saveStatus === 'saved' ? 'נשמר' : 'שמור טווח'"
               :disabled="saveStatus === 'loading' || matches.isAlreadySaved"
-              @click="saveRange"
-            >
-              <span class="mdi" :class="saveStatus === 'loading' ? 'mdi-loading mdi-spin' : 'mdi-bookmark-outline'"></span>
-              {{ matches.isAlreadySaved ? 'כבר שמור' : saveStatus === 'saved' ? 'נשמר' : 'שמור טווח' }}
-            </button>
+              :secondary-disabled="!hasExplicitSelection || !selectedRange.text.trim()"
+              @primary="saveRange"
+              @base-word="saveAsBaseWord"
+            />
           </article>
 
           <div class="secondary-results">
@@ -246,6 +244,7 @@ import { createTanachCursor, normalizeTanachSelection } from '@/composables/useT
 import { useLiveMatching } from '@/composables/useLiveMatching.js';
 import MatchPanel from './MatchPanel.vue';
 import TanachScopeSelect from './TanachScopeSelect.vue';
+import SaveSplitButton from './SaveSplitButton.vue';
 
 const props = defineProps({
   openReference: { type: Object, default: null },
@@ -266,6 +265,7 @@ const showAllVerses = ref(false);
 const selectedParshaId = ref('');
 const anchorLetterIndex = ref(0);
 const focusLetterIndex = ref(0);
+const hasExplicitSelection = ref(false);
 const isDragging = ref(false);
 const loadingBooks = ref(true);
 const loadError = ref('');
@@ -274,6 +274,7 @@ const searchResults = ref([]);
 const searchLoading = ref(false);
 const saveStatus = ref('idle');
 const saveError = ref('');
+const saveMenuOpen = ref(false);
 const verseDisplay = ref(null);
 const verseList = ref(null);
 let searchTimer;
@@ -364,6 +365,7 @@ const { matches } = useLiveMatching(result, { context: matchContext });
 watch(selectedVerse, () => {
   anchorLetterIndex.value = 0;
   focusLetterIndex.value = 0;
+  hasExplicitSelection.value = false;
   isDragging.value = false;
   saveStatus.value = 'idle';
   saveError.value = '';
@@ -529,6 +531,7 @@ async function openExternalReference(reference) {
   if (selectedVerseNumber.value !== verse || end >= cursor.value.count) return;
   anchorLetterIndex.value = start;
   focusLetterIndex.value = end;
+  hasExplicitSelection.value = true;
   saveStatus.value = 'idle';
   saveError.value = '';
   lastExternalReferenceId = requestKey;
@@ -657,12 +660,14 @@ async function moveVerse(delta) {
 
 function setCursor(index) {
   focusLetterIndex.value = cursor.value.clamp(index);
+  hasExplicitSelection.value = true;
 }
 
 function selectSingleLetter(index) {
   const clamped = cursor.value.clamp(index);
   anchorLetterIndex.value = clamped;
   focusLetterIndex.value = clamped;
+  hasExplicitSelection.value = true;
 }
 
 function isVisualTokenSelected(token) {
@@ -797,11 +802,28 @@ async function saveRange() {
   }
 }
 
+async function saveAsBaseWord() {
+  const text = selectedRange.value.text?.trim();
+  if (!hasExplicitSelection.value || !text) { saveError.value = 'בחר מילה או קטע בתנ״ך'; return; }
+  saveMenuOpen.value = false;
+  try {
+    const response = await fetch('/api/base-words', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ originalText: text, sourceType: 'tanach' }),
+    });
+    if (response.status === 409) { saveError.value = 'כבר קיים במילות יסוד'; return; }
+    if (!response.ok) throw new Error();
+    window.dispatchEvent(new CustomEvent('base-words-changed'));
+    saveError.value = 'נוסף למילות יסוד';
+  } catch { saveError.value = 'לא ניתן לשמור כרגע'; }
+}
+
 onMounted(loadBooks);
 </script>
 
 <style scoped>
 .tanach-page { direction: rtl; }
+.tanach-save{position:relative;display:flex}.save-range-menu-button{border-radius:0 7px 7px 0!important;border-inline-start:0!important;padding-inline:8px!important}.save-range-menu{position:absolute;top:calc(100% + 5px);right:0;z-index:15;background:#fffdf8;border:1px solid var(--border);border-radius:8px;padding:4px;box-shadow:0 8px 20px rgba(26,39,68,.14);min-width:165px}.save-range-menu button{border:0;background:transparent;padding:8px;width:100%;text-align:right;font:inherit;color:var(--navy);cursor:pointer}.save-range-menu button:hover{background:var(--gold-light)}
 .tanach-layout {
   display: grid;
   grid-template-columns: 270px minmax(0, 1fr) 245px;

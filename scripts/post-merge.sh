@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Keep task merges reproducible: restore the lockfile dependency tree, then
-# fail early if the merged frontend cannot build. The API initializes its own
-# database schema when the application workflow starts.
+# Replit runs this setup only after a task merge against the development
+# environment. Production schema changes are applied separately by Publish.
 npm ci --ignore-scripts
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f server/migrations/20260307_add_base_words.sql
 npm run build

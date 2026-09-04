@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 
@@ -6,6 +7,10 @@ const { Client } = pg;
 const schema = `tanach_reader_e2e_${process.pid}`;
 const schemaIdentifier = `"${schema}"`;
 const corpusTables = ['tanach_sources', 'tanach_books', 'tanach_verses'];
+const baseWordsMigration = readFileSync(
+  new URL('../server/migrations/20260307_add_base_words.sql', import.meta.url),
+  'utf8'
+);
 
 function createClient() {
   if (!process.env.DATABASE_URL) {
@@ -34,6 +39,8 @@ async function prepareSchema() {
          SELECT * FROM public.${table}`
       );
     }
+    await client.query(`SET LOCAL search_path TO ${schemaIdentifier}`);
+    await client.query(baseWordsMigration);
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {});

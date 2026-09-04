@@ -17,7 +17,7 @@ test('מילוי stays optional, updates live, persists edits, and resets safely
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
   await expect(page.locator('.milui-disclosure')).toBeVisible();
   await expect(toggle.locator('.advanced-toggle__subtitle')).toHaveText('חישוב לפי שמות האותיות');
-  await expect(page.locator('.multiple-toggle .advanced-toggle__subtitle')).toHaveText('קשרים מספריים מדויקים');
+  await expect(page.locator('.base-toggle small')).toHaveText('כניסות שלמות בלבד');
 
   await toggle.press('Enter');
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');

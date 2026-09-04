@@ -18,6 +18,7 @@ import {
   parseMultipleDiscoveryQuery,
   searchSavedMultiples,
 } from './multipleDiscovery.js';
+import { registerBaseWordRoutes } from './baseWords.js';
 import {
   isApplicationReady,
   requireApplicationReady,
@@ -118,6 +119,8 @@ function requireAuth(req, res, next) {
 }
 
 // ── Protected API routes ─────────────────────────────────────────────────────
+
+registerBaseWordRoutes(app, { pool, requireAuth });
 
 /** GET /api/settings/milui — retrieve the current private מילוי preference. */
 app.get('/api/settings/milui', requireAuth, async (_req, res) => {

@@ -1,0 +1,1246 @@
+# MASTER IMPLEMENTATION — מילות יסוד
+
+We are replacing the current generic כפולות feature with a new, much more deliberate feature called:
+
+מילות יסוד
+
+This is a production application with real client data and the client is actively using it.
+
+The implementation must be:
+- additive
+- production-safe
+- visually refined
+- extremely simple for the end user
+- consistent across Calculator, תנ״ך, and the dedicated management section
+
+Do NOT perform unrelated refactors.
+
+======================================================================
+1. PRODUCT DEFINITION
+======================================================================
+
+מילות יסוד is a CURATED list of specific Hebrew words or phrases that the client explicitly chooses.
+
+Examples could include:
+
+י־ה־ו־ה
+אהיה
+אדני
+שמע ישראל
+
+The application should compare the CURRENT COMPLETE FULL GEMATRIA against ONLY these explicitly created מילות יסוד.
+
+Do NOT automatically use:
+
+- ordinary saved entries
+- words inside saved phrases
+- saved word breakdowns
+- ראשי תיבות
+- גימטריית ר״ת
+- מילוי
+- Tanach words
+- random saved phrases
+
+Only explicit מילות יסוד participate.
+
+This is the central rule.
+
+======================================================================
+2. REPLACE THE OLD כפולות FEATURE
+======================================================================
+
+The current generic כפולות feature searches random values from saved material.
+
+The client does NOT want this anymore.
+
+Replace the user-facing כפולות feature with:
+
+מילות יסוד
+
+The old generic results must no longer appear in the calculator.
+
+IMPORTANT:
+
+Do NOT delete existing SavedEntry / SavedWord records.
+
+Do NOT destructively remove existing production data merely because it is no longer used by כפולות.
+
+If old derived data/indexes are harmless and used elsewhere, leave them intact.
+
+We are removing the OLD DISCOVERY BEHAVIOR, not deleting client history.
+
+======================================================================
+3. WHOLE PHRASE ONLY — NON-NEGOTIABLE
+======================================================================
+
+Every מילת יסוד is treated as ONE complete text unit.
+
+Example:
+
+If the client adds:
+
+שמע ישראל
+
+the system calculates and checks the gematria of the COMPLETE phrase:
+
+שמע ישראל
+
+It must NOT separately use:
+
+שמע
+ישראל
+
+unless the client explicitly creates those as separate מילות יסוד.
+
+This rule applies everywhere:
+
+- manual creation
+- calculator save-as
+- Tanach save-as
+- matching
+
+Never automatically split a מילת יסוד into component words for matching.
+
+======================================================================
+4. CURRENT VALUE TO CHECK
+======================================================================
+
+מילות יסוד compares against ONLY:
+
+the current complete גימטריה מלאה of the calculator input.
+
+Do NOT compare against:
+
+- current individual words
+- current selected word
+- current ראשי תיבות
+- current גימטריית ר״ת
+- current מילוי
+- word breakdown
+- Tanach subwords
+
+The relationship is strictly:
+
+CURRENT COMPLETE FULL GEMATRIA
+
+versus
+
+COMPLETE GEMATRIA OF EACH מילת יסוד
+
+======================================================================
+5. EXACT WHOLE-NUMBER RULE
+======================================================================
+
+For:
+
+currentValue = C
+milatYesodValue = B
+
+A result exists only when:
+
+B > 0
+
+and:
+
+C % B === 0
+
+Then:
+
+times = C / B
+
+Only exact whole-number division is valid.
+
+Example:
+
+י־ה־ו־ה = 26
+
+Current gematria = 260
+
+260 / 26 = 10
+
+VALID.
+
+Current gematria = 65
+
+65 / 26 = 2.5
+
+INVALID.
+
+Do NOT show:
+
+- halves
+- decimals
+- fractions
+- percentages
+- approximate matches
+- rounded matches
+- near matches
+
+Exact division only.
+
+======================================================================
+6. ×1 IS VALID
+======================================================================
+
+If:
+
+current value = 26
+
+and:
+
+י־ה־ו־ה = 26
+
+show:
+
+י־ה־ו־ה
+
+נכנס 1 פעם (א׳)
+
+Do not suppress ×1.
+
+Use:
+
+פעם
+
+for 1.
+
+Use:
+
+פעמים
+
+for 2+.
+
+======================================================================
+7. RESULT OUTPUT — EXTREME SIMPLICITY
+======================================================================
+
+The current כפולות result design is too complicated.
+
+The approved new output must be intentionally minimal.
+
+Each result shows ONLY:
+
+1. מילת היסוד
+2. how many times it enters the current gematria
+
+Example:
+
+י־ה־ו־ה
+
+נכנס 10 פעמים (י׳)
+
+Another:
+
+שמע ישראל
+
+נכנס 3 פעמים (ג׳)
+
+THAT IS ALL.
+
+Do NOT show in the normal result row:
+
+- the מילת יסוד gematria
+- current gematria
+- equations
+- 26 × 10 = 260
+- source badges
+- גימטריה מלאה
+- תיבה
+- מילוי
+- database metadata
+- origin
+- Tanach reference
+- detached Hebrew-number pills
+- פי י׳ as a separate statistic
+
+The simplicity is intentional.
+
+======================================================================
+8. DECIMAL + HEBREW NUMBER
+======================================================================
+
+The client wants the number of times displayed in:
+
+- normal decimal digits
+- Hebrew numeral
+
+Integrate both naturally into the sentence.
+
+GOOD:
+
+נכנס 10 פעמים (י׳)
+
+GOOD:
+
+נכנס 23 פעמים (כ״ג)
+
+BAD:
+
+נכנס 10 פעמים          [י׳]
+
+where י׳ floats as a separate visual pill.
+
+BAD:
+
+26 × 10 = 260
+
+Use the existing shared corrected Hebrew-number converter.
+
+Do NOT create another numeral converter.
+
+Preserve all existing Hebrew-number corrections.
+
+======================================================================
+9. MULTIPLE RESULTS
+======================================================================
+
+If several מילות יסוד divide the current full gematria exactly, show all valid results.
+
+Use compact, elegant list rows.
+
+Example:
+
+מילות יסוד
+
+י־ה־ו־ה
+נכנס 10 פעמים (י׳)
+
+אהיה
+נכנס 12 פעמים (י״ב)
+
+[phrase]
+נכנס 4 פעמים (ד׳)
+
+Do not create giant result cards.
+
+Do not nest multiple cards inside multiple containers.
+
+Keep each result visually compact.
+
+======================================================================
+10. מילות יסוד DISCLOSURE IN CALCULATOR
+======================================================================
+
+Replace the existing כפולות disclosure with:
+
+מילות יסוד
+
+Keep it in the advanced-calculation area alongside מילוי.
+
+Closed by default.
+
+Never automatically open it.
+
+When open, it updates as the current full gematria changes.
+
+Suggested compact subtitle:
+
+כניסות שלמות בלבד
+
+Do not over-explain the concept in the calculator.
+
+======================================================================
+11. EMPTY STATE
+======================================================================
+
+If no מילת יסוד divides the current value exactly:
+
+show a quiet empty state such as:
+
+אין התאמה במילות יסוד
+
+Do not show large empty cards.
+
+======================================================================
+12. ONE CANONICAL מילות יסוד COLLECTION
+======================================================================
+
+There must be ONE canonical persisted collection.
+
+The client can add to it from:
+
+1. dedicated מילות יסוד section
+2. calculator
+3. תנ״ך
+
+All three must feed the SAME underlying collection.
+
+Do NOT create separate collections such as:
+
+calculator_milot_yesod
+tanach_milot_yesod
+manual_milot_yesod
+
+One source of truth only.
+
+======================================================================
+13. DEDICATED מילות יסוד SECTION
+======================================================================
+
+Add a dedicated navigation destination:
+
+מילות יסוד
+
+This is separate from:
+
+שמורים
+
+It represents a deliberately curated base list.
+
+Header:
+
+מילות יסוד
+
+Supporting copy:
+
+מילים וביטויים קבועים לבדיקת כניסות שלמות
+
+Keep the wording restrained and traditional.
+
+Primary action:
+
+הוסף מילת יסוד
+
+======================================================================
+14. מילות יסוד MANAGEMENT PAGE
+======================================================================
+
+The client must be able to:
+
+- view all מילות יסוד
+- add
+- edit
+- delete
+
+Keep the page compact and modern.
+
+Each management row/card should show:
+
+- Hebrew word/phrase
+- calculated full gematria
+- edit
+- delete / overflow menu
+
+Example:
+
+י־ה־ו־ה
+26
+
+שמע ישראל
+[calculated value]
+
+Do NOT show on the management page unless specifically useful:
+
+- ראשי תיבות
+- מילוי
+- word breakdown
+- matching badges
+- equations
+
+This page is for managing the curated base list.
+
+======================================================================
+15. MANUAL ADD FLOW
+======================================================================
+
+Clicking:
+
+הוסף מילת יסוד
+
+opens a small polished modal/drawer.
+
+Input label:
+
+מילה או ביטוי
+
+User enters Hebrew text.
+
+The system automatically calculates standard full gematria using the EXISTING shared gematria engine.
+
+Show a small live preview:
+
+גימטריה: 26
+
+The user never manually enters the number.
+
+Actions:
+
+הוסף
+ביטול
+
+======================================================================
+16. EDIT FLOW
+======================================================================
+
+Allow editing the Hebrew text of an existing מילת יסוד.
+
+When changed:
+
+- normalize again
+- recalculate standard gematria automatically
+- persist new text/value
+
+Do NOT allow manual editing of the gematria number.
+
+======================================================================
+17. DELETE FLOW
+======================================================================
+
+Allow deleting a מילת יסוד.
+
+Use lightweight confirmation.
+
+Example:
+
+למחוק את מילת היסוד הזו?
+
+Deleting it must delete ONLY that מילת יסוד record.
+
+It must NOT delete:
+
+- normal saved entries
+- saved words
+- Tanach corpus
+- מילוי data
+- unrelated records
+
+======================================================================
+18. DUPLICATES
+======================================================================
+
+Do not allow duplicate normalized מילות יסוד.
+
+If the same normalized phrase already exists:
+
+do not create another record.
+
+Show tasteful feedback:
+
+כבר קיים במילות יסוד
+
+Normalization should use the application's existing Hebrew normalization rules.
+
+======================================================================
+19. CALCULATOR SAVE CONTROL
+======================================================================
+
+The calculator currently has the existing normal:
+
+שמור
+
+Keep that existing save behavior intact.
+
+Do NOT add a second giant permanent button beside it.
+
+Use a tasteful split-button / attached-menu pattern:
+
+שמור  ⌄
+
+Primary click:
+
+שמור
+
+= existing normal saved-library behavior.
+
+Dropdown/menu option:
+
+שמור כמילת יסוד
+
+= adds the CURRENT COMPLETE calculator phrase to מילות יסוד.
+
+The UI should feel modern and intentional.
+
+======================================================================
+20. TWO SAVE DESTINATIONS MUST REMAIN DISTINCT
+======================================================================
+
+שמור:
+
+saves to the existing normal saved library.
+
+שמור כמילת יסוד:
+
+saves to the curated מילות יסוד collection.
+
+Do NOT automatically perform both.
+
+If the user chooses:
+
+שמור כמילת יסוד
+
+do not create a normal SavedEntry unless the user separately chooses שמור.
+
+If the user chooses:
+
+שמור
+
+do not create a מילת יסוד automatically.
+
+======================================================================
+21. CALCULATOR SAVE-AS USES WHOLE INPUT
+======================================================================
+
+If calculator input is:
+
+שמע ישראל
+
+then:
+
+שמור כמילת יסוד
+
+must create exactly ONE item:
+
+שמע ישראל
+
+Do NOT create:
+
+שמע
+ישראל
+
+as separate items.
+
+======================================================================
+22. CALCULATOR SUCCESS FEEDBACK
+======================================================================
+
+After adding successfully:
+
+נוסף למילות יסוד
+
+Keep the user on the calculator.
+
+Do not redirect automatically.
+
+If already exists:
+
+כבר קיים במילות יסוד
+
+Do not permanently change button text to "already saved".
+
+======================================================================
+23. תנ״ך SAVE-AS מילת יסוד
+======================================================================
+
+Add the same save-destination concept to תנ״ך.
+
+Where the user already has the ability to save selected Tanach text/ranges, provide:
+
+שמור  ⌄
+
+with:
+
+שמור כמילת יסוד
+
+Use the SAME visual pattern as the calculator.
+
+Do not create two huge side-by-side buttons.
+
+Consistency matters.
+
+======================================================================
+24. TANACH SELECTION RULE
+======================================================================
+
+When the user selects a contiguous word/range in תנ״ך and chooses:
+
+שמור כמילת יסוד
+
+save EXACTLY the selected text as ONE מילת יסוד.
+
+Example selection:
+
+ואהבת את ה׳ אלהיך
+
+creates ONE item:
+
+ואהבת את ה׳ אלהיך
+
+Never automatically create individual words.
+
+======================================================================
+25. TANACH WITH NO SELECTION
+======================================================================
+
+Do not guess.
+
+If there is no explicit selected Tanach text:
+
+disable or withhold:
+
+שמור כמילת יסוד
+
+and give a small helper if needed:
+
+בחר מילה או קטע בתנ״ך
+
+Do not automatically save the whole current verse unless the current Tanach selection/save architecture already clearly defines that exact range as selected.
+
+======================================================================
+26. OPTIONAL TANACH SOURCE METADATA
+======================================================================
+
+If easy and safe, a מילת יסוד created from תנ״ך may optionally retain:
+
+- book
+- chapter
+- verse/range
+
+for future reference.
+
+But this metadata is NOT part of divisibility logic.
+
+Matching always uses only:
+
+complete phrase
++
+complete standard gematria
+
+Do not turn this into a citation-management project.
+
+======================================================================
+27. DATA MODEL
+======================================================================
+
+Use a clean additive persisted table/collection appropriate to the existing PostgreSQL architecture.
+
+Conceptually each מילת יסוד needs:
+
+- id
+- original_text
+- normalized_text
+- full_gematria
+- created_at
+- updated_at
+- optional source metadata if useful
+
+A stable creation/order field should allow deterministic display order.
+
+Do NOT attach the feature by rewriting SavedEntry or SavedWord.
+
+======================================================================
+28. GEMATRIA ENGINE — SINGLE SOURCE OF TRUTH
+======================================================================
+
+All values must be calculated through the application's existing standard gematria utility.
+
+Manual creation:
+same engine.
+
+Calculator save-as:
+same engine.
+
+Tanach save-as:
+same engine.
+
+Never maintain another parallel gematria implementation.
+
+======================================================================
+29. NORMALIZATION
+======================================================================
+
+Use the existing normalization behavior for gematria.
+
+Spaces / punctuation / niqqud / cantillation should behave consistently with current standard gematria rules.
+
+Preserve original user-facing text for display.
+
+Use normalized text for duplicate detection/calculation.
+
+======================================================================
+30. RESULT ORDER
+======================================================================
+
+Keep results deterministic.
+
+Preferred:
+
+same order the client added the מילות יסוד.
+
+If explicit custom ordering does not yet exist, use creation order.
+
+Do not randomly sort by multiplier unless explicitly requested later.
+
+======================================================================
+31. OLD כפולות LOOKUP MUST STOP USING SAVED LIBRARY
+======================================================================
+
+The new מילות יסוד disclosure must NOT query:
+
+- saved full gematria
+- saved individual words
+- saved ראשי תיבות
+- saved מילוי index
+- ordinary saved phrases
+
+Remove/disable the OLD generic כפולות lookup from this feature.
+
+Do not delete those underlying records because other features still use them.
+
+======================================================================
+32. EXISTING LIVE SAVED MATCHING REMAINS UNCHANGED
+======================================================================
+
+The separate live match panel can continue using its current logic, including where already implemented:
+
+- full gematria
+- word matches
+- ראשי תיבות
+- גימטריית ר״ת
+- גימטריית מילוי
+
+מילות יסוד is a separate concept.
+
+Do NOT accidentally remove existing matching functionality when removing old כפולות behavior.
+
+======================================================================
+33. VISUAL DESIGN — מילות יסוד RESULTS
+======================================================================
+
+Follow the approved simple visual direction.
+
+Result rows should look like refined list items.
+
+Each row:
+
+RIGHT / primary:
+saved phrase
+
+SECONDARY:
+נכנס X פעמים (Hebrew numeral)
+
+Avoid unnecessary columns.
+
+Do not force large empty horizontal spaces.
+
+Do not copy old כפולות cards.
+
+Use:
+
+- cream/white
+- navy
+- restrained gold
+- thin borders
+- compact spacing
+- RTL-first layout
+
+======================================================================
+34. VISUAL DESIGN — MANAGEMENT
+======================================================================
+
+The dedicated page should feel like a curated personal reference list.
+
+Not:
+
+- an admin table
+- spreadsheet
+- dashboard
+
+Use compact rows/cards with clear actions.
+
+Keep destructive actions secondary, preferably behind a restrained menu where consistent.
+
+======================================================================
+35. VISUAL DESIGN — SAVE MENU
+======================================================================
+
+The save split-control should look native to the existing design.
+
+Primary:
+
+שמור
+
+Secondary menu:
+
+שמור כמילת יסוד
+
+Requirements:
+
+- same overall height as current save action
+- RTL correct
+- compact chevron
+- accessible focus
+- not visually louder than primary calculator results
+
+======================================================================
+36. ACCESSIBILITY
+======================================================================
+
+Ensure:
+
+- menu keyboard support
+- modal focus handling
+- proper labels
+- delete confirmation
+- readable focus states
+- RTL semantics
+- no icon-only actions without accessible labels
+
+======================================================================
+37. PERFORMANCE
+======================================================================
+
+The מילות יסוד collection should remain relatively small.
+
+When the disclosure is closed:
+
+avoid unnecessary requests where practical.
+
+When open:
+
+update exact-divisibility results as current full gematria changes.
+
+Use existing debounce/stale-request protection if server lookup is used.
+
+Do not introduce request storms.
+
+======================================================================
+38. TEST — CORE RESULT
+======================================================================
+
+Create:
+
+י־ה־ו־ה
+
+full gematria:
+
+26
+
+Current calculator full gematria:
+
+260
+
+Expected display:
+
+י־ה־ו־ה
+
+נכנס 10 פעמים (י׳)
+
+There must be:
+
+NO equation
+NO source badge
+NO 26 displayed
+NO detached י׳ badge
+NO old כפולות-style metadata
+
+======================================================================
+39. TEST — NON-INTEGER
+======================================================================
+
+י־ה־ו־ה = 26
+
+Current = 65
+
+65 / 26 = 2.5
+
+Expected:
+
+NO result for י־ה־ו־ה.
+
+======================================================================
+40. TEST — WHOLE PHRASE
+======================================================================
+
+Add:
+
+שמע ישראל
+
+as ONE מילת יסוד.
+
+Verify:
+
+- complete phrase is stored
+- complete phrase gematria is calculated
+- matching checks only that complete value
+- שמע is not automatically checked
+- ישראל is not automatically checked
+
+======================================================================
+41. TEST — EXPLICIT SEPARATE WORD
+======================================================================
+
+Then separately add:
+
+שמע
+
+Now both exist independently:
+
+שמע ישראל
+שמע
+
+This proves the system only uses explicit base phrases.
+
+======================================================================
+42. TEST — MULTIPLE RESULTS
+======================================================================
+
+Create multiple מילות יסוד that exactly divide the same current gematria.
+
+Verify:
+
+- all valid items show
+- no invalid fractional items show
+- each result appears once
+- all remain compact
+- each shows phrase + נכנס X פעמים (Hebrew numeral)
+
+======================================================================
+43. TEST — ×1
+======================================================================
+
+When current value equals base value exactly:
+
+show:
+
+נכנס 1 פעם (א׳)
+
+Verify grammar.
+
+======================================================================
+44. TEST — MANUAL CRUD
+======================================================================
+
+Verify:
+
+- create
+- view
+- edit
+- delete
+- recalculation after edit
+- duplicate prevention
+
+======================================================================
+45. TEST — CALCULATOR SAVE-AS
+======================================================================
+
+Enter phrase in calculator.
+
+Choose:
+
+שמור כמילת יסוד
+
+Verify:
+
+- one canonical מילת יסוד created
+- ordinary SavedEntry is NOT automatically created
+- phrase remains whole
+- correct full gematria calculated
+
+======================================================================
+46. TEST — NORMAL CALCULATOR SAVE
+======================================================================
+
+Click primary:
+
+שמור
+
+Verify:
+
+- existing saved-library behavior is unchanged
+- no מילת יסוד is created
+
+======================================================================
+47. TEST — TANACH SAVE-AS
+======================================================================
+
+Select contiguous Tanach text.
+
+Choose:
+
+שמור כמילת יסוד
+
+Verify:
+
+- exact selected text stored as one phrase
+- standard gematria calculated
+- no individual words created
+- Tanach corpus remains unchanged
+
+======================================================================
+48. TEST — DUPLICATES ACROSS ALL 3 ENTRY POINTS
+======================================================================
+
+Create:
+
+שמע ישראל
+
+manually.
+
+Then try from calculator.
+
+Then try from Tanach.
+
+Expected:
+
+ONE canonical record only.
+
+All additional attempts receive appropriate already-exists feedback.
+
+======================================================================
+49. PRODUCTION DATABASE SAFETY — CRITICAL
+======================================================================
+
+THE CLIENT IS ACTIVELY USING THE PRODUCTION SYSTEM.
+
+Before applying any production schema change:
+
+follow the existing verified recovery-point process.
+
+Use additive migration only.
+
+DO NOT:
+
+- DROP
+- TRUNCATE
+- reset
+- reseed
+- recreate production tables
+- copy development DB over production
+- rewrite SavedEntry
+- rewrite SavedWord
+- alter Tanach corpus
+- delete existing user data
+
+Record relevant production counts before and after.
+
+Required outcome:
+
+existing saved entries deleted = 0
+existing saved entries modified = 0
+existing saved words deleted = 0
+existing saved words modified = 0
+Tanach records altered = 0
+
+If safe migration cannot be guaranteed:
+
+STOP before applying the migration and report the issue.
+
+======================================================================
+50. DO NOT MAKE NORMAL SAVES DEPENDENT ON מילות יסוד
+======================================================================
+
+Failure of a מילות יסוד operation must not break ordinary saving.
+
+These are separate destinations.
+
+The existing client's normal saved-data workflow is more important than this optional feature.
+
+======================================================================
+51. FINAL ACCEPTANCE EXPERIENCE
+======================================================================
+
+A. MANUAL MANAGEMENT
+
+User opens:
+
+מילות יסוד
+
+He sees his deliberate curated list.
+
+He can:
+
+add
+edit
+delete
+
+Gematria is calculated automatically.
+
+--------------------------------------------------
+
+B. CALCULATOR
+
+User enters:
+
+[some complete Hebrew phrase]
+
+Normal calculations work.
+
+He can:
+
+שמור
+
+or:
+
+שמור ⌄
+→ שמור כמילת יסוד
+
+If he opens מילות יסוד, only his deliberate base phrases are tested.
+
+If current value = 260 and י־ה־ו־ה = 26:
+
+he sees simply:
+
+י־ה־ו־ה
+
+נכנס 10 פעמים (י׳)
+
+--------------------------------------------------
+
+C. TANACH
+
+User selects an exact word/range.
+
+He can:
+
+שמור
+
+or:
+
+שמור ⌄
+→ שמור כמילת יסוד
+
+The exact selected range becomes ONE base phrase.
+
+--------------------------------------------------
+
+D. CORE PHILOSOPHY
+
+No random saved words.
+
+No random saved phrases.
+
+No implicit word decomposition.
+
+No equations.
+
+No clutter.
+
+No fractional results.
+
+Only:
+
+DELIBERATE מילות יסוד
++
+COMPLETE FULL GEMATRIA
++
+EXACT WHOLE-NUMBER DIVISION
++
+VERY SIMPLE OUTPUT.
+
+======================================================================
+52. REQUIRED IMPLEMENTATION REPORT
+======================================================================
+
+After implementation, report:
+
+1. files changed
+2. schema/table added
+3. migration safety procedure used
+4. saved-entry counts before/after
+5. saved-word counts before/after
+6. confirmation old generic כפולות lookup is disabled/removed from calculator behavior
+7. confirmation ordinary live matching remains intact
+8. manual CRUD implementation
+9. calculator save/split-button behavior
+10. Tanach save-as behavior
+11. duplicate handling
+12. whole-phrase-only enforcement
+13. exact divisibility implementation
+14. tests added
+15. full existing test-suite result
+16. production build result
+17. existing production records deleted = 0
+18. existing production records modified = 0
+19. any remaining risk or limitation
+
+Do not perform unrelated refactors.
