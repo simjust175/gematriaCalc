@@ -165,7 +165,6 @@ const filterOptions = [
   { value: 'all', label: 'הכול' },
   { value: 'whole_word', label: 'מילה שלמה' },
   { value: 'whole_phrase', label: 'מילים שלימות' },
-  { value: 'partial', label: 'חלקי מילים' },
 ];
 const {
   results, counts, total, loading, error, filter, bookOrder, parshaId, chapterBook, chapter, verse, currentParshah, weeklyParshah,
