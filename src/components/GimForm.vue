@@ -108,6 +108,7 @@
                   v-if="miluiCalculation"
                   id="milui-calculation"
                   :calculation="miluiCalculation"
+                  :canonical-presets="havayahMiluiPresets"
                   :settings-disabled="!miluiSettingsLoaded"
                   @open-settings="openMiluiSettings"
                 />
@@ -224,9 +225,11 @@ import TanachGematriaMatches from './TanachGematriaMatches.vue';
 import MiluiPanel from './MiluiPanel.vue';
 import MiluiSettings from './MiluiSettings.vue';
 import {
+  CANONICAL_HAVAYAH_MILUI,
   MILUI_DEFAULT_MAPPING,
   calculateMilui,
   cloneMiluiMapping,
+  containsStandaloneHavayah,
   normalizeMiluiMapping,
 } from '@/utils/milui.js';
 
@@ -269,6 +272,11 @@ const miluiCalculation = computed(() => {
   if (!miluiOpen.value || !result.value) return null;
   return calculateMilui(inputText.value, miluiMapping.value);
 });
+const havayahMiluiPresets = computed(() => (
+  miluiOpen.value && containsStandaloneHavayah(inputText.value)
+    ? CANONICAL_HAVAYAH_MILUI
+    : null
+));
 
 // Reset expanded words when text changes; restore min-height when cleared
 watch(inputText, (val) => {

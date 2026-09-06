@@ -36,6 +36,31 @@
       </div>
     </div>
 
+    <section
+      v-if="canonicalPresets?.length"
+      class="havayah-milui"
+      aria-labelledby="havayah-milui-title"
+    >
+      <h3 id="havayah-milui-title">מילויי הוי״ה</h3>
+      <div class="havayah-options">
+        <button
+          v-for="preset in canonicalPresets"
+          :key="preset.id"
+          type="button"
+          :aria-pressed="activeCanonicalId === preset.id"
+          :class="{ 'havayah-option--active': activeCanonicalId === preset.id }"
+          @click="toggleCanonical(preset.id)"
+        >
+          <span>{{ preset.label }}</span>
+          <span class="havayah-option__dot">·</span>
+          <span>{{ preset.value }}</span>
+        </button>
+      </div>
+      <div v-if="activeCanonical" class="havayah-spelling" aria-live="polite">
+        {{ activeCanonical.spelling }}
+      </div>
+    </section>
+
     <details class="milui-details">
       <summary>
         <span>פירוט מילים ואותיות</span>
@@ -68,10 +93,16 @@
 </template>
 
 <script setup>
-defineProps({
+import { computed, ref, watch } from 'vue';
+
+const props = defineProps({
   calculation: {
     type: Object,
     required: true,
+  },
+  canonicalPresets: {
+    type: Array,
+    default: null,
   },
   settingsDisabled: {
     type: Boolean,
@@ -80,6 +111,24 @@ defineProps({
 });
 
 const emit = defineEmits(['open-settings']);
+const activeCanonicalId = ref(null);
+const activeCanonical = computed(() => (
+  props.canonicalPresets?.find(preset => preset.id === activeCanonicalId.value) || null
+));
+
+function toggleCanonical(id) {
+  activeCanonicalId.value = activeCanonicalId.value === id ? null : id;
+}
+
+watch(() => props.calculation.normalizedText, () => {
+  activeCanonicalId.value = null;
+});
+
+watch(() => props.canonicalPresets, (presets) => {
+  if (!presets?.some(preset => preset.id === activeCanonicalId.value)) {
+    activeCanonicalId.value = null;
+  }
+});
 </script>
 
 <style scoped>
@@ -183,6 +232,73 @@ const emit = defineEmits(['open-settings']);
   font-size: .95rem;
   font-weight: 600;
   margin-top: 6px;
+}
+
+.havayah-milui {
+  border-top: 1px solid var(--border);
+  padding: 11px 18px 12px;
+}
+
+.havayah-milui h3 {
+  color: var(--text-secondary);
+  font-size: .76rem;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+.havayah-options {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.havayah-options button {
+  align-items: center;
+  background: #fffdf8;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--navy);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: .8rem;
+  font-weight: 600;
+  gap: 5px;
+  justify-content: center;
+  min-height: 34px;
+  padding: 5px 8px;
+}
+
+.havayah-options button:hover,
+.havayah-options button:focus-visible {
+  border-color: var(--gold);
+  background: #fbf8f1;
+}
+
+.havayah-options button:focus-visible {
+  outline: 2px solid var(--navy);
+  outline-offset: 2px;
+}
+
+.havayah-options button[aria-pressed="true"] {
+  background: var(--gold-light);
+  border-color: var(--gold);
+  box-shadow: inset 0 -2px 0 var(--gold);
+  font-weight: 700;
+}
+
+.havayah-option__dot {
+  color: #d4c9b0;
+  font-weight: 300;
+}
+
+.havayah-spelling {
+  color: var(--navy);
+  font-family: "Noto Serif Hebrew", "Times New Roman", serif;
+  font-size: .96rem;
+  line-height: 1.65;
+  padding-top: 8px;
+  text-align: right;
 }
 
 .milui-details {
@@ -323,6 +439,10 @@ const emit = defineEmits(['open-settings']);
 
   .milui-secondary-total {
     padding-inline-start: 16px;
+  }
+
+  .havayah-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .milui-letter__values {

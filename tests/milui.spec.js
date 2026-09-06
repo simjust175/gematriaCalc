@@ -54,6 +54,18 @@ test('מילוי stays optional, updates live, persists edits, and resets safely
 
   await input.fill('ו');
   await expect(page.locator('.milui-expanded-text')).toHaveText('ויו');
+  await input.fill('יהוה');
+  const canonical = page.locator('.havayah-milui');
+  await expect(canonical.getByRole('heading', { name: 'מילויי הוי״ה' })).toBeVisible();
+  await expect(canonical.getByRole('button')).toHaveCount(4);
+  await expect(canonical).toContainText('ע״ב');
+  await expect(canonical).toContainText('72');
+  await expect(canonical).toContainText('ס״ג');
+  await expect(canonical).toContainText('63');
+  await expect(canonical).toContainText('מ״ה');
+  await expect(canonical).toContainText('45');
+  await expect(canonical).toContainText('ב״ן');
+  await expect(canonical).toContainText('52');
 
   await page.reload();
   await expect(input).toBeVisible();
@@ -69,6 +81,49 @@ test('מילוי stays optional, updates live, persists edits, and resets safely
   await reloadedDialog.getByRole('button', { name: 'סגור הגדרות מילוי' }).click();
   await expect(page.locator('.milui-expanded-text')).toHaveText('ואו');
 
+  const overflow = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    clientWidth: document.documentElement.clientWidth,
+  }));
+  expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
+});
+
+test('canonical מילויי הוי״ה appears only for a normalized standalone Name', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await login(page);
+  const input = page.locator('.heb-input');
+  await input.fill('שלום');
+  await page.locator('.milui-toggle').click();
+  await expect(page.locator('.havayah-milui')).toHaveCount(0);
+
+  await input.fill('ברוך אתה יְהֹוָה');
+  const canonical = page.locator('.havayah-milui');
+  await expect(canonical).toHaveCount(1);
+  const options = canonical.getByRole('button');
+  await expect(options).toHaveCount(4);
+  await expect(options.first()).toHaveAttribute('aria-pressed', 'false');
+
+  await options.first().click();
+  await expect(options.first()).toHaveAttribute('aria-pressed', 'true');
+  await expect(canonical.locator('.havayah-spelling')).toHaveText('יו״ד ה״י וי״ו ה״י');
+
+  await options.nth(1).click();
+  await expect(options.first()).toHaveAttribute('aria-pressed', 'false');
+  await expect(options.nth(1)).toHaveAttribute('aria-pressed', 'true');
+  await expect(canonical.locator('.havayah-spelling')).toHaveText('יו״ד ה״י וא״ו ה״י');
+
+  await options.nth(1).click();
+  await expect(canonical.locator('.havayah-spelling')).toHaveCount(0);
+
+  await input.fill('אביהוה');
+  await expect(page.locator('.havayah-milui')).toHaveCount(0);
+  await input.fill('י.ה.ו.ה יהוה');
+  await expect(page.locator('.havayah-milui')).toHaveCount(1);
+
+  const gridColumns = await canonical.locator('.havayah-options').evaluate(
+    element => getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).length
+  );
+  expect(gridColumns).toBe(2);
   const overflow = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
     clientWidth: document.documentElement.clientWidth,

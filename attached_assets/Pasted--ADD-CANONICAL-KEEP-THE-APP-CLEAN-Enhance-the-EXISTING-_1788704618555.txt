@@ -1,0 +1,631 @@
+# ADD CANONICAL מילויי הוי״ה — KEEP THE APP CLEAN
+
+Enhance the EXISTING optional מילוי feature to correctly support the four canonical מילויים of שם הוי״ה:
+
+ע״ב
+ס״ג
+מ״ה
+ב״ן
+
+This must be implemented accurately while preserving the application's existing philosophy:
+
+SIMPLE ON THE SURFACE
+ADVANCED DEPTH ONLY WHEN RELEVANT
+
+This is NOT a redesign of the calculator.
+
+==================================================
+1. DO NOT CHANGE THE MAIN CALCULATOR
+==================================================
+
+Preserve completely:
+
+- גימטריה מלאה
+- ראשי תיבות
+- גימטריית ר״ת
+- שמור
+- מילות יסוד
+- Tanach
+- saved matching
+- current מילוי disclosure
+- current palette/layout
+- existing database
+
+Do NOT add four permanent result cards to the main calculator.
+
+Do NOT show ע״ב / ס״ג / מ״ה / ב״ן during ordinary calculations when they are irrelevant.
+
+==================================================
+2. KEEP מילוי OPTIONAL
+==================================================
+
+The existing מילוי section remains:
+
+- closed by default
+- opened explicitly by the user
+- secondary to the three primary calculations
+
+The new מילויי הוי״ה functionality lives INSIDE this existing מילוי section.
+
+Do not create a new navigation tab.
+
+Do not create another top-level accordion.
+
+==================================================
+3. GENERAL מילוי REMAINS UNCHANGED
+==================================================
+
+Keep the existing:
+
+מילוי רגיל
+
+logic and editable א–ת מילוי table.
+
+The client's current editable מילוי mappings remain available for general words and phrases.
+
+Do NOT overwrite the user's editable מילוי table with ע״ב / ס״ג / מ״ה / ב״ן.
+
+These are TWO distinct concepts:
+
+A. מילוי רגיל
+- general editable letter-name mappings
+
+B. מילויי הוי״ה
+- canonical predefined forms of שם הוי״ה
+
+Keep them logically separate.
+
+==================================================
+4. CANONICAL FOUR מילויים
+==================================================
+
+Implement these exact canonical forms:
+
+### ע״ב — 72
+
+יו״ד ה״י וי״ו ה״י
+
+Calculation:
+
+יו״ד = 20
+ה״י = 15
+וי״ו = 22
+ה״י = 15
+
+Total = 72
+
+--------------------------------------------------
+
+### ס״ג — 63
+
+יו״ד ה״י וא״ו ה״י
+
+Calculation:
+
+יו״ד = 20
+ה״י = 15
+וא״ו = 13
+ה״י = 15
+
+Total = 63
+
+--------------------------------------------------
+
+### מ״ה — 45
+
+יו״ד ה״א וא״ו ה״א
+
+Calculation:
+
+יו״ד = 20
+ה״א = 6
+וא״ו = 13
+ה״א = 6
+
+Total = 45
+
+--------------------------------------------------
+
+### ב״ן — 52
+
+יו״ד ה״ה ו״ו ה״ה
+
+Calculation:
+
+יו״ד = 20
+ה״ה = 10
+ו״ו = 12
+ה״ה = 10
+
+Total = 52
+
+These are canonical presets.
+
+Do NOT derive these four forms from the user's editable general מילוי mapping.
+
+Do NOT allow editing these four canonical presets in this task.
+
+==================================================
+5. IMPORTANT TERMINOLOGY
+==================================================
+
+Treat these as:
+
+מילויי הוי״ה
+
+Do NOT describe the system incorrectly as:
+
+"three letters with multiple spellings"
+
+The actual four canonical configurations are the product feature.
+
+The variable spellings within the Name produce the four traditional totals:
+
+ע״ב = 72
+ס״ג = 63
+מ״ה = 45
+ב״ן = 52
+
+==================================================
+6. WHEN TO SHOW מילויי הוי״ה
+==================================================
+
+Do NOT display the subsection for every random word.
+
+Only show:
+
+מילויי הוי״ה
+
+when the current normalized Hebrew input contains שם הוי״ה as an actual standalone Hebrew token.
+
+Recognize forms that normalize to:
+
+יהוה
+
+using the application's existing Hebrew normalization rules.
+
+Ignore:
+
+- niqqud
+- cantillation
+- גרש/גרשיים
+- hyphenation / maqaf where appropriate
+
+Example display variants such as:
+
+יהוה
+י־ה־ו־ה
+
+may normalize to the same Name.
+
+IMPORTANT:
+
+Do NOT trigger merely because the four-letter sequence occurs accidentally as part of a longer Hebrew word.
+
+Use token-aware detection.
+
+==================================================
+7. PHRASES CONTAINING שם הוי״ה
+==================================================
+
+If the user enters a larger phrase containing שם הוי״ה, such as conceptually:
+
+ברוך אתה יהוה
+
+the four values:
+
+72 / 63 / 45 / 52
+
+refer ONLY to the שם הוי״ה token.
+
+Do NOT pretend that they are the מילוי totals of the entire phrase.
+
+Make the context visually clear through the heading:
+
+מילויי הוי״ה
+
+No long explanation is required.
+
+==================================================
+8. MULTIPLE OCCURRENCES
+==================================================
+
+If שם הוי״ה appears more than once in the current phrase:
+
+show the canonical מילויי הוי״ה subsection only ONCE.
+
+Do not duplicate all four options for each occurrence.
+
+These are reference forms for the Name itself.
+
+==================================================
+9. VISUAL DESIGN — EXTREMELY COMPACT
+==================================================
+
+Inside the already-open מילוי section, after the normal מילוי result, add a small secondary subsection:
+
+מילויי הוי״ה
+
+Then show four compact selectable options:
+
+[ ע״ב · 72 ]
+[ ס״ג · 63 ]
+[ מ״ה · 45 ]
+[ ב״ן · 52 ]
+
+These should feel like elegant reference chips / segmented options.
+
+Do NOT create four large cards.
+
+Do NOT create a 2×2 dashboard of giant result boxes.
+
+Do NOT add excessive explanatory text.
+
+==================================================
+10. VISUAL PRIORITY
+==================================================
+
+מילוי רגיל remains the primary content of the מילוי panel.
+
+מילויי הוי״ה is secondary.
+
+Suggested hierarchy:
+
+מילוי
+[current normal מילוי result]
+
+---------------- subtle divider ----------------
+
+מילויי הוי״ה
+
+ע״ב · 72   ס״ג · 63   מ״ה · 45   ב״ן · 52
+
+Keep this visually restrained.
+
+==================================================
+11. DEFAULT STATE OF THE FOUR OPTIONS
+==================================================
+
+Initially:
+
+show only the four compact options.
+
+Do NOT automatically expand four detailed spellings.
+
+The user can understand the four possibilities immediately without clutter.
+
+==================================================
+12. CLICKING ONE OPTION
+==================================================
+
+Clicking a chip should reveal ONLY that option's spelling underneath.
+
+Example:
+
+User clicks:
+
+ע״ב · 72
+
+Show:
+
+יו״ד ה״י וי״ו ה״י
+
+Optionally show a very compact derivation:
+
+20 + 15 + 22 + 15 = 72
+
+ONLY if this fits the design cleanly.
+
+The spelling is more important than displaying the arithmetic.
+
+Do not create a large detail panel.
+
+==================================================
+13. ONE ACTIVE DETAIL AT A TIME
+==================================================
+
+If the user clicks:
+
+ע״ב
+
+and then:
+
+ס״ג
+
+switch the detail to ס״ג.
+
+Do not leave all four expanded simultaneously.
+
+This keeps the interface clean.
+
+Clicking the active option again may collapse the detail.
+
+==================================================
+14. IDEAL OPEN VISUAL
+==================================================
+
+Conceptually:
+
+מילויי הוי״ה
+
+[ ע״ב · 72 ] [ ס״ג · 63 ] [ מ״ה · 45 ] [ ב״ן · 52 ]
+
+יו״ד ה״י וי״ו ה״י
+
+Nothing more is needed by default.
+
+==================================================
+15. MOBILE
+==================================================
+
+On desktop:
+
+all four may fit comfortably on one row.
+
+On mobile:
+
+allow a clean 2×2 wrap if necessary.
+
+Do NOT create horizontal page scrolling.
+
+All options should remain equal in visual weight.
+
+==================================================
+16. COLOR / STYLE
+==================================================
+
+Use only the existing application design language:
+
+- cream / off-white
+- navy
+- restrained gold
+- thin warm borders
+- existing border radius
+- subtle selected state
+
+Selected option may use:
+
+- pale gold tint
+- slightly stronger gold border
+
+Do NOT use:
+
+- bright colors
+- gradients
+- heavy shadows
+- icons
+- illustrations
+
+The Hebrew text itself is enough.
+
+==================================================
+17. DO NOT CONFUSE THIS WITH THE EDITABLE TABLE
+==================================================
+
+The existing:
+
+הגדרות מילוי
+
+continues to edit the normal general מילוי table.
+
+Do NOT put ע״ב / ס״ג / מ״ה / ב״ן into that 22-letter editable table.
+
+Do NOT allow changes to these canonical forms through general מילוי settings.
+
+If customization of canonical forms is ever wanted, that will be a separate future requirement.
+
+==================================================
+18. NO DATABASE MIGRATION
+==================================================
+
+These four canonical presets are fixed application logic/reference data.
+
+Do NOT create a production database table just to store:
+
+72
+63
+45
+52
+
+Do NOT modify:
+
+- SavedEntry
+- SavedWord
+- מילוי preferences
+- מילוי matching index
+- מילות יסוד
+- Tanach
+- existing client data
+
+No production-data migration should be required.
+
+==================================================
+19. CURRENT מילוי MATCHING
+==================================================
+
+Do NOT automatically make:
+
+72
+63
+45
+52
+
+new saved-match categories as part of this task.
+
+This task is specifically about CALCULATING / DISPLAYING the canonical מילויי הוי״ה.
+
+If the client later asks for automatic matching against ע״ב / ס״ג / מ״ה / ב״ן, implement that separately and deliberately.
+
+Do not silently broaden existing matching logic.
+
+==================================================
+20. TESTS — CANONICAL VALUES
+==================================================
+
+Add explicit tests:
+
+יו״ד ה״י וי״ו ה״י = 72
+
+יו״ד ה״י וא״ו ה״י = 63
+
+יו״ד ה״א וא״ו ה״א = 45
+
+יו״ד ה״ה ו״ו ה״ה = 52
+
+These values must never depend on the user's editable מילוי רגיל settings.
+
+==================================================
+21. TEST — USER CHANGES GENERAL מילוי
+==================================================
+
+Change an editable general מילוי mapping.
+
+Verify:
+
+normal מילוי result changes appropriately.
+
+Verify:
+
+ע״ב remains 72
+ס״ג remains 63
+מ״ה remains 45
+ב״ן remains 52
+
+Canonical מילויי הוי״ה must remain stable.
+
+==================================================
+22. TEST — RELEVANCE
+==================================================
+
+Input:
+
+שלום
+
+Expected:
+
+NO מילויי הוי״ה subsection.
+
+Input containing a normalized standalone:
+
+יהוה
+
+Expected:
+
+מילויי הוי״ה subsection appears.
+
+==================================================
+23. TEST — TOKEN SAFETY
+==================================================
+
+Ensure an unrelated larger token merely containing the same character sequence does not accidentally trigger the canonical subsection.
+
+Use proper Hebrew token detection rather than naive substring matching.
+
+==================================================
+24. TEST — NORMALIZATION
+==================================================
+
+Verify recognized equivalent display forms of the Name continue to trigger correctly after:
+
+- punctuation removal
+- niqqud removal
+- cantillation removal
+- hyphen/maqaf normalization where appropriate
+
+Do not alter the displayed original input.
+
+==================================================
+25. TEST — MULTIPLE OCCURRENCES
+==================================================
+
+If the Name occurs more than once in a phrase:
+
+show ONE מילויי הוי״ה subsection.
+
+Do not duplicate the four canonical options.
+
+==================================================
+26. RESPONSIVE / ACCESSIBILITY
+==================================================
+
+Verify:
+
+- chips are keyboard accessible
+- selected state is not communicated by color alone
+- focus state is visible
+- RTL order is correct
+- Hebrew punctuation renders correctly
+- mobile wraps cleanly
+- no overflow
+
+==================================================
+27. DO NOT CHANGE ANY OTHER PAGE
+==================================================
+
+Do NOT redesign:
+
+- main calculator
+- מילות יסוד
+- שמורים
+- Tanach
+- navigation
+- saved matching
+- save split-button
+
+Only enhance the existing מילוי section with this canonical subsection.
+
+==================================================
+FINAL ACCEPTANCE
+==================================================
+
+Normal input without שם הוי״ה:
+
+User opens מילוי.
+
+He sees the existing normal מילוי experience only.
+
+Nothing new clutters the interface.
+
+--------------------------------------------------
+
+Input containing שם הוי״ה:
+
+User opens מילוי.
+
+He sees normal מילוי.
+
+Then a small elegant subsection:
+
+מילויי הוי״ה
+
+ע״ב · 72
+ס״ג · 63
+מ״ה · 45
+ב״ן · 52
+
+Clicking ע״ב shows:
+
+יו״ד ה״י וי״ו ה״י
+
+Clicking ס״ג replaces it with:
+
+יו״ד ה״י וא״ו ה״י
+
+etc.
+
+The experience remains simple unless the user chooses to explore deeper.
+
+==================================================
+REQUIRED REPORT
+==================================================
+
+After implementation report:
+
+1. files changed
+2. detection rule used for שם הוי״ה
+3. confirmation canonical values are fixed independently from מילוי רגיל
+4. UI behavior
+5. responsive behavior
+6. tests added
+7. complete test/build result
+8. confirmation no database/schema/data changes occurred

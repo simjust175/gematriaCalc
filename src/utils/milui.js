@@ -7,6 +7,44 @@ import {
 
 export const MILUI_PRESET_NAME = 'מילוי רגיל';
 
+export const CANONICAL_HAVAYAH_MILUI = Object.freeze([
+  Object.freeze({
+    id: 'av',
+    label: 'ע״ב',
+    value: 72,
+    spelling: 'יו״ד ה״י וי״ו ה״י',
+  }),
+  Object.freeze({
+    id: 'sag',
+    label: 'ס״ג',
+    value: 63,
+    spelling: 'יו״ד ה״י וא״ו ה״י',
+  }),
+  Object.freeze({
+    id: 'mah',
+    label: 'מ״ה',
+    value: 45,
+    spelling: 'יו״ד ה״א וא״ו ה״א',
+  }),
+  Object.freeze({
+    id: 'ban',
+    label: 'ב״ן',
+    value: 52,
+    spelling: 'יו״ד ה״ה ו״ו ה״ה',
+  }),
+]);
+
+const HEBREW_MARKS = /[\u0591-\u05BD\u05BF\u05C1\u05C2\u05C4\u05C5\u05C7]/g;
+const HEBREW_QUOTES = /['"\u05F3\u05F4]/g;
+const HAVAYAH_TOKEN = /(^|[^\u05D0-\u05EA])י[^\u05D0-\u05EA\s]*ה[^\u05D0-\u05EA\s]*ו[^\u05D0-\u05EA\s]*ה(?=$|[^\u05D0-\u05EA])/;
+
+export function containsStandaloneHavayah(text) {
+  const unmarked = String(text || '')
+    .replace(HEBREW_MARKS, '')
+    .replace(HEBREW_QUOTES, '');
+  return HAVAYAH_TOKEN.test(unmarked);
+}
+
 export const MILUI_BASE_LETTERS = Object.freeze([
   'א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט', 'י', 'כ',
   'ל', 'מ', 'נ', 'ס', 'ע', 'פ', 'צ', 'ק', 'ר', 'ש', 'ת',
