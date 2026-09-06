@@ -611,11 +611,13 @@ async function saveAsBaseWord() {
 
 /* ── Unified calculation summary ─────────────────────────────────────────── */
 .result-panel {
+  position: relative;
+  z-index: 2;
   background: #fff;
   border: 1.5px solid var(--border);
   border-radius: var(--radius);
   box-shadow: 0 2px 10px rgba(26,39,68,0.05);
-  overflow: hidden;
+  overflow: visible;
   padding: 10px 0 14px;
 }
 
