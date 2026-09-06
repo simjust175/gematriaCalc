@@ -1,0 +1,400 @@
+# REDESIGN ONLY THE מילות יסוד DROPDOWN / DISCLOSURE
+
+Redesign ONLY the existing מילות יסוד expandable section in the calculator.
+
+The current functionality is correct and approved.
+
+This is a VISUAL / UX refinement only.
+
+Do NOT redesign the calculator.
+Do NOT redesign מילוי.
+Do NOT change navigation.
+Do NOT change save controls.
+Do NOT change Tanach.
+Do NOT change calculations.
+Do NOT change APIs.
+Do NOT change database/schema.
+Do NOT change מילות יסוד CRUD or matching logic.
+
+The only target is the visible מילות יסוד disclosure and its expanded results.
+
+==================================================
+DESIGN GOAL
+==================================================
+
+The section should feel:
+
+- premium
+- restrained
+- elegant
+- extremely easy to scan
+- consistent with the existing cream / navy / gold design
+- intentionally designed rather than a generic accordion
+
+It should look like a refined research tool, not a settings panel or admin table.
+
+==================================================
+1. CLOSED STATE
+==================================================
+
+Keep a slim full-width disclosure row.
+
+Right side in RTL:
+
+**מילות יסוד**
+
+Beside / underneath it in smaller muted text:
+
+**כניסות שלמות בלבד**
+
+The subtitle should remain quiet and secondary.
+
+Left side:
+
+small elegant chevron.
+
+The row should be approximately 58–66px tall.
+
+Use:
+
+- warm off-white / white surface
+- thin warm border
+- existing border radius
+- almost no shadow
+- restrained gold hover/focus state
+
+Do not add a large icon unless an existing very subtle icon genuinely improves it.
+
+==================================================
+2. EXPANDED HEADER
+==================================================
+
+When open, the disclosure header should remain visually connected to the result area below.
+
+Do NOT create:
+
+header card
++
+gap
++
+second unrelated result card
+
+Instead create one continuous component:
+
+[ header ]
+[ subtle divider ]
+[ results ]
+
+The outer border/radius should visually contain the whole feature.
+
+==================================================
+3. RESULT PRESENTATION
+==================================================
+
+Each result should feel like one beautifully typeset Hebrew sentence.
+
+Example:
+
+**יהוה**     נכנס **10** פעמים (י׳)
+
+Another:
+
+**י״ג**      נכנס **20** פעמים (כ׳)
+
+Another:
+
+**שמע ישראל**   נכנס **2** פעמים (ב׳)
+
+Do NOT display:
+
+- equation
+- base gematria value
+- source badge
+- detached Hebrew-number chip
+- card inside card
+- metadata
+- icons
+- database/source information
+
+==================================================
+4. RESULT HIERARCHY
+==================================================
+
+For each row:
+
+### Phrase
+- bold / semibold navy
+- visually strongest element
+- sits naturally at the RTL start
+
+### Relationship text
+- normal / slightly muted navy
+- wording remains:
+  נכנס X פעמים (Hebrew numeral)
+
+### Decimal multiplier
+- restrained gold emphasis
+- e.g. 10, 20, 2
+
+### Hebrew numeral
+- integrated naturally in parentheses
+- muted navy
+- NOT a separate pill
+
+Example visual rhythm:
+
+יהוה   נכנס 10 פעמים (י׳)
+
+Do not over-style it.
+
+==================================================
+5. COMPACT RIGHT-ALIGNED CONTENT CLUSTER
+==================================================
+
+Do NOT stretch phrase and relationship to opposite ends of the full container.
+
+The result should read as ONE natural sentence.
+
+Keep the content clustered toward the RTL side.
+
+There may be flexible empty space after the sentence, but there should NOT be giant internal separation between:
+
+יהוה
+
+and:
+
+נכנס 10 פעמים (י׳)
+
+Use sensible max-width / content sizing so the relationship remains visually connected on very wide desktops.
+
+==================================================
+6. MULTIPLE RESULTS
+==================================================
+
+Multiple results should stack as compact rows.
+
+Conceptually:
+
+יהוה   נכנס 10 פעמים (י׳)
+──────────────────────
+י״ג    נכנס 20 פעמים (כ׳)
+──────────────────────
+שמע ישראל   נכנס 2 פעמים (ב׳)
+──────────────────────
+אלהים   נכנס 6 פעמים (ו׳)
+
+Use very subtle warm dividers.
+
+Do NOT wrap every result in its own bordered card.
+
+==================================================
+7. ROW HEIGHT
+==================================================
+
+Aim for approximately:
+
+48–58px per result
+
+depending on existing typography.
+
+There should be:
+
+- enough breathing room
+- no oversized whitespace
+- no tall blank blocks
+
+One result should produce a compact expanded section.
+
+Four results should feel like a neat list, not a giant dashboard.
+
+==================================================
+8. PADDING
+==================================================
+
+Use disciplined spacing.
+
+Suggested direction:
+
+Expanded header:
+~18–22px horizontal padding
+
+Result rows:
+~16–20px vertical / appropriate horizontal padding
+
+Do not blindly use these numbers if existing design tokens provide better consistency.
+
+The principle is compact elegance.
+
+==================================================
+9. EMPTY STATE
+==================================================
+
+If there are no matching מילות יסוד:
+
+show a single quiet line:
+
+**אין התאמה במילות יסוד**
+
+Keep it compact.
+
+Do not create a large empty state.
+
+==================================================
+10. CHEVRON
+==================================================
+
+Keep a restrained chevron on the opposite side of the title.
+
+Closed:
+down
+
+Open:
+up
+
+Use the existing gold/navy interaction language.
+
+Do not make the chevron oversized.
+
+==================================================
+11. HOVER / FOCUS
+==================================================
+
+The whole disclosure header should be clickable.
+
+Hover:
+- subtle border/gold enhancement
+- tiny surface change if appropriate
+
+Focus:
+- accessible refined focus state
+
+Do not add dramatic animation.
+
+==================================================
+12. OPEN / CLOSE MOTION
+==================================================
+
+If the app already uses transition animations:
+
+use a subtle 150–220ms ease.
+
+No:
+- bounce
+- scale
+- dramatic slide
+- spring effect
+
+==================================================
+13. RTL DETAILS
+==================================================
+
+Verify carefully:
+
+- title placement
+- subtitle placement
+- phrase alignment
+- relationship text
+- parentheses around Hebrew numeral
+- chevron
+- row spacing
+
+The result should visually read naturally in Hebrew:
+
+יהוה נכנס 10 פעמים (י׳)
+
+==================================================
+14. RESPONSIVE
+==================================================
+
+Desktop:
+
+Prefer the phrase and relationship on one line.
+
+Mobile / narrow:
+
+Allow a natural compact wrap, for example:
+
+יהוה
+נכנס 10 פעמים (י׳)
+
+But keep the vertical gap small.
+
+Do not create a tall mobile card.
+
+No horizontal overflow.
+
+==================================================
+15. COLOR DISCIPLINE
+==================================================
+
+Use only the existing application palette:
+
+- navy for primary Hebrew text
+- muted navy/gray for secondary text
+- restrained gold for the decimal multiplier and subtle interaction states
+- cream/off-white surfaces
+- thin warm borders
+
+Do NOT introduce new colors.
+
+Do NOT make all numbers gold.
+
+==================================================
+16. DO NOT TOUCH ANYTHING ELSE
+==================================================
+
+Do not change:
+
+- current calculator width
+- input
+- primary 3 calculation results
+- שמור
+- מילוי
+- Tanach section
+- left saved-match panel
+- header/navigation
+- מילות יסוד logic
+- מילות יסוד management page
+- save-as-mילת יסוד
+- database
+- API
+
+This task is ONLY the visual redesign of the מילות יסוד disclosure on the calculator.
+
+==================================================
+FINAL ACCEPTANCE
+==================================================
+
+The final open state should essentially feel like:
+
+מילות יסוד
+כניסות שלמות בלבד
+
+יהוה   נכנס 10 פעמים (י׳)
+י״ג    נכנס 20 פעמים (כ׳)
+שמע ישראל   נכנס 2 פעמים (ב׳)
+אלהים   נכנס 6 פעמים (ו׳)
+
+with:
+
+- refined typography
+- compact rows
+- subtle dividers
+- strong RTL alignment
+- restrained gold emphasis
+- no nested result cards
+- no equations
+- no badges
+- no wasted space
+
+It should feel like a polished, high-end Hebrew reference interface.
+
+Do not perform unrelated refactors.
+
+After implementation report only:
+
+1. files changed
+2. visual changes made to מילות יסוד
+3. responsive verification
+4. confirmation that logic/API/database were untouched
+5. build/test result

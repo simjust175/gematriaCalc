@@ -107,12 +107,16 @@ test('מילות יסוד stays closed on demand, shows exact compact results, a
         panelHeight: panel.getBoundingClientRect().height,
         resultHeight: row.getBoundingClientRect().height,
         toggleHeight: toggle.getBoundingClientRect().height,
+        resultsBorderTop: getComputedStyle(panel.querySelector('.base-results')).borderTopWidth,
         direction: getComputedStyle(row).flexDirection,
       };
     });
     expect(compactLayout.resultHeight).toBeGreaterThanOrEqual(44);
     expect(compactLayout.resultHeight).toBeLessThanOrEqual(60);
     expect(compactLayout.panelHeight).toBeLessThanOrEqual(compactLayout.toggleHeight + 65);
+    expect(compactLayout.toggleHeight).toBeGreaterThanOrEqual(58);
+    expect(compactLayout.toggleHeight).toBeLessThanOrEqual(66);
+    expect(compactLayout.resultsBorderTop).toBe('1px');
     expect(compactLayout.direction).toBe('column');
     await expect(result.locator('.base-multiplier')).toHaveText('10');
 
@@ -128,12 +132,15 @@ test('מילות יסוד stays closed on demand, shows exact compact results, a
       const relationship = row.querySelector('.base-relationship').getBoundingClientRect();
       return {
         direction: getComputedStyle(row).flexDirection,
+        rowHeight: row.getBoundingClientRect().height,
         phraseRight: phrase.right,
         relationshipRight: relationship.right,
         visualGap: Math.abs(phrase.left - relationship.right),
       };
     });
     expect(desktopLayout.direction).toBe('row');
+    expect(desktopLayout.rowHeight).toBeGreaterThanOrEqual(48);
+    expect(desktopLayout.rowHeight).toBeLessThanOrEqual(58);
     expect(desktopLayout.phraseRight).toBeGreaterThan(desktopLayout.relationshipRight);
     expect(desktopLayout.visualGap).toBeLessThanOrEqual(12);
     expect(matchRequests).toHaveLength(1);
