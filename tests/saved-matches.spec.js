@@ -179,6 +179,14 @@ test('calculator save-as stays separate and management supports edit and delete'
     expect((await beforeBaseWords.json()).items.some(item => item.originalText === token)).toBe(false);
 
     await split.locator('.save-split__toggle').click();
+    const saveMenu = split.locator('.save-split__menu');
+    await expect(saveMenu).toBeVisible();
+    const menuBounds = await saveMenu.boundingBox();
+    expect(menuBounds).toBeTruthy();
+    expect(menuBounds.x).toBeGreaterThanOrEqual(-1);
+    expect(menuBounds.x + menuBounds.width).toBeLessThanOrEqual((await page.evaluate(() => window.innerWidth)) + 1);
+    expect(menuBounds.y).toBeGreaterThanOrEqual(-1);
+    expect(menuBounds.y + menuBounds.height).toBeLessThanOrEqual((await page.evaluate(() => window.innerHeight)) + 1);
     await page.getByRole('menuitem', { name: 'שמור כמילת יסוד' }).click();
     await expect(page.getByText('נוסף למילות יסוד', { exact: true })).toBeVisible();
     await expect(split.locator('.save-split__main')).toHaveText('כבר שמור');

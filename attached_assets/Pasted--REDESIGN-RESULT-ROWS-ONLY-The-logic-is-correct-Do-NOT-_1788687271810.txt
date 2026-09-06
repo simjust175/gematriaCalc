@@ -1,0 +1,247 @@
+# מילות יסוד — REDESIGN RESULT ROWS ONLY
+
+The מילות יסוד logic is correct.
+
+Do NOT change:
+- calculations
+- exact divisibility logic
+- CRUD
+- database
+- API
+- save behavior
+- Tanach integration
+- result data
+
+This task is UI-only.
+
+CURRENT PROBLEM:
+
+The מילות יסוד result currently looks like text floating inside a large empty container.
+
+The result needs to feel like one intentional, elegant sentence.
+
+--------------------------------------------------
+1. RESULT SHOULD BE ONE COMPACT ROW
+--------------------------------------------------
+
+Desktop preferred presentation:
+
+יהוה    נכנס 10 פעמים (י׳)
+
+Do NOT use a large card for one result.
+
+Do NOT place the phrase on one line and the result far below it unless mobile requires wrapping.
+
+The phrase and relationship should visually belong together.
+
+--------------------------------------------------
+2. VISUAL HIERARCHY
+--------------------------------------------------
+
+Inside each result row:
+
+Phrase:
+יהוה
+
+- semi-bold / bold navy
+- strongest textual element
+
+Relationship:
+
+נכנס 10 פעמים (י׳)
+
+- slightly smaller than phrase
+- muted navy for regular wording
+- emphasize the decimal multiplier 10 with restrained existing gold
+- keep (י׳) clearly visible but secondary
+
+Do not make the entire sentence gold.
+
+--------------------------------------------------
+3. NO INDIVIDUAL RESULT CARDS
+--------------------------------------------------
+
+Do NOT wrap every result in another bordered white card.
+
+The outer מילות יסוד section already provides enough containment.
+
+Each result should be a clean row directly inside the section.
+
+Use only a subtle divider between multiple results.
+
+--------------------------------------------------
+4. MULTIPLE RESULTS
+--------------------------------------------------
+
+Example:
+
+יהוה        נכנס 10 פעמים (י׳)
+────────────────────────────
+אהיה        נכנס 12 פעמים (י״ב)
+────────────────────────────
+אדני        נכנס 4 פעמים (ד׳)
+
+This is conceptual only.
+
+Use proper RTL layout.
+
+Each row should be approximately 44–56px high.
+
+Do not make rows tall.
+
+--------------------------------------------------
+5. DESKTOP ALIGNMENT
+--------------------------------------------------
+
+Because this is RTL:
+
+- phrase should anchor naturally on the right
+- relationship should follow visually within the same row
+- do not push the relationship all the way to the opposite side of the container
+- avoid giant empty space between phrase and result
+
+The row should feel like ONE sentence, not two columns of unrelated data.
+
+Preferred visual reading:
+
+יהוה — נכנס 10 פעמים (י׳)
+
+A subtle spacing gap is enough.
+
+--------------------------------------------------
+6. MOBILE
+--------------------------------------------------
+
+On narrow screens, allow:
+
+יהוה
+נכנס 10 פעמים (י׳)
+
+but keep the vertical gap very small.
+
+Do not create a tall card.
+
+--------------------------------------------------
+7. OUTER מילות יסוד SECTION
+--------------------------------------------------
+
+Keep the existing disclosure header:
+
+מילות יסוד
+כניסות שלמות בלבד
+
+That part is already good.
+
+Reduce open-section padding.
+
+The expanded section should hug its content.
+
+One result = small section.
+
+Three results = three compact rows.
+
+--------------------------------------------------
+8. REMOVE UNNECESSARY WHITESPACE
+--------------------------------------------------
+
+Audit and remove any:
+
+- min-height
+- fixed result height
+- large padding
+- large flex gaps
+- unnecessary blank area
+
+The section should size naturally to its contents.
+
+--------------------------------------------------
+9. RESULT COUNT
+--------------------------------------------------
+
+Do not display a prominent:
+
+1 תוצאה
+
+or similar count.
+
+If currently present and not useful, remove it.
+
+The user can see the result directly.
+
+--------------------------------------------------
+10. EMPTY STATE
+--------------------------------------------------
+
+If no result exists, show only:
+
+אין התאמה במילות יסוד
+
+as a small muted line.
+
+No large empty card.
+
+--------------------------------------------------
+11. GOLD DISCIPLINE
+--------------------------------------------------
+
+Gold should emphasize only the key multiplier:
+
+10
+
+12
+
+4
+
+Do not make the phrase gold.
+
+Do not make the whole sentence gold.
+
+Keep the existing navy/cream/gold palette.
+
+--------------------------------------------------
+12. FINAL TARGET
+--------------------------------------------------
+
+For current value 260 and יהוה = 26:
+
+The user should see essentially:
+
+יהוה   נכנס 10 פעמים (י׳)
+
+Nothing else.
+
+No:
+- equation
+- gematria value
+- badge
+- source
+- pill
+- extra metadata
+
+For three matches:
+
+יהוה   נכנס 10 פעמים (י׳)
+אהיה   נכנס 12 פעמים (י״ב)
+אדני   נכנס 4 פעמים (ד׳)
+
+Compact.
+Beautiful.
+Immediately understandable.
+
+--------------------------------------------------
+13. ACCEPTANCE
+--------------------------------------------------
+
+Complete only when:
+
+- single result fits in a compact row
+- no large empty container remains
+- phrase/result feel connected
+- multiple results stack neatly
+- decimal multiplier is subtly emphasized
+- Hebrew numeral remains integrated in sentence
+- mobile wraps naturally
+- RTL is correct
+- no logic/API/database changes occurred
+
+Do not perform unrelated changes.
