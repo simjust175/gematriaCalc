@@ -29,7 +29,7 @@
           שמורים
         </button>
         <button class="nav-btn" :class="{ active: currentPage === 'base-words' }" @click="$emit('navigate', 'base-words')">
-          <span class="mdi mdi-format-letter-case" aria-hidden="true"></span>
+          <span class="mdi mdi-book-alphabet nav-icon" aria-hidden="true"></span>
           מילות יסוד
         </button>
         <button
