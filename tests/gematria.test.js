@@ -10,13 +10,17 @@ import {
   calcGematria,
   toHebrewNumber,
   getInitials,
+  getFinals,
   getWordBreakdown,
   computeAll,
 } from '../src/composables/useGematria.js';
 import { useLiveMatching } from '../src/composables/useLiveMatching.js';
 import { useTanachGematriaMatches } from '../src/composables/useTanachGematriaMatches.js';
 import { getMatchTypeMeta } from '../src/utils/matchTypes.js';
-import { mapInitialsToOriginalText } from '../src/utils/initialsHighlight.js';
+import {
+  mapFinalsToOriginalText,
+  mapInitialsToOriginalText,
+} from '../src/utils/initialsHighlight.js';
 import {
   MILUI_BASE_LETTERS,
   MILUI_DEFAULT_MAPPING,
@@ -108,6 +112,21 @@ test('ראשי תיבות gematria = 310', () => {
 test('three-word initials: אברהם יצחק יעקב = איי', () => {
   const r = computeAll('אברהם יצחק יעקב');
   assert.equal(r.initials, 'איי');
+});
+
+test('סופי תיבות derives final Hebrew letters and their standard gematria', () => {
+  const result = computeAll('שקנו בג שח');
+  assert.equal(getFinals('שקנו בג שח'), 'וגח');
+  assert.equal(result.finals, 'וגח');
+  assert.equal(result.finalsGematria, 17);
+  assert.equal(result.finalsHebrewNumber, 'יז');
+});
+
+test('סופי תיבות handles marks, punctuation, repeated spaces, duplicate words, and final forms', () => {
+  assert.equal(getFinals('שָׁלוֹם,   חֵן! מֶלֶךְ דף עץ'), 'םןךףץ');
+  assert.equal(getFinals('שלום שלום'), 'םם');
+  assert.equal(getFinals('יחיד'), 'ד');
+  assert.equal(calcGematria(getFinals('שָׁלוֹם,   חֵן! מֶלֶךְ דף עץ')), 280);
 });
 
 // ── Word breakdown ────────────────────────────────────────────────────────────
@@ -274,13 +293,24 @@ test('initials highlighting maps exact source graphemes without changing origina
   assert.ok(parts);
   assert.equal(parts.map(part => part.text).join(''), original);
   const highlighted = parts.flatMap(part => part.segments || [])
-    .filter(segment => segment.initialsHighlighted);
+    .filter(segment => segment.derivedHighlighted);
   assert.deepEqual(highlighted.map(segment => normalize(segment.text)), ['ש', 'ב', 'ש']);
   assert.equal(highlighted.length, 3);
 });
 
 test('initials highlighting fails safely when source letters do not match metadata', () => {
   assert.equal(mapInitialsToOriginalText('שקנו בג שח', 'שטו'), null);
+});
+
+test('finals highlighting maps exact final graphemes and ignores trailing punctuation', () => {
+  const original = 'שקנו,  בג שָׂח!';
+  const parts = mapFinalsToOriginalText(original, 'וגח');
+  assert.ok(parts);
+  assert.equal(parts.map(part => part.text).join(''), original);
+  const highlighted = parts.flatMap(part => part.segments || [])
+    .filter(segment => segment.derivedHighlighted);
+  assert.deepEqual(highlighted.map(segment => normalize(segment.text)), ['ו', 'ג', 'ח']);
+  assert.equal(highlighted[2].text, 'ח');
 });
 
 test('live matching clears old reasons and ignores stale A → B → A responses', async () => {

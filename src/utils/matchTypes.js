@@ -11,6 +11,14 @@ export const MATCH_TYPE_META = Object.freeze({
     label: 'גימטריית ר״ת',
     badgeClass: 'match-badge--initials-gematria',
   }),
+  finals_text: Object.freeze({
+    label: 'סופי תיבות',
+    badgeClass: 'match-badge--finals',
+  }),
+  finals_gematria: Object.freeze({
+    label: 'גימטריית סופי תיבות',
+    badgeClass: 'match-badge--finals-gematria',
+  }),
   saved_word: Object.freeze({
     label: 'התאמה בתיבה',
     badgeClass: 'match-badge--word',

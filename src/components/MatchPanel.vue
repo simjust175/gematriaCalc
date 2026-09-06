@@ -31,7 +31,7 @@
                     <span
                       v-for="(segment, segmentIndex) in part.segments"
                       :key="`${match.id}-part-${index}-segment-${segmentIndex}`"
-                      :class="{ 'match-text__initial': segment.initialsHighlighted }"
+                      :class="{ 'match-text__initial': segment.derivedHighlighted }"
                     >{{ segment.text }}</span>
                   </template>
                   <template v-else>{{ part.text }}</template>
@@ -60,6 +60,12 @@
               <span v-if="hasMatchType(match, 'initials_gematria')" class="match-detail">
                 גימטריית ר״ת: {{ match.initials_gematria }}
               </span>
+              <span v-if="hasMatchType(match, 'finals_text')" class="match-detail">
+                ס״ת: {{ match.finals }}
+              </span>
+              <span v-if="hasMatchType(match, 'finals_gematria')" class="match-detail">
+                גימטריית סופי תיבות: {{ match.finals_gematria }}
+              </span>
               <span v-if="hasMatchType(match, 'milui_gematria')" class="match-detail">
                 מילוי: {{ matchedMiluiSummary(match) }}
               </span>
@@ -84,7 +90,10 @@
 import { ref, computed, watch } from 'vue';
 import { getMatchTypeMeta } from '@/utils/matchTypes.js';
 import { normalize, toHebrewNumber } from '@/composables/useGematria.js';
-import { mapInitialsToOriginalText } from '@/utils/initialsHighlight.js';
+import {
+  mapFinalsToOriginalText,
+  mapInitialsToOriginalText,
+} from '@/utils/initialsHighlight.js';
 
 const props = defineProps({
   matches: { type: Array, default: () => [] },
@@ -114,10 +123,14 @@ function phraseParts(match) {
   );
   const shouldHighlightInitials = hasMatchType(match, 'initials_text')
     || hasMatchType(match, 'initials_gematria');
-  const mappedInitials = shouldHighlightInitials
+  const shouldHighlightFinals = hasMatchType(match, 'finals_text')
+    || hasMatchType(match, 'finals_gematria');
+  const mapped = shouldHighlightFinals
+    ? mapFinalsToOriginalText(match.original_text, match.finals)
+    : shouldHighlightInitials
     ? mapInitialsToOriginalText(match.original_text, match.initials)
     : null;
-  const parts = mappedInitials || String(match.original_text || '')
+  const parts = mapped || String(match.original_text || '')
     .split(/(\s+)/)
     .map(text => ({ text, segments: null }));
   return parts.map(part => ({
@@ -284,6 +297,18 @@ function matchedMiluiSummary(match) {
   color: #66527c;
   background: #eee9f3;
   border-color: #e0d8e9;
+}
+
+.match-badge--finals {
+  color: #48677a;
+  background: #e8f0f2;
+  border-color: #d5e2e6;
+}
+
+.match-badge--finals-gematria {
+  color: #625675;
+  background: #eeeaf2;
+  border-color: #ded7e5;
 }
 
 .match-badge--word, .match-badge--default {

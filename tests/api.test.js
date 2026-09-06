@@ -1143,6 +1143,9 @@ test('matching returns applicable reasons once per saved entry and preserves wor
         initials: 'א',
         initialsGematria: 1,
         initialsGematriaHebrew: 'א',
+        finals: 'א',
+        finalsGematria: 1,
+        finalsGematriaHebrew: 'א',
         words: [],
       });
     assert.equal(saveRes.status, 200);
@@ -1174,6 +1177,9 @@ test('matching returns applicable reasons once per saved entry and preserves wor
     assert.equal(saved.initials, calculated.initials);
     assert.equal(saved.initials_gematria, calculated.initialsGematria);
     assert.equal(saved.initials_gematria_hebrew, calculated.initialsHebrewNumber);
+    assert.equal(saved.finals, calculated.finals);
+    assert.equal(saved.finals_gematria, calculated.finalsGematria);
+    assert.equal(saved.finals_gematria_hebrew, calculated.finalsHebrewNumber);
     assert.equal(saved.words.length, calculated.words.length);
     assert.ok(saved.created_at, 'saved entry should include its creation date');
 
@@ -1204,17 +1210,47 @@ test('matching returns applicable reasons once per saved entry and preserves wor
     const initialsTextOnly = await getMatch(initialsTextOnlyInput, savedId);
     assert.deepEqual(entryReasons(initialsTextOnly), ['initials_text']);
 
+    const finalsGematriaOnlyText = toHebrewNumber(calculated.finalsGematria);
+    const finalsGematriaOnly = await getMatch(finalsGematriaOnlyText, savedId);
+    assert.ok(entryReasons(finalsGematriaOnly).includes('finals_gematria'));
+
+    const finalsTextOnlyInput = [...calculated.finals]
+      .map(letter => `א${letter}`)
+      .join(' ״ ');
+    const finalsTextOnly = await getMatch(finalsTextOnlyInput, savedId);
+    assert.ok(entryReasons(finalsTextOnly).includes('finals_text'));
+
     const twoReasons = await getMatch(originalText, savedId);
     assert.deepEqual(
       entryReasons(twoReasons),
-      ['full_gematria', 'initials_text']
+      ['full_gematria', 'initials_text', 'finals_text']
     );
 
     const allReasons = await getMatch(allTypesText, allTypesId);
     assert.deepEqual(
       entryReasons(allReasons),
-      ['full_gematria', 'initials_text', 'initials_gematria']
+      [
+        'full_gematria',
+        'initials_text',
+        'initials_gematria',
+        'finals_text',
+        'finals_gematria',
+      ]
     );
+
+    const finalsTextSearch = await agent.get('/api/entries').query({
+      search: calculated.finals,
+      limit: 20,
+    });
+    assert.equal(finalsTextSearch.status, 200);
+    assert.ok(finalsTextSearch.body.entries.some(entry => entry.id === savedId));
+
+    const finalsNumericSearch = await agent.get('/api/entries').query({
+      search: String(calculated.finalsGematria),
+      limit: 100,
+    });
+    assert.equal(finalsNumericSearch.status, 200);
+    assert.ok(finalsNumericSearch.body.entries.some(entry => entry.id === savedId));
 
     const wordOnly = await getMatch(calculated.words[0].word, savedId);
     assert.ok(wordOnly.matchTypes.includes('saved_word'));

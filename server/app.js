@@ -456,6 +456,11 @@ app.get('/api/matches', requireAuth, async (req, res) => {
         .filter(Boolean)
         .map(value => normalize(value).replace(/\s+/g, ''))
     )];
+    const finalsTextCandidates = [...new Set(
+      [current?.normalizedText, current?.finals]
+        .filter(Boolean)
+        .map(value => normalize(value).replace(/\s+/g, ''))
+    )];
 
     const entryMatches = new Map();
     let isAlreadySaved = false;
@@ -500,23 +505,29 @@ app.get('/api/matches', requireAuth, async (req, res) => {
       const entriesRes = await pool.query(
         `SELECT id, original_text, normalized_text,
                 full_gematria, full_gematria_hebrew,
-                initials, initials_gematria, initials_gematria_hebrew,
+                 initials, initials_gematria, initials_gematria_hebrew,
+                 finals, finals_gematria, finals_gematria_hebrew,
                 created_at
          FROM saved_entries
          WHERE full_gematria = $1
             OR initials_gematria = $1
             OR initials = ANY($2::text[])
+             OR finals_gematria = $1
+             OR finals = ANY($3::text[])
          ORDER BY created_at DESC`,
-        [g, initialsTextCandidates]
+        [g, initialsTextCandidates, finalsTextCandidates]
       );
 
       for (const entry of entriesRes.rows) {
         const normalizedInitials = normalize(entry.initials || '').replace(/\s+/g, '');
+        const normalizedFinals = normalize(entry.finals || '').replace(/\s+/g, '');
         const matchTypes = [];
 
         if (entry.full_gematria === g) matchTypes.push('full_gematria');
         if (initialsTextCandidates.includes(normalizedInitials)) matchTypes.push('initials_text');
         if (entry.initials_gematria === g) matchTypes.push('initials_gematria');
+        if (finalsTextCandidates.includes(normalizedFinals)) matchTypes.push('finals_text');
+        if (entry.finals_gematria === g) matchTypes.push('finals_gematria');
 
         entryMatches.set(entry.id, {
           type: 'entry',
@@ -608,6 +619,7 @@ app.get('/api/matches', requireAuth, async (req, res) => {
                 se.id, se.original_text, se.normalized_text,
                 se.full_gematria, se.full_gematria_hebrew,
                 se.initials, se.initials_gematria, se.initials_gematria_hebrew,
+                se.finals, se.finals_gematria, se.finals_gematria_hebrew,
                 se.created_at
          FROM saved_words sw
          JOIN saved_entries se ON sw.entry_id = se.id
@@ -629,6 +641,9 @@ app.get('/api/matches', requireAuth, async (req, res) => {
             initials: wordMatch.initials,
             initials_gematria: wordMatch.initials_gematria,
             initials_gematria_hebrew: wordMatch.initials_gematria_hebrew,
+            finals: wordMatch.finals,
+            finals_gematria: wordMatch.finals_gematria,
+            finals_gematria_hebrew: wordMatch.finals_gematria_hebrew,
             created_at: wordMatch.created_at,
             matchTypes: [],
             matched_words: [],
@@ -651,6 +666,8 @@ app.get('/api/matches', requireAuth, async (req, res) => {
       'full_gematria',
       'initials_text',
       'initials_gematria',
+      'finals_text',
+      'finals_gematria',
       'saved_word',
       'milui_gematria',
     ];
@@ -775,8 +792,9 @@ app.post('/api/entries', requireAuth, async (req, res) => {
       `INSERT INTO saved_entries
           (original_text, normalized_text, full_gematria, full_gematria_hebrew,
            initials, initials_gematria, initials_gematria_hebrew,
-            tanach_book_slug, tanach_book_label, tanach_chapter, tanach_verse, tanach_start, tanach_end, parsha_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+           finals, finals_gematria, finals_gematria_hebrew,
+             tanach_book_slug, tanach_book_label, tanach_chapter, tanach_verse, tanach_start, tanach_end, parsha_id)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
        RETURNING id`,
       [
         canonicalOriginalText,
@@ -786,6 +804,9 @@ app.post('/api/entries', requireAuth, async (req, res) => {
         calculated.initials,
         calculated.initialsGematria,
         calculated.initialsHebrewNumber,
+        calculated.finals,
+        calculated.finalsGematria,
+        calculated.finalsHebrewNumber,
         verifiedContext?.bookSlug || null,
         verifiedContext?.bookLabel || null,
         verifiedContext?.chapter || null,
@@ -858,7 +879,9 @@ app.get('/api/entries', requireAuth, async (req, res) => {
     if (rawSearch) {
       if (/^\d+$/.test(rawSearch)) {
         const value = Number(rawSearch);
-        whereSql = 'WHERE se.full_gematria = $1 OR se.initials_gematria = $1';
+        whereSql = `WHERE se.full_gematria = $1
+          OR se.initials_gematria = $1
+          OR se.finals_gematria = $1`;
         searchParams = [value];
       } else {
         const normalizedSearch = normalize(rawSearch);
@@ -866,7 +889,9 @@ app.get('/api/entries', requireAuth, async (req, res) => {
         whereSql = `WHERE se.original_text ILIKE $1
              OR se.normalized_text ILIKE $2
              OR se.initials ILIKE $1
-             OR REPLACE(se.initials, ' ', '') = $3`;
+             OR REPLACE(se.initials, ' ', '') = $3
+             OR se.finals ILIKE $1
+             OR REPLACE(se.finals, ' ', '') = $3`;
         searchParams = [
           `%${rawSearch}%`,
           `%${normalizedSearch || rawSearch}%`,
@@ -877,7 +902,8 @@ app.get('/api/entries', requireAuth, async (req, res) => {
 
     const entrySelect = `SELECT se.id, se.original_text, se.normalized_text, se.full_gematria,
               se.full_gematria_hebrew, se.initials, se.initials_gematria,
-              se.initials_gematria_hebrew, se.created_at,
+              se.initials_gematria_hebrew, se.finals, se.finals_gematria,
+              se.finals_gematria_hebrew, se.created_at,
               se.tanach_book_slug, se.tanach_book_label, se.tanach_chapter,
               se.tanach_verse, se.tanach_start, se.tanach_end, se.parsha_id,
               (SELECT name_he FROM tanach_parshiot WHERE id = se.parsha_id) AS parsha_name,

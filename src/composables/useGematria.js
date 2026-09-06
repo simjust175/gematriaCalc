@@ -74,6 +74,16 @@ export function getInitials(text) {
     .join('');
 }
 
+/** Last Hebrew letter of each whitespace-separated word. */
+export function getFinals(text) {
+  const norm = normalize(text);
+  return norm
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(word => word[word.length - 1])
+    .join('');
+}
+
 /** Per-word breakdown with per-letter detail. */
 export function getWordBreakdown(text) {
   const norm = normalize(text);
@@ -100,6 +110,8 @@ export function computeAll(text) {
 
   const initials = getInitials(norm);
   const initialsGematria = calcGematria(initials);
+  const finals = getFinals(norm);
+  const finalsGematria = calcGematria(finals);
   const words = getWordBreakdown(norm);
 
   return {
@@ -109,6 +121,9 @@ export function computeAll(text) {
     initials,
     initialsGematria,
     initialsHebrewNumber: toHebrewNumber(initialsGematria),
+    finals,
+    finalsGematria,
+    finalsHebrewNumber: toHebrewNumber(finalsGematria),
     words,
   };
 }

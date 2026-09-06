@@ -15,6 +15,11 @@
       <span class="detail-value">{{ entry.initials }}</span>
       <span class="detail-gematria">{{ entry.initials_gematria }} · {{ entry.initials_gematria_hebrew }}</span>
     </div>
+    <div class="detail-row">
+      <span class="detail-label">סופי תיבות:</span>
+      <span class="detail-value">{{ entry.finals }}</span>
+      <span class="detail-gematria">{{ entry.finals_gematria }} · {{ entry.finals_gematria_hebrew }}</span>
+    </div>
     <div v-if="currentMilui" class="detail-row detail-row--milui">
       <span class="detail-label">מילוי לפי ההגדרות הנוכחיות:</span>
       <span class="detail-gematria">

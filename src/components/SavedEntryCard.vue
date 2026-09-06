@@ -29,6 +29,14 @@
           <span class="gematria-dot">·</span>
           <span>{{ entry.initials_gematria_hebrew }}</span>
         </div>
+        <div class="entry-initials">
+          <span>ס״ת:</span>
+          <strong>{{ entry.finals }}</strong>
+          <span class="initials-gematria-label">גימטריית סופי תיבות:</span>
+          <strong>{{ entry.finals_gematria }}</strong>
+          <span class="gematria-dot">·</span>
+          <span>{{ entry.finals_gematria_hebrew }}</span>
+        </div>
       </div>
 
     </div>

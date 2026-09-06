@@ -2,6 +2,7 @@ import pg from 'pg';
 import { MILUI_DEFAULT_MAPPING, MILUI_PRESET_NAME } from '../src/utils/milui.js';
 import { TANACH_PARSHIOT } from './tanachParshiot.js';
 import { UXLC_REPRESENTATION_VERSION } from './uxlcText.js';
+import { computeAll } from '../src/composables/useGematria.js';
 const { Pool } = pg;
 
 export const pool = new Pool({
@@ -10,6 +11,49 @@ export const pool = new Pool({
 });
 
 let miluiPreferencesReady = null;
+
+export async function ensureFinalsDerived(db = pool) {
+  const before = await db.query(
+    `SELECT COUNT(*)::int AS entries,
+            md5(COALESCE(string_agg(id::text || ':' || original_text, '|' ORDER BY id), '')) AS text_fingerprint
+     FROM saved_entries`
+  );
+  const missing = await db.query(
+    `SELECT id, original_text
+     FROM saved_entries
+     WHERE finals IS NULL OR finals_gematria IS NULL OR finals_gematria_hebrew IS NULL
+     ORDER BY id`
+  );
+  for (const entry of missing.rows) {
+    const calculated = computeAll(entry.original_text);
+    if (!calculated) continue;
+    await db.query(
+      `UPDATE saved_entries
+       SET finals = $1, finals_gematria = $2, finals_gematria_hebrew = $3
+       WHERE id = $4
+         AND (finals IS NULL OR finals_gematria IS NULL OR finals_gematria_hebrew IS NULL)`,
+      [
+        calculated.finals,
+        calculated.finalsGematria,
+        calculated.finalsHebrewNumber,
+        entry.id,
+      ]
+    );
+  }
+  const after = await db.query(
+    `SELECT COUNT(*)::int AS entries,
+            md5(COALESCE(string_agg(id::text || ':' || original_text, '|' ORDER BY id), '')) AS text_fingerprint
+     FROM saved_entries`
+  );
+  if (before.rows[0].entries !== after.rows[0].entries
+      || before.rows[0].text_fingerprint !== after.rows[0].text_fingerprint) {
+    throw new Error('Saved entry count or text changed while adding סופי תיבות');
+  }
+  console.log(
+    `Finals backfill verified: saved_entries ${before.rows[0].entries}; `
+    + `backfilled ${missing.rowCount}, deleted 0, text modified 0`
+  );
+}
 
 export function ensureMiluiPreferences(db = pool) {
   if (miluiPreferencesReady) return miluiPreferencesReady;
@@ -107,6 +151,9 @@ export async function initDb() {
       initials TEXT NOT NULL,
       initials_gematria INTEGER NOT NULL,
       initials_gematria_hebrew TEXT NOT NULL,
+      finals TEXT,
+      finals_gematria INTEGER,
+      finals_gematria_hebrew TEXT,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
 
@@ -121,6 +168,8 @@ export async function initDb() {
 
     CREATE INDEX IF NOT EXISTS idx_entries_gematria ON saved_entries(full_gematria);
     CREATE INDEX IF NOT EXISTS idx_entries_initials_gematria ON saved_entries(initials_gematria);
+    CREATE INDEX IF NOT EXISTS idx_entries_finals ON saved_entries(finals);
+    CREATE INDEX IF NOT EXISTS idx_entries_finals_gematria ON saved_entries(finals_gematria);
     CREATE INDEX IF NOT EXISTS idx_words_gematria ON saved_words(gematria);
 
     CREATE TABLE IF NOT EXISTS tanach_sources (
@@ -183,6 +232,9 @@ export async function initDb() {
     ALTER TABLE saved_entries ADD COLUMN IF NOT EXISTS tanach_start INTEGER;
     ALTER TABLE saved_entries ADD COLUMN IF NOT EXISTS tanach_end INTEGER;
     ALTER TABLE saved_entries ADD COLUMN IF NOT EXISTS parsha_id TEXT REFERENCES tanach_parshiot(id);
+    ALTER TABLE saved_entries ADD COLUMN IF NOT EXISTS finals TEXT;
+    ALTER TABLE saved_entries ADD COLUMN IF NOT EXISTS finals_gematria INTEGER;
+    ALTER TABLE saved_entries ADD COLUMN IF NOT EXISTS finals_gematria_hebrew TEXT;
     ALTER TABLE tanach_sources ADD COLUMN IF NOT EXISTS representation_version INTEGER NOT NULL DEFAULT 1;
     ALTER TABLE saved_entries DROP CONSTRAINT IF EXISTS saved_entries_normalized_text_key;
     CREATE UNIQUE INDEX IF NOT EXISTS idx_saved_entries_manual_text_unique
@@ -192,6 +244,7 @@ export async function initDb() {
       WHERE tanach_book_slug IS NOT NULL;
   `);
 
+  await ensureFinalsDerived();
   await seedTanachParshiot();
 
   await ensureMiluiPreferences();

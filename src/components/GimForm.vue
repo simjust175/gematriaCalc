@@ -72,14 +72,18 @@
                 </div>
                 <div class="result-section">
                   <div class="result-label">ראשי תיבות</div>
-                  <div class="roshei-letters">{{ result.initials }}</div>
+                  <div class="result-value-row roshei-value">
+                    <span class="roshei-letters">{{ result.initials }}</span>
+                    <span class="result-divider">·</span>
+                    <span class="result-num secondary-num">{{ result.initialsGematria }}</span>
+                  </div>
                 </div>
                 <div class="result-section">
-                  <div class="result-label">גימטריית ר"ת</div>
+                  <div class="result-label">סופי תיבות</div>
                   <div class="result-value-row roshei-value">
-                    <span class="result-num secondary-num">{{ result.initialsGematria }}</span>
+                    <span class="roshei-letters">{{ result.finals }}</span>
                     <span class="result-divider">·</span>
-                    <span class="result-heb secondary-heb">{{ result.initialsHebrewNumber }}</span>
+                    <span class="result-num secondary-num">{{ result.finalsGematria }}</span>
                   </div>
                 </div>
               </div>
@@ -477,6 +481,9 @@ async function saveEntry() {
         initials:              result.value.initials,
         initialsGematria:      result.value.initialsGematria,
         initialsGematriaHebrew: result.value.initialsHebrewNumber,
+        finals:                 result.value.finals,
+        finalsGematria:         result.value.finalsGematria,
+        finalsGematriaHebrew:   result.value.finalsHebrewNumber,
         words:                 result.value.words,
       }),
     });

@@ -85,6 +85,24 @@ test('ראשי תיבות match highlights only the exact contributing source le
     await expect(savedCard.locator('.match-text__initial').nth(1)).toHaveText('ב');
     await expect(savedCard.locator('.match-text__initial').nth(2)).toHaveText('ש');
     await expect(savedCard.locator('.match-text')).toHaveText(savedText);
+
+    await page.locator('.heb-input').fill('וגח');
+    await expect(savedCard).toHaveCount(1);
+    await expect(savedCard.locator('.match-badge--finals')).toHaveText('סופי תיבות');
+    await expect(savedCard.locator('.match-text__initial')).toHaveCount(3);
+    await expect(savedCard.locator('.match-text__initial').nth(0)).toHaveText('ו');
+    await expect(savedCard.locator('.match-text__initial').nth(1)).toHaveText('ג');
+    await expect(savedCard.locator('.match-text__initial').nth(2)).toHaveText('ח');
+    await expect(savedCard.locator('.match-text')).toHaveText(savedText);
+
+    await page.reload();
+    await expect(page.locator('.heb-input')).toBeVisible();
+    await page.locator('.heb-input').fill('וגח');
+    const reloadedCard = page.locator('.match-panel:visible .match-item').filter({
+      has: page.locator('.match-text', { hasText: savedText }),
+    });
+    await expect(reloadedCard).toHaveCount(1);
+    await expect(reloadedCard.locator('.match-text__initial')).toHaveCount(3);
   } finally {
     const cleanup = await page.request.delete(new URL(`/api/entries/${savedId}`, page.url()).href);
     expect(cleanup.ok()).toBe(true);

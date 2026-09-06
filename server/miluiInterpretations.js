@@ -211,8 +211,9 @@ async function ensureOrdinarySavedEntry(originalText, db) {
   const inserted = await db.query(
     `INSERT INTO saved_entries
        (original_text, normalized_text, full_gematria, full_gematria_hebrew,
-        initials, initials_gematria, initials_gematria_hebrew)
-     VALUES ($1,$2,$3,$4,$5,$6,$7)
+         initials, initials_gematria, initials_gematria_hebrew,
+         finals, finals_gematria, finals_gematria_hebrew)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
      RETURNING id`,
     [
       originalText,
@@ -222,6 +223,9 @@ async function ensureOrdinarySavedEntry(originalText, db) {
       calculated.initials,
       calculated.initialsGematria,
       calculated.initialsHebrewNumber,
+      calculated.finals,
+      calculated.finalsGematria,
+      calculated.finalsHebrewNumber,
     ]
   );
   const entryId = inserted.rows[0].id;

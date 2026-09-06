@@ -1,0 +1,59 @@
+VISUAL CORRECTION FOR ראשי תיבות HIGHLIGHTING
+
+Please correct the highlighting behavior for ראשי תיבות matches.
+
+IMPORTANT:
+I do NOT want the matched letter itself to become gold text.
+
+I want the matched letter to remain in the normal dark text color, and only have a soft gold background highlight behind it.
+
+Desired visual behavior:
+- The full saved phrase stays in its normal text color.
+- Only the exact contributing letter(s) get highlighted.
+- The highlight should be a subtle gold background / capsule / rounded marker behind the letter.
+- The letter itself should remain dark navy (or the normal primary text color), not gold.
+- The effect should feel elegant, refined, and easy to notice.
+
+Example:
+For the phrase:
+שקנו בג שח
+
+If the ראשי תיבות match is:
+שבש
+
+Then highlight ONLY:
+ש from שקנו
+ב from בג
+ש from שח
+
+Meaning visually:
+the exact selected letters should appear with a soft gold background behind them.
+
+DO NOT:
+- turn the entire word gold
+- turn the entire phrase gold
+- color all occurrences of the same letter
+- make the highlighted letter itself gold
+- use a loud yellow marker effect
+- use an oversized badge-like block
+
+DO:
+- highlight only the exact contributing initial letters
+- use a restrained gold background
+- keep the text itself dark and readable
+- use small rounded corners and balanced padding
+- preserve the clean premium look of the sidebar
+
+Implementation guidance:
+- Wrap only the exact matched character in a small inline element/span.
+- Apply a subtle gold background fill.
+- Keep text color as the normal dark text color.
+- Use slight horizontal padding and a small border radius so it looks intentional and polished.
+- Ensure RTL layout remains clean and spacing does not break the phrase.
+
+Acceptance criteria:
+1. The matching letter is NOT gold text.
+2. The matching letter HAS a gold background highlight behind it.
+3. Only the exact contributing letters are highlighted.
+4. The rest of the phrase remains unchanged.
+5. The result looks elegant and understated, not loud.

@@ -19,7 +19,7 @@ function firstHebrewLetter(cluster) {
   return [...cluster].find(character => HEBREW_LETTER.test(character)) || '';
 }
 
-export function mapInitialsToOriginalText(originalText, expectedInitials) {
+function mapDerivedLettersToOriginalText(originalText, expectedLetters, edge) {
   const parts = String(originalText || '').split(/(\s+)/);
   const tokenMappings = [];
   const reconstructedInitials = [];
@@ -27,13 +27,18 @@ export function mapInitialsToOriginalText(originalText, expectedInitials) {
   for (const [partIndex, text] of parts.entries()) {
     if (/^\s+$/.test(text) || !text) continue;
     const clusters = splitGraphemeLikeClusters(text);
-    const clusterIndex = clusters.findIndex(cluster => firstHebrewLetter(cluster));
+    const hebrewIndexes = clusters
+      .map((cluster, index) => (firstHebrewLetter(cluster) ? index : -1))
+      .filter(index => index >= 0);
+    const clusterIndex = edge === 'last'
+      ? hebrewIndexes[hebrewIndexes.length - 1]
+      : hebrewIndexes[0];
     if (clusterIndex < 0) continue;
     reconstructedInitials.push(firstHebrewLetter(clusters[clusterIndex]));
     tokenMappings.push({ partIndex, clusterIndex, clusters });
   }
 
-  const expected = normalize(String(expectedInitials || '')).replace(/\s+/g, '');
+  const expected = normalize(String(expectedLetters || '')).replace(/\s+/g, '');
   if (!expected || reconstructedInitials.join('') !== expected) return null;
 
   const highlightedByPart = new Map(
@@ -46,9 +51,17 @@ export function mapInitialsToOriginalText(originalText, expectedInitials) {
       segments: mapping
         ? mapping.clusters.map((segmentText, clusterIndex) => ({
             text: segmentText,
-            initialsHighlighted: clusterIndex === mapping.clusterIndex,
+            derivedHighlighted: clusterIndex === mapping.clusterIndex,
           }))
         : null,
     };
   });
+}
+
+export function mapInitialsToOriginalText(originalText, expectedInitials) {
+  return mapDerivedLettersToOriginalText(originalText, expectedInitials, 'first');
+}
+
+export function mapFinalsToOriginalText(originalText, expectedFinals) {
+  return mapDerivedLettersToOriginalText(originalText, expectedFinals, 'last');
 }
