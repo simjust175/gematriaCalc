@@ -203,6 +203,7 @@
       :mapping="miluiMapping"
       :saving="miluiSettingsSaving"
       :error="miluiSettingsError"
+      :success="miluiSettingsSuccess"
       @close="miluiSettingsOpen = false"
       @save="saveMiluiMapping"
     />
@@ -259,6 +260,7 @@ const miluiSettingsLoaded = ref(false);
 const miluiSettingsLoading = ref(false);
 const miluiSettingsSaving = ref(false);
 const miluiSettingsError = ref('');
+const miluiSettingsSuccess = ref('');
 const saveMenuOpen = ref(false);
 const baseWordFeedback = ref('');
 
@@ -320,12 +322,16 @@ async function loadMiluiSettings() {
 
 async function openMiluiSettings() {
   await loadMiluiSettings();
-  if (miluiSettingsLoaded.value) miluiSettingsOpen.value = true;
+  if (miluiSettingsLoaded.value) {
+    miluiSettingsSuccess.value = '';
+    miluiSettingsOpen.value = true;
+  }
 }
 
 async function saveMiluiMapping(mapping) {
   miluiSettingsSaving.value = true;
   miluiSettingsError.value = '';
+  miluiSettingsSuccess.value = '';
   try {
     const response = await fetch('/api/settings/milui', {
       method: 'PUT',
@@ -340,6 +346,7 @@ async function saveMiluiMapping(mapping) {
     if (!checked.valid) throw new Error('invalid_saved_mapping');
     miluiMapping.value = checked.mapping;
     miluiSettingsLoaded.value = true;
+    miluiSettingsSuccess.value = 'הגדרות המילוי עודכנו';
   } catch (error) {
     miluiSettingsError.value = error.message === 'save_failed'
       ? 'לא ניתן לשמור את הגדרות המילוי'

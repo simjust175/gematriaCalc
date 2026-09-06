@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { calculateMilui } from '../src/utils/milui.js';
 
 const e2ePassword = process.env.E2E_APP_PASSWORD || 'tanach-browser-test-password';
 
@@ -74,6 +75,15 @@ test('saved library composes search, views, sorting, grouping, detail, and delet
     await initialFirstCard.getByRole('button', { name: 'פתח פירוט', exact: true }).click();
     const initialDetail = page.locator(`[data-detail-entry-id="${initialFirstId}"]`);
     await expect(initialDetail).toBeVisible();
+    const settingsResponse = await page.request.get(new URL('/api/settings/milui', page.url()).href);
+    expect(settingsResponse.ok()).toBe(true);
+    const settings = await settingsResponse.json();
+    const selectedEntryText = await initialFirstCard.locator('.entry-text').innerText();
+    const expectedMilui = calculateMilui(selectedEntryText, settings.mapping);
+    await expect(initialDetail.getByText('מילוי לפי ההגדרות הנוכחיות:')).toBeVisible();
+    await expect(initialDetail.locator('.detail-row--milui .detail-gematria')).toContainText(
+      String(expectedMilui.fullGematria)
+    );
     await expect(initialFirstCard).toHaveClass(/expanded/);
     await expect(initialFirstCard.locator('.entry-detail')).toHaveCount(0);
     const selectedBox = await initialFirstCard.boundingBox();

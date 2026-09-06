@@ -43,6 +43,7 @@
           </div>
         </div>
         <p v-if="formError" class="milui-form-error" role="alert">{{ formError }}</p>
+        <p v-if="success" class="milui-form-success" role="status">{{ success }}</p>
       </div>
 
       <div class="milui-dialog__footer">
@@ -75,6 +76,7 @@ const props = defineProps({
   mapping: { type: Object, required: true },
   saving: { type: Boolean, default: false },
   error: { type: String, default: '' },
+  success: { type: String, default: '' },
 });
 
 const emit = defineEmits(['close', 'save']);
@@ -281,6 +283,13 @@ function resetToDefault() {
 }
 
 .milui-form-error {
+  margin-top: 12px;
+}
+
+.milui-form-success {
+  color: var(--gold);
+  font-size: .76rem;
+  font-weight: 600;
   margin-top: 12px;
 }
 

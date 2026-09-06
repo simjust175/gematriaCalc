@@ -15,6 +15,12 @@
       <span class="detail-value">{{ entry.initials }}</span>
       <span class="detail-gematria">{{ entry.initials_gematria }} · {{ entry.initials_gematria_hebrew }}</span>
     </div>
+    <div v-if="currentMilui" class="detail-row detail-row--milui">
+      <span class="detail-label">מילוי לפי ההגדרות הנוכחיות:</span>
+      <span class="detail-gematria">
+        {{ currentMilui.fullGematria }} · {{ currentMilui.fullHebrewNumber }}
+      </span>
+    </div>
 
     <div v-if="entry.words && entry.words.length > 0" class="detail-words">
       <div class="detail-label detail-words-title">פירוט מילים:</div>
@@ -39,11 +45,20 @@
 </template>
 
 <script setup>
+import { computed } from 'vue';
 import { getWordBreakdown, toHebrewNumber } from '@/composables/useGematria.js';
+import { calculateMilui } from '@/utils/milui.js';
 
-defineProps({
+const props = defineProps({
   entry: { type: Object, required: true },
+  miluiMapping: { type: Object, default: null },
 });
+
+const currentMilui = computed(() => (
+  props.miluiMapping
+    ? calculateMilui(props.entry.original_text, props.miluiMapping)
+    : null
+));
 
 function formatDate(iso) {
   if (!iso) return '';

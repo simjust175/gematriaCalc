@@ -50,6 +50,7 @@ test('מילוי stays optional, updates live, persists edits, and resets safely
   await vavInput.fill('ויו');
   await dialog.getByRole('button', { name: 'שמור שינויים' }).click();
   await expect(vavInput).toHaveValue('ויו');
+  await expect(dialog.getByRole('status')).toHaveText('הגדרות המילוי עודכנו');
   await dialog.getByRole('button', { name: 'סגור הגדרות מילוי' }).click();
 
   await input.fill('ו');

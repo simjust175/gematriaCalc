@@ -466,8 +466,8 @@ export async function ensureActiveMiluiCoverage(db = pool, { force = false } = {
   return coverageCheckPromise;
 }
 
-export async function getActiveMiluiMatches(fullGematria, db = pool) {
-  if (!runtimeMatchingEnabled || fullGematria <= 0) return [];
+export async function getActiveMiluiMatches(currentText, db = pool) {
+  if (!runtimeMatchingEnabled || !currentText) return [];
   if (!schemaAvailable && !(await detectSchema(db))) return [];
   await ensureActiveMiluiCoverage(db);
   const readHealth = () => db.query(
@@ -494,21 +494,61 @@ export async function getActiveMiluiMatches(fullGematria, db = pool) {
     error.code = 'MILUI_INDEX_UNAVAILABLE';
     throw error;
   }
-  const result = await db.query(
-    `SELECT se.id, se.original_text, se.normalized_text,
-            se.full_gematria, se.full_gematria_hebrew,
-            se.initials, se.initials_gematria, se.initials_gematria_hebrew,
-            se.created_at, idx.full_milui_gematria
-     FROM milui_index_state state
-     JOIN saved_entry_milui_index idx ON idx.mapping_version = state.active_version
-     JOIN saved_entries se ON se.id = idx.saved_entry_id
-     WHERE state.id = $1
-       AND state.matching_enabled = TRUE
-       AND idx.full_milui_gematria = $2
-     ORDER BY se.created_at DESC`,
-    [MILUI_STATE_ID, fullGematria]
-  );
-  return result.rows;
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const snapshotResult = await db.query(
+      `SELECT state.active_version, versions.mapping
+       FROM milui_index_state state
+       JOIN milui_mapping_versions versions ON versions.version = state.active_version
+       WHERE state.id = $1
+         AND state.matching_enabled = TRUE`,
+      [MILUI_STATE_ID]
+    );
+    const snapshot = snapshotResult.rows[0];
+    if (!snapshot) {
+      const error = new Error('Milui matching index is unavailable');
+      error.code = 'MILUI_INDEX_UNAVAILABLE';
+      throw error;
+    }
+
+    const checked = normalizeMiluiMapping(snapshot.mapping);
+    if (!checked.valid) {
+      const error = new Error('Active מילוי mapping is invalid');
+      error.code = 'MILUI_INDEX_UNAVAILABLE';
+      throw error;
+    }
+    const calculation = calculateMilui(currentText, checked.mapping);
+    if (!calculation?.fullGematria) return [];
+
+    const result = await db.query(
+      `SELECT se.id, se.original_text, se.normalized_text,
+              se.full_gematria, se.full_gematria_hebrew,
+              se.initials, se.initials_gematria, se.initials_gematria_hebrew,
+              se.created_at, idx.full_milui_gematria
+       FROM milui_index_state state
+       JOIN saved_entry_milui_index idx ON idx.mapping_version = state.active_version
+       JOIN saved_entries se ON se.id = idx.saved_entry_id
+       WHERE state.id = $1
+         AND state.matching_enabled = TRUE
+         AND state.active_version = $2
+         AND idx.full_milui_gematria = $3
+       ORDER BY se.created_at DESC`,
+      [MILUI_STATE_ID, snapshot.active_version, calculation.fullGematria]
+    );
+    const currentState = await db.query(
+      `SELECT active_version
+       FROM milui_index_state
+       WHERE id = $1`,
+      [MILUI_STATE_ID]
+    );
+    if (String(currentState.rows[0]?.active_version) === String(snapshot.active_version)) {
+      return result.rows;
+    }
+  }
+
+  const error = new Error('Milui mapping changed during matching');
+  error.code = 'MILUI_INDEX_UNAVAILABLE';
+  throw error;
 }
 
 export async function getActiveMiluiMultipleSources(currentValue, db = pool) {

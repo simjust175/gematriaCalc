@@ -133,6 +133,7 @@
                 <SavedEntryDetail
                   v-if="shouldShowDetailAfter(index, item.group.entries)"
                   :entry="expandedEntry"
+                  :milui-mapping="miluiMapping"
                 />
               </template>
             </div>
@@ -153,6 +154,7 @@
             <SavedEntryDetail
               v-if="item.detailEntry"
               :entry="item.detailEntry"
+              :milui-mapping="miluiMapping"
             />
           </template>
         </template>
@@ -174,6 +176,7 @@
           <SavedEntryDetail
             v-if="shouldShowDetailAfter(index, entries)"
             :entry="expandedEntry"
+            :milui-mapping="miluiMapping"
           />
         </template>
       </template>
@@ -216,6 +219,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import SavedEntryCard from '@/components/SavedEntryCard.vue';
 import SavedEntryDetail from '@/components/SavedEntryDetail.vue';
+import { normalizeMiluiMapping } from '@/utils/milui.js';
 
 const LIMIT = 100;
 const GROUP_LIMIT = 20;
@@ -238,6 +242,7 @@ const cancelDeleteButton = ref(null);
 const libraryHeading = ref(null);
 const deleteError = ref('');
 const copyNotice = ref('');
+const miluiMapping = ref(null);
 const offset = ref(0);
 const isWideViewport = ref(true);
 let debounceTimer = null;
@@ -381,6 +386,18 @@ async function refreshEntries() {
   await fetchEntries();
 }
 
+async function fetchMiluiMapping() {
+  try {
+    const response = await fetch('/api/settings/milui');
+    if (!response.ok) return;
+    const payload = await response.json();
+    const checked = normalizeMiluiMapping(payload.mapping);
+    if (checked.valid) miluiMapping.value = checked.mapping;
+  } catch {
+    miluiMapping.value = null;
+  }
+}
+
 function onSearch() {
   clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => refreshEntries(), 300);
@@ -522,7 +539,7 @@ onMounted(() => {
   updateViewport = event => { isWideViewport.value = event.matches; };
   isWideViewport.value = viewportMedia.matches;
   viewportMedia.addEventListener('change', updateViewport);
-  refreshEntries();
+  Promise.all([refreshEntries(), fetchMiluiMapping()]);
 });
 
 onBeforeUnmount(() => {

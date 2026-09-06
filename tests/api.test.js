@@ -47,6 +47,29 @@ function uniqueHebrewToken() {
   return token;
 }
 
+function sameLettersDifferentOrder(text) {
+  return [...normalize(text)].reverse().join('');
+}
+
+function findTextWithFullMilui(target, mapping) {
+  const candidates = Object.keys(mapping).map(letter => ({
+    letter,
+    value: calculateMilui(letter, mapping).fullGematria,
+  }));
+  const solutions = Array(target + 1).fill(null);
+  solutions[0] = '';
+  for (let total = 1; total <= target; total += 1) {
+    for (const candidate of candidates) {
+      const remainder = total - candidate.value;
+      if (remainder >= 0 && solutions[remainder] !== null) {
+        solutions[total] = `${solutions[remainder]}${candidate.letter}`;
+        break;
+      }
+    }
+  }
+  return solutions[target];
+}
+
 // ── Unauthenticated access ────────────────────────────────────────────────────
 
 test('GET /api/auth/check returns authenticated=false when no session', async () => {
@@ -431,7 +454,7 @@ test('active full מילוי values participate in live matching and repair miss
   const savedId = save.body.id;
 
   try {
-    const matchingInput = toHebrewNumber(expectedMilui.fullGematria);
+    const matchingInput = sameLettersDifferentOrder(originalText);
     const match = await agent.get('/api/matches').query({ normalizedText: matchingInput });
     assert.equal(match.status, 200);
     const rows = match.body.matches.filter(entry => entry.id === savedId);
@@ -488,7 +511,7 @@ test('full מילוי matching returns every saved entry with the same derived v
     }
     const match = await agent
       .get('/api/matches')
-      .query({ normalizedText: toHebrewNumber(expected) });
+      .query({ normalizedText: sameLettersDifferentOrder(firstText) });
     assert.equal(match.status, 200);
     const miluiIds = new Set(
       match.body.matches
@@ -522,12 +545,19 @@ test('mapping cutover is atomic, versioned, and deduplicates מילוי with sta
     savedIds.push(save.body.id);
 
     const oldValue = calculateMilui(originalText, originalMapping).fullGematria;
+    const matchingInput = sameLettersDifferentOrder(originalText);
     const custom = cloneMiluiMapping(originalMapping);
     custom.ו = custom.ו === 'ויו' ? 'ואו' : 'ויו';
     const newValue = calculateMilui(originalText, custom).fullGematria;
     assert.notEqual(newValue, oldValue);
 
     const before = await getMiluiIndexReport();
+    const oldMatch = await agent.get('/api/matches').query({ normalizedText: matchingInput });
+    assert.equal(oldMatch.status, 200);
+    const oldEntry = oldMatch.body.matches.find(entry => entry.id === save.body.id);
+    assert.ok(oldEntry?.matchTypes.includes('milui_gematria'));
+    assert.equal(oldEntry.full_milui_gematria, oldValue);
+
     const changed = await agent.put('/api/settings/milui').send({ mapping: custom });
     assert.equal(changed.status, 200);
     assert.ok(Number(changed.body.mappingVersion) > Number(before.activeVersion));
@@ -536,20 +566,15 @@ test('mapping cutover is atomic, versioned, and deduplicates מילוי with sta
     assert.equal(after.indexedEntries, after.savedEntries);
     assert.equal(String(after.activeVersion), String(changed.body.mappingVersion));
 
-    const oldMatch = await agent
-      .get('/api/matches')
-      .query({ normalizedText: toHebrewNumber(oldValue) });
-    assert.equal(oldMatch.status, 200);
-    const oldEntry = oldMatch.body.matches.find(entry => entry.id === save.body.id);
-    assert.equal(oldEntry?.matchTypes.includes('milui_gematria') || false, false);
-
     const newMatch = await agent
       .get('/api/matches')
-      .query({ normalizedText: toHebrewNumber(newValue) });
+      .query({ normalizedText: matchingInput });
     assert.equal(newMatch.status, 200);
     const newEntry = newMatch.body.matches.filter(entry => entry.id === save.body.id);
     assert.equal(newEntry.length, 1);
     assert.ok(newEntry[0].matchTypes.includes('milui_gematria'));
+    assert.equal(newEntry[0].full_milui_gematria, newValue);
+    assert.notEqual(newEntry[0].full_milui_gematria, oldValue);
 
     const identity = Object.fromEntries(
       Object.keys(MILUI_DEFAULT_MAPPING).map(letter => [letter, letter])
@@ -596,13 +621,9 @@ test('a save committed during a pending rebuild is present at activation', async
 
     const activated = await rebuildAndActivateMiluiMapping(custom, {
       afterPendingCreated: async () => {
-        const oldValue = calculateMilui(
-          oldWindowText,
-          originalSettings.body.mapping
-        ).fullGematria;
         const oldWindow = await agent
           .get('/api/matches')
-          .query({ normalizedText: toHebrewNumber(oldValue) });
+          .query({ normalizedText: sameLettersDifferentOrder(oldWindowText) });
         assert.equal(oldWindow.status, 200);
         assert.ok(
           oldWindow.body.matches.find(entry => entry.id === oldWindowId)
@@ -623,10 +644,9 @@ test('a save committed during a pending rebuild is present at activation', async
 
     const report = await getMiluiIndexReport();
     assert.equal(report.indexedEntries, report.savedEntries);
-    const expected = calculateMilui(originalText, custom).fullGematria;
     const match = await agent
       .get('/api/matches')
-      .query({ normalizedText: toHebrewNumber(expected) });
+      .query({ normalizedText: sameLettersDifferentOrder(originalText) });
     assert.equal(match.status, 200);
     assert.ok(
       match.body.matches.find(entry => entry.id === savedId)?.matchTypes.includes('milui_gematria')
@@ -635,6 +655,37 @@ test('a save committed during a pending rebuild is present at activation', async
     await agent.put('/api/settings/milui').send({ mapping: originalSettings.body.mapping });
     if (savedId) await agent.delete(`/api/entries/${savedId}`);
     if (oldWindowId) await agent.delete(`/api/entries/${oldWindowId}`);
+  }
+});
+
+test('full מילוי matching never crosses into the filling-only calculation', async () => {
+  const agent = request.agent(app);
+  await agent.post('/api/auth/login').send({ password: 'correct-test-password-12345' });
+  const settings = await agent.get('/api/settings/milui');
+  assert.equal(settings.status, 200);
+
+  const originalText = `הפרדת מצבים ${uniqueHebrewToken()}`;
+  const calculation = calculateMilui(originalText, settings.body.mapping);
+  const fullModeProbe = findTextWithFullMilui(
+    calculation.fillingOnlyGematria,
+    settings.body.mapping
+  );
+  assert.ok(fullModeProbe, 'test fixture should find a full-milui probe for the filling-only total');
+  assert.equal(
+    calculateMilui(fullModeProbe, settings.body.mapping).fullGematria,
+    calculation.fillingOnlyGematria
+  );
+  assert.notEqual(calculation.fullGematria, calculation.fillingOnlyGematria);
+
+  const save = await agent.post('/api/entries').send({ originalText });
+  assert.equal(save.status, 200);
+  try {
+    const response = await agent.get('/api/matches').query({ normalizedText: fullModeProbe });
+    assert.equal(response.status, 200);
+    const saved = response.body.matches.find(entry => entry.id === save.body.id);
+    assert.equal(saved?.matchTypes.includes('milui_gematria') || false, false);
+  } finally {
+    await agent.delete(`/api/entries/${save.body.id}`);
   }
 });
 
@@ -699,11 +750,10 @@ test('failed derived work leaves the previous active version and canonical save 
   }
 });
 
-test('incomplete active coverage returns an explicit matching failure, never a valid empty result', async () => {
+test('incomplete מילוי coverage suppresses only מילוי while preserving normal matches', async () => {
   const agent = request.agent(app);
   await agent.post('/api/auth/login').send({ password: 'correct-test-password-12345' });
   const report = await getMiluiIndexReport();
-  const settings = await agent.get('/api/settings/milui');
   const activeMapping = await pool.query(
     'SELECT mapping FROM milui_mapping_versions WHERE version = $1',
     [report.activeVersion]
@@ -712,7 +762,6 @@ test('incomplete active coverage returns an explicit matching failure, never a v
   const save = await agent.post('/api/entries').send({ originalText });
   assert.equal(save.status, 200);
   const savedId = save.body.id;
-  const expected = calculateMilui(originalText, settings.body.mapping).fullGematria;
 
   try {
     await pool.query(
@@ -728,8 +777,11 @@ test('incomplete active coverage returns an explicit matching failure, never a v
     invalidateMiluiCoverageCheck();
     const unavailable = await agent
       .get('/api/matches')
-      .query({ normalizedText: toHebrewNumber(expected) });
-    assert.equal(unavailable.status, 500);
+      .query({ normalizedText: originalText });
+    assert.equal(unavailable.status, 200);
+    const preserved = unavailable.body.matches.find(entry => entry.id === savedId);
+    assert.ok(preserved?.matchTypes.includes('full_gematria'));
+    assert.equal(preserved.matchTypes.includes('milui_gematria'), false);
   } finally {
     await pool.query(
       'UPDATE milui_mapping_versions SET mapping = $2::jsonb WHERE version = $1',
@@ -837,13 +889,13 @@ test('matching returns all reasons once per saved entry and preserves word match
     const twoReasons = await getMatch(originalText, savedId);
     assert.deepEqual(
       entryReasons(twoReasons),
-      ['full_gematria', 'initials_text']
+      ['full_gematria', 'initials_text', 'milui_gematria']
     );
 
     const allReasons = await getMatch(allTypesText, allTypesId);
     assert.deepEqual(
       entryReasons(allReasons),
-      ['full_gematria', 'initials_text', 'initials_gematria']
+      ['full_gematria', 'initials_text', 'initials_gematria', 'milui_gematria']
     );
 
     const wordOnly = await getMatch(calculated.words[0].word, savedId);

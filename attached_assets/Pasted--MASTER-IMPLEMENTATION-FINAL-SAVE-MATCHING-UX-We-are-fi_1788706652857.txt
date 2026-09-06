@@ -1,0 +1,918 @@
+# MASTER IMPLEMENTATION — FINAL מילוי SAVE + MATCHING UX
+
+We are finalizing the product model for מילוי.
+
+The current app already has:
+- normal saved entries
+- saved-word data
+- live matching
+- editable general מילוי mappings
+- מילוי mapping versions
+- מילוי preferences
+- a versioned saved-entry מילוי index
+- canonical מילויי הוי״ה
+- מילות יסוד
+- Tanach
+- an actively used production database
+
+The final UX principle is:
+
+SAVE THE TEXT ONCE.
+DERIVE EVERYTHING ELSE AUTOMATICALLY.
+
+The user must NOT have to separately save:
+- full gematria
+- ראשי תיבות
+- מילוי
+- individual derived calculations
+
+A saved Hebrew phrase is the durable object.
+
+מילוי is a CALCULATION VIEW / DERIVED INDEX applied to that saved phrase using the CURRENT active מילוי rules.
+
+==================================================
+1. FINAL PRODUCT MODEL
+==================================================
+
+There are only two explicit saving intentions in the normal calculator:
+
+### A. שמור
+
+Meaning:
+
+"Keep this Hebrew text in my saved library."
+
+### B. שמור כמילת יסוד
+
+Meaning:
+
+"Also make this exact complete phrase a curated reference phrase for מילות יסוד."
+
+There must NOT be a normal:
+
+שמור מילוי
+
+button.
+
+There must NOT be a separate user concept of:
+
+"מילוי שמור"
+
+for normal use.
+
+מילוי participates automatically once the phrase is saved.
+
+==================================================
+2. WHY THIS MODEL
+==================================================
+
+The client should never have to think:
+
+- Did I save the phrase?
+- Did I save its מילוי?
+- Which מילוי mode did I save?
+- Will this entry participate in מילוי matching?
+- Do I need to save it again after changing מילוי settings?
+
+That is system complexity.
+
+The product should behave intelligently underneath.
+
+If the Hebrew text is saved, the system can calculate its current מילוי automatically.
+
+==================================================
+3. NORMAL שמור REMAINS THE SINGLE PRIMARY SAVE
+==================================================
+
+Preserve existing normal save behavior.
+
+When the user presses:
+
+שמור
+
+save the normal entry exactly as the application already does.
+
+Do not create another visible save step.
+
+After ordinary save succeeds, ensure the saved phrase is eligible for the derived מילוי index.
+
+This should happen automatically.
+
+==================================================
+4. DO NOT ADD שמור מילוי
+==================================================
+
+If a:
+
+שמור מילוי
+
+button or experimental UI currently exists anywhere from prior work:
+
+REMOVE it from the normal user experience.
+
+Do NOT replace it with another secondary milui-save action.
+
+Inside the מילוי disclosure, the user should calculate and explore.
+
+They should NOT be asked to save the calculation separately.
+
+==================================================
+5. מילוי IS DERIVED STATE
+==================================================
+
+For every ordinary saved phrase:
+
+the app should derive its מילוי value using:
+
+- the CURRENT active מילוי mapping
+- the CURRENT relevant calculation mode
+
+The derived value is not the immutable identity of the saved phrase.
+
+The saved text is permanent.
+
+The מילוי value may legitimately change when the user changes the active מילוי configuration.
+
+==================================================
+6. SAME-RULE COMPARISON — CRITICAL
+==================================================
+
+Matching must always compare:
+
+CURRENT INPUT
+calculated using current active מילוי rules
+
+WITH:
+
+SAVED PHRASES
+calculated/indexed using those SAME current active מילוי rules
+
+Never compare:
+
+current phrase under today's mapping
+
+against:
+
+saved phrase under an old mapping
+
+That would produce mathematically misleading matches.
+
+The active mapping version must define the entire current comparison universe.
+
+==================================================
+7. USE THE EXISTING VERSIONED INDEX ARCHITECTURE
+==================================================
+
+The application already has infrastructure such as:
+
+- milui_mapping_versions
+- milui_preferences
+- saved_entry_milui_index
+- milui_index_state
+
+Preserve and use this architecture.
+
+Do NOT replace it with a new snapshot-only table.
+
+Do NOT add another parallel saved-milui system.
+
+Do NOT create unnecessary duplicate persistence.
+
+The existing direction:
+
+SavedEntry
+→ active mapping version
+→ derived מילוי index
+→ matching
+
+is the correct architecture.
+
+==================================================
+8. ACTIVE MAPPING VERSION
+==================================================
+
+There should be exactly one clearly defined CURRENT / ACTIVE general מילוי mapping version for live calculations.
+
+Current calculator milui and saved-entry milui indexing must reference the same effective mapping.
+
+When the user edits the general מילוי settings:
+
+create/use a new mapping version according to the existing safe architecture.
+
+Do not mutate historical mapping versions in a way that destroys provenance.
+
+==================================================
+9. WHEN SETTINGS CHANGE
+==================================================
+
+Example:
+
+Saved phrase:
+
+אמת
+
+Under mapping version 1:
+
+מילוי = 1,234
+
+User changes a מילוי spelling.
+
+New active mapping version produces:
+
+אמת = 1,250
+
+Correct behavior:
+
+- saved phrase remains אמת
+- live current calculation uses 1,250
+- derived index for אמת is updated to 1,250
+- future matching uses 1,250
+- no user re-save is required
+- no duplicate saved entry is created
+
+This should feel automatic.
+
+==================================================
+10. INDEX REBUILD / REINDEX
+==================================================
+
+When the active general מילוי mapping changes:
+
+rebuild or update the derived מילוי index for all relevant saved entries.
+
+Do this using the existing versioned/index-state architecture where possible.
+
+Requirements:
+
+- safe
+- deterministic
+- idempotent
+- production-safe
+- no deletion of saved text
+- no alteration of SavedEntry content
+- no alteration of SavedWord content
+
+The reindex operation changes DERIVED index data only.
+
+==================================================
+11. ATOMIC / TRUSTWORTHY SWITCH
+==================================================
+
+Avoid a state where half the saved library is indexed under an old mapping and half under a new mapping while the UI reports the new mapping as current.
+
+Preferred model:
+
+1. create/activate new mapping version appropriately
+2. build derived index for that version
+3. verify expected coverage
+4. mark the version/index ready
+5. switch matching to the ready index
+
+If the existing architecture already implements a safe version-ready pattern, reuse it rather than inventing another system.
+
+==================================================
+12. DO NOT SHOW INDEX COMPLEXITY TO THE USER
+==================================================
+
+The client does not need to see:
+
+- mapping version IDs
+- index states
+- hashes
+- migration status
+- technical reindex language
+
+During ordinary use this must remain invisible.
+
+The app should simply behave correctly.
+
+==================================================
+13. מילוי UI — KEEP IT BEAUTIFULLY SIMPLE
+==================================================
+
+The existing מילוי disclosure remains optional and closed by default.
+
+When opened:
+
+show the current מילוי calculation clearly.
+
+Do NOT add save-related clutter.
+
+The user should see conceptually:
+
+מילוי
+
+[ current מילוי result ]
+
+and any existing approved advanced details/settings.
+
+No:
+
+שמור מילוי
+שמור חישוב
+שמור גרסה
+snapshot controls
+version indicators
+
+The main save control elsewhere in the calculator is enough.
+
+==================================================
+14. SAVED ENTRY DETAIL — OPTIONAL CURRENT מילוי
+==================================================
+
+When viewing a saved entry's detail, it is acceptable and desirable to show:
+
+מילוי לפי ההגדרות הנוכחיות
+
+followed by its current derived value.
+
+Example:
+
+מילוי לפי ההגדרות הנוכחיות
+1,250
+
+This should be secondary information, not another giant result card.
+
+Do not redesign the entire saved library.
+
+==================================================
+15. IMPORTANT WORDING
+==================================================
+
+If showing the current derived value in saved-entry detail, use wording that makes the semantics clear:
+
+מילוי לפי ההגדרות הנוכחיות
+
+NOT:
+
+מילוי שנשמר
+
+because the calculation itself was not independently saved.
+
+==================================================
+16. LIVE MILUI MATCHING
+==================================================
+
+When the current input has a valid מילוי result:
+
+search the saved-entry מילוי index for matches under the SAME active mapping version.
+
+Match semantics:
+
+current milui total
+===
+saved indexed milui total
+
+under the same active rules.
+
+Preserve existing result presentation and match type conventions where possible.
+
+Do NOT redesign the whole live matching panel.
+
+==================================================
+17. MODE CONSISTENCY
+==================================================
+
+If the app supports more than one general מילוי calculation mode, such as:
+
+- מילוי מלא
+- מילוי בלבד
+
+the index and matching must include the mode.
+
+Never compare:
+
+current מילוי מלא
+
+against:
+
+saved מילוי בלבד
+
+just because the integer totals happen to match.
+
+The same calculation mode must be used on both sides.
+
+==================================================
+18. NORMAL SAVE → AUTOMATIC INDEXING
+==================================================
+
+When a NEW normal SavedEntry is successfully created:
+
+ensure it becomes indexed for current מילוי matching automatically.
+
+The user must NOT press anything else.
+
+Flow:
+
+user enters text
+→ presses שמור
+→ ordinary save succeeds
+→ derived מילוי indexing becomes available automatically
+
+Do not block normal save on an index rebuild.
+
+If indexing is asynchronous or deferred, normal save must still succeed.
+
+==================================================
+19. EXISTING SAVED ENTRIES
+==================================================
+
+Existing SavedEntry records should automatically continue participating in the derived מילוי index.
+
+This is NOT a conversion into a new saved-data concept.
+
+Do NOT duplicate them.
+
+Do NOT create a new user-owned מילוי-save record for every existing entry.
+
+Simply maintain the derived index that already conceptually belongs to them.
+
+==================================================
+20. NO USER BACKFILL ACTION
+==================================================
+
+Do NOT ask the client to click:
+
+חשב מחדש את כל השמורים
+
+Do NOT require:
+
+שמור מחדש
+
+Do NOT present a migration button.
+
+Reindexing is internal system maintenance.
+
+==================================================
+21. MAPPING SETTINGS UX
+==================================================
+
+When the client edits the general מילוי table:
+
+the settings UI should stay clean.
+
+After saving settings, use a concise success message such as:
+
+הגדרות המילוי עודכנו
+
+Do not say:
+
+"Reindexing 131 saved entries..."
+
+unless there is a genuine long-running failure state requiring user intervention.
+
+The backend should handle that complexity quietly.
+
+==================================================
+22. SAFE TEMPORARY REINDEX STATE
+==================================================
+
+If reindexing cannot complete instantly:
+
+do not show incorrect mixed-version matches.
+
+Use one of these safe strategies, based on current architecture:
+
+A. continue using the previous READY mapping/index until the new index is fully ready
+
+or
+
+B. temporarily suppress only מילוי matching while the new index is being prepared
+
+Prefer A if existing architecture supports it.
+
+Never display partially rebuilt results as authoritative.
+
+==================================================
+23. FAILURE BEHAVIOR
+==================================================
+
+If a new מילוי index build fails:
+
+- calculator still works
+- normal שמור still works
+- SavedEntry data remains untouched
+- old ready index remains usable if safe
+- no data loss
+- no destructive rollback
+
+Log/report technical failure appropriately.
+
+Do not expose raw database errors to the client.
+
+==================================================
+24. CANONICAL מילויי הוי״ה ARE SEPARATE
+==================================================
+
+The canonical:
+
+ע״ב · 72
+ס״ג · 63
+מ״ה · 45
+ב״ן · 52
+
+inside:
+
+מילויי הוי״ה
+
+remain fixed canonical reference forms.
+
+Do NOT treat changes to general מילוי preferences as changing these values.
+
+Do NOT include canonical הוי״ה reference presets in the general saved-entry reindex architecture unless the application already explicitly models them separately.
+
+This task concerns general editable מילוי.
+
+==================================================
+25. מילות יסוד REMAINS COMPLETELY SEPARATE
+==================================================
+
+Do not confuse automatic מילוי derivation with מילות יסוד.
+
+מילות יסוד is an intentional curated category.
+
+Therefore:
+
+שמור כמילת יסוד
+
+remains explicit.
+
+Normal שמור does NOT automatically add something to מילות יסוד.
+
+This distinction is correct:
+
+שמורים = user saves text
+מילות יסוד = user deliberately promotes text into curated reference list
+מילוי = system-derived calculation of saved text
+
+==================================================
+26. THE SAVE UX SHOULD REMAIN
+==================================================
+
+Use the approved save control:
+
+שמור ▾
+
+Primary:
+
+שמור
+
+Secondary menu:
+
+שמור כמילת יסוד
+
+Do NOT add:
+
+שמור מילוי
+
+to this menu.
+
+Do NOT turn it into a menu with many technical destinations.
+
+Keep the save UX exceptionally simple.
+
+==================================================
+27. NO NEW NAVIGATION
+==================================================
+
+Do NOT add:
+
+מילויים שמורים
+
+Do NOT add:
+
+חישובי מילוי
+
+Do NOT add another sidebar route.
+
+No new user-facing destination is required.
+
+==================================================
+28. NO HISTORICAL SNAPSHOT FEATURE IN THIS TASK
+==================================================
+
+Do NOT implement:
+
+שמור חישוב זה
+historical milui snapshots
+manual frozen calculations
+
+That can be a separate advanced research feature later if the client explicitly requests it.
+
+Do not complicate the normal workflow now.
+
+==================================================
+29. SAVED LIBRARY UX
+==================================================
+
+Do NOT redesign the saved library.
+
+Only add current מילוי information in an existing detail area if it fits naturally.
+
+If adding it would require major saved-page redesign, skip that presentation change for now.
+
+The critical requirements are:
+
+- automatic derived indexing
+- same-rule matching
+- clean save UX
+
+==================================================
+30. PRODUCTION DATABASE SAFETY
+==================================================
+
+This application is actively used by the client.
+
+Production safety is NON-NEGOTIABLE.
+
+Do NOT:
+
+- DROP tables
+- TRUNCATE data
+- reset DB
+- reseed production
+- recreate database
+- overwrite production with development
+- delete SavedEntry
+- delete SavedWord
+- rewrite saved Hebrew phrases
+- modify Tanach corpus
+- modify מילות יסוד
+- copy development DB to production
+
+If Replit Publishing shows:
+
+Copy your development database to production database
+
+KEEP IT UNCHECKED.
+
+==================================================
+31. SCHEMA CHANGES
+==================================================
+
+Prefer NO new schema if the existing:
+
+milui_mapping_versions
+milui_preferences
+saved_entry_milui_index
+milui_index_state
+
+already support the correct design.
+
+If one small additive field/index is genuinely required:
+
+use additive migration only.
+
+Do not restructure stable production tables unnecessarily.
+
+==================================================
+32. BEFORE/AFTER DATA SAFETY CHECK
+==================================================
+
+Before production-affecting changes:
+
+record relevant counts for:
+
+SavedEntry
+SavedWord
+Tanach verses
+מילות יסוד
+milui index rows
+
+After changes verify:
+
+SavedEntry deleted = 0
+SavedEntry modified by migration = 0
+SavedWord deleted = 0
+SavedWord modified by migration = 0
+Tanach changed = 0
+מילות יסוד changed = 0
+
+Derived מילוי index rows may legitimately be regenerated.
+
+==================================================
+33. TEST — SAVE ONCE
+==================================================
+
+Input phrase A.
+
+Press:
+
+שמור
+
+Expected:
+
+- ordinary SavedEntry created
+- no second save step
+- no "save milui" action required
+- phrase becomes eligible for current מילוי matching
+
+==================================================
+34. TEST — EXISTING SAVED ENTRY
+==================================================
+
+Choose an already-existing SavedEntry.
+
+Verify:
+
+it has a valid derived מילוי index under the active mapping.
+
+No user action required.
+
+==================================================
+35. TEST — CHANGE MAPPING
+==================================================
+
+Example:
+
+phrase A currently indexes to:
+
+1,234
+
+Change an editable מילוי spelling.
+
+New mapping produces:
+
+1,250
+
+Expected:
+
+- SavedEntry text is unchanged
+- current calculator result uses 1,250
+- saved phrase is reindexed to 1,250
+- future matching uses 1,250
+- old 1,234 derived value is no longer used for current matching
+- user did not need to resave phrase A
+
+==================================================
+36. TEST — SAME VERSION MATCHING
+==================================================
+
+Current phrase B:
+
+active mapping version N
+milui = 760
+
+Saved phrase A:
+
+index mapping version N
+milui = 760
+
+Expected:
+
+match.
+
+Then test a stale saved index row from version N-1.
+
+Expected:
+
+it is NOT used as a current match merely because value also equals 760.
+
+==================================================
+37. TEST — MODE SAFETY
+==================================================
+
+Current:
+
+מילוי מלא = 500
+
+Saved phrase:
+
+מילוי בלבד = 500
+
+Expected:
+
+no cross-mode milui match.
+
+==================================================
+38. TEST — NEW SAVE DURING REINDEX
+==================================================
+
+If practical, test:
+
+- mapping/index rebuild underway
+- user saves a new phrase
+
+Expected:
+
+normal save succeeds safely.
+
+The new saved phrase eventually becomes indexed under the correct ready/current mapping.
+
+No data loss.
+
+==================================================
+39. TEST — FAILED NEW INDEX
+==================================================
+
+Simulate or unit-test a failed rebuild.
+
+Expected:
+
+- SavedEntry data safe
+- previous valid ready index remains safe if architecture supports it
+- no mixed partial results presented
+- app remains usable
+
+==================================================
+40. TEST — CANONICAL הוי״ה
+==================================================
+
+Verify:
+
+ע״ב = 72
+ס״ג = 63
+מ״ה = 45
+ב״ן = 52
+
+remain unchanged regardless of general מילוי mapping edits.
+
+==================================================
+41. UI ACCEPTANCE
+==================================================
+
+The user-facing calculator should feel simpler AFTER this task, not more complicated.
+
+The client should see:
+
+שמור ▾
+
+and inside מילוי:
+
+the מילוי calculation.
+
+He should NOT see:
+
+שמור מילוי
+mapping version
+index version
+reindex status
+snapshot controls
+
+All complexity stays underneath.
+
+==================================================
+42. PRODUCT ACCEPTANCE MODEL
+==================================================
+
+The final mental model must be:
+
+### שמור
+"I want to keep this phrase."
+
+### שמור כמילת יסוד
+"I want this phrase to be one of my special curated reference phrases."
+
+### מילוי
+"Show me the מילוי calculation according to my current rules."
+
+### מילוי matching
+"Find saved phrases whose מילוי matches this one under those same current rules."
+
+That is the complete UX.
+
+==================================================
+43. DO NOT OVERENGINEER
+==================================================
+
+Before adding new tables, services, buttons, routes, or concepts:
+
+inspect the existing milui architecture.
+
+Reuse what is already correct.
+
+The desired result is LESS conceptual complexity, not more.
+
+Avoid unrelated refactors.
+
+==================================================
+44. FINAL REQUIRED REPORT
+==================================================
+
+After implementation report:
+
+1. files changed
+2. whether any schema change was required
+3. how normal saved entries automatically enter מילוי indexing
+4. how active mapping versions are handled
+5. how reindexing works when settings change
+6. how mixed-version matches are prevented
+7. how calculation modes are kept separate
+8. confirmation there is NO normal שמור מילוי action
+9. confirmation שמור remains ordinary save
+10. confirmation שמור כמילת יסוד remains explicit and separate
+11. confirmation canonical ע״ב/ס״ג/מ״ה/ב״ן were unaffected
+12. tests added
+13. full test/build results
+14. relevant before/after production data counts
+15. confirmation there were zero destructive changes to SavedEntry, SavedWord, Tanach, or מילות יסוד
+
+If the current architecture differs from these assumptions, adapt to the existing codebase while preserving the PRODUCT MODEL above.
+
+If achieving this would require destructive production changes:
+
+STOP.
+
+Do not perform them.
+
+Explain the conflict instead.

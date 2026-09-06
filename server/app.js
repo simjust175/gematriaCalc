@@ -509,9 +509,14 @@ app.get('/api/matches', requireAuth, async (req, res) => {
         });
       }
 
-      // Compare the current normal gematria with saved entries' full מילוי
-      // values for the one active, completely built mapping version.
-      const miluiMatches = await getActiveMiluiMatches(g);
+      // Compare the current text's full מילוי with saved entries calculated
+      // under that same active, completely built mapping version.
+      let miluiMatches = [];
+      try {
+        miluiMatches = await getActiveMiluiMatches(normalizedText);
+      } catch (miluiError) {
+        console.error('Milui matching temporarily unavailable:', miluiError.message);
+      }
       for (const miluiMatch of miluiMatches) {
         let result = entryMatches.get(miluiMatch.id);
         if (!result) {
@@ -526,6 +531,7 @@ app.get('/api/matches', requireAuth, async (req, res) => {
         if (!result.matchTypes.includes('milui_gematria')) {
           result.matchTypes.push('milui_gematria');
         }
+        result.full_milui_gematria = miluiMatch.full_milui_gematria;
       }
 
       // Attach matching words to their parent entry instead of duplicating cards.

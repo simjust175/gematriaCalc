@@ -1,6 +1,7 @@
 - [Stack and architecture](stack.md) — Vue 3 + Vuetify + Vite (port 5000) + Express (port 3001) + PostgreSQL; proxy at /api
 - [Auth and secrets](auth.md) — Session auth via express-session; APP_PASSWORD + SESSION_SECRET both required as Replit Secrets
 - [Matching behavior](matching.md) — One card per saved entry with explicit full, initials-text, initials-gematria, and saved-word reasons
+- [Derived מילוי matching](milui-derived-matching.md) — saved text is durable; live full-מילוי matching always uses one ready active mapping version
 - [Saved-entry integrity](saved-entry-integrity.md) — Server recalculates saved gematria data and backfills existing entries
 - [Tanach parashah citations](tanach-parashah-citations.md) — Validate portion ranges against UXLC’s Hebrew numbering, not English verse numbering
 - [UXLC representation upgrades](uxlc-representation-upgrades.md) — Pointed qere display is versioned; discovery cache follows corpus revisions
