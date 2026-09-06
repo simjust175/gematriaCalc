@@ -29,7 +29,7 @@
           שמורים
         </button>
         <button class="nav-btn" :class="{ active: currentPage === 'base-words' }" @click="$emit('navigate', 'base-words')">
-          <span class="mdi mdi-book-alphabet nav-icon" aria-hidden="true"></span>
+          <KeyRound class="nav-icon" :size="16" :stroke-width="2" aria-hidden="true" />
           מילות יסוד
         </button>
         <button
@@ -49,6 +49,8 @@
 </template>
 
 <script setup>
+import { KeyRound } from '@lucide/vue';
+
 defineProps({ currentPage: { type: String, default: 'calculator' } });
 defineEmits(['navigate', 'logout']);
 </script>
