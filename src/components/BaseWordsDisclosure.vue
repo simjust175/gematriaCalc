@@ -29,5 +29,25 @@ onMounted(() => window.addEventListener('base-words-changed', loadMatches));
 onBeforeUnmount(() => window.removeEventListener('base-words-changed', loadMatches));
 </script>
 <style scoped>
-.base-disclosure{background:#fff;border:1.5px solid var(--border);border-radius:var(--radius);overflow:hidden}.base-toggle{width:100%;min-height:48px;border:0;background:#fffdf8;display:flex;align-items:center;justify-content:space-between;padding:9px 16px;color:var(--navy);font:inherit;text-align:right;cursor:pointer}.base-toggle:hover,.base-toggle:focus-visible{background:#fbf8f1}.base-toggle:focus-visible{outline:2px solid var(--gold);outline-offset:-3px}.base-toggle span{display:flex;align-items:baseline;gap:8px}.base-toggle small{font-size:.69rem;color:var(--text-secondary)}.base-toggle i{color:var(--gold);width:9px;height:9px}.base-results{padding:4px 14px}.base-result{display:flex;flex-direction:column;gap:2px;padding:11px 3px;border-bottom:1px solid #f0ebe2}.base-result:last-child{border:0}.base-result strong{font-size:.93rem}.base-result span,.base-state{color:var(--text-secondary);font-size:.77rem}.base-state{text-align:center;padding:14px 4px}
+.base-disclosure{background:#fff;border:1.5px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.base-toggle{width:100%;min-height:48px;border:0;background:#fffdf8;display:flex;align-items:center;justify-content:space-between;padding:9px 16px;color:var(--navy);font:inherit;text-align:right;cursor:pointer}
+.base-toggle:hover,.base-toggle:focus-visible{background:#fbf8f1}
+.base-toggle:focus-visible{outline:2px solid var(--gold);outline-offset:-3px}
+.base-toggle span{display:flex;align-items:baseline;gap:8px;min-width:0}
+.base-toggle small{font-size:.69rem;color:var(--text-secondary)}
+.base-toggle i{color:var(--gold);width:9px;height:9px}
+.base-results{padding:2px 14px}
+.base-result{display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:2px;min-height:55px;padding:8px 3px;border-bottom:1px solid #f0ebe2;text-align:right}
+.base-result:last-child{border:0}
+.base-result strong{font-size:.93rem;font-weight:600}
+.base-result span,.base-state{color:var(--text-secondary);font-size:.77rem}
+.base-result span{line-height:1.45}
+.base-state{text-align:center;padding:11px 4px}
+@media (max-width:520px){
+  .base-toggle{padding-inline:13px}
+  .base-results{padding-inline:10px}
+  .base-result{padding-inline:2px}
+  .base-result strong{min-width:0;overflow-wrap:anywhere}
+  .base-result span{font-size:.72rem}
+}
 </style>

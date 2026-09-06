@@ -100,6 +100,20 @@ test('מילות יסוד stays closed on demand, shows exact compact results, a
     await expect(result.getByText(baseText, { exact: true })).toBeVisible();
     await expect(result).toContainText('נכנס 10 פעמים (י)');
     await expect(page.locator('.multiple-equation, .multiple-source-label')).toHaveCount(0);
+    const compactLayout = await page.locator('.base-disclosure').evaluate((panel) => {
+      const row = panel.querySelector('.base-result');
+      const toggle = panel.querySelector('.base-toggle');
+      return {
+        panelHeight: panel.getBoundingClientRect().height,
+        resultHeight: row.getBoundingClientRect().height,
+        toggleHeight: toggle.getBoundingClientRect().height,
+        direction: getComputedStyle(row).flexDirection,
+      };
+    });
+    expect(compactLayout.resultHeight).toBeGreaterThanOrEqual(55);
+    expect(compactLayout.resultHeight).toBeLessThanOrEqual(70);
+    expect(compactLayout.panelHeight).toBeLessThanOrEqual(compactLayout.toggleHeight + 75);
+    expect(compactLayout.direction).toBe('column');
     expect(matchRequests).toHaveLength(1);
 
     await input.fill('יהוה');
@@ -133,6 +147,19 @@ test('calculator save-as stays separate and management supports edit and delete'
   try {
     await page.locator('.heb-input').fill(token);
     const split = page.locator('.result-panel .save-split');
+    const splitLayout = await split.evaluate((control) => {
+      const main = control.querySelector('.save-split__main').getBoundingClientRect();
+      const toggle = control.querySelector('.save-split__toggle').getBoundingClientRect();
+      return {
+        heightDifference: Math.abs(main.height - toggle.height),
+        segmentGap: Math.abs(main.left - toggle.right),
+        mainWidth: main.width,
+        toggleWidth: toggle.width,
+      };
+    });
+    expect(splitLayout.heightDifference).toBeLessThanOrEqual(1);
+    expect(splitLayout.segmentGap).toBeLessThanOrEqual(1);
+    expect(splitLayout.toggleWidth).toBeLessThan(splitLayout.mainWidth);
     await split.locator('.save-split__main').click();
     await expect(split.locator('.save-split__main')).toHaveText('כבר שמור');
 

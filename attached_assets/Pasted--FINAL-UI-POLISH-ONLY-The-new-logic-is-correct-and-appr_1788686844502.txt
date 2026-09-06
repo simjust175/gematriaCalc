@@ -1,0 +1,383 @@
+# מילות יסוד — FINAL UI POLISH ONLY
+
+The new מילות יסוד logic is correct and approved.
+
+Do NOT change how it calculates, saves, matches, or stores data.
+
+This task is ONLY to make the new מילות יסוד experience more compact, elegant, intentional, and consistent with the rest of the Gematria app.
+
+The current screenshot is functionally correct, but the open מילות יסוד panel is too large for the amount of information it contains.
+
+==================================================
+1. DO NOT CHANGE FUNCTIONALITY
+==================================================
+
+Preserve exactly:
+
+- exact whole-number divisibility
+- current full gematria as the checked value
+- curated מילות יסוד only
+- whole saved phrase as one unit
+- decimal + Hebrew numeral multiplier
+- ×1 behavior
+- multiple-result behavior
+- dedicated מילות יסוד management
+- normal שמור behavior
+- שמור כמילת יסוד behavior
+- Tanach save-as behavior
+
+Do NOT modify:
+
+- database
+- schema
+- APIs
+- calculations
+- saved entries
+- Tanach
+- מילוי
+- live matching
+
+This is presentation only.
+
+==================================================
+2. MAIN PROBLEM
+==================================================
+
+The open מילות יסוד section currently uses too much vertical space.
+
+A result such as:
+
+יהוה
+נכנס 10 פעמים (י׳)
+
+does not need a large card with significant empty white space.
+
+The section should feel like a refined compact discovery list.
+
+==================================================
+3. DISCLOSURE HEADER
+==================================================
+
+Keep the existing disclosure:
+
+מילות יסוד
+
+with the small subtitle:
+
+כניסות שלמות בלבד
+
+Keep it visually consistent with מילוי.
+
+Closed state should remain slim.
+
+Open state should expand only as much as required by the results.
+
+Do NOT give the open section a large minimum height.
+
+==================================================
+4. SINGLE RESULT
+==================================================
+
+For ONE result, the entire open content area should remain compact.
+
+Preferred visual structure:
+
+מילות יסוד
+כניסות שלמות בלבד
+
+יהוה
+נכנס 10 פעמים (י׳)
+
+The result itself should require roughly one compact row/card, not a large panel.
+
+Target approximate result height:
+
+55–70px
+
+depending on existing typography.
+
+==================================================
+5. RESULT HIERARCHY
+==================================================
+
+Each result should contain only:
+
+1. מילת היסוד
+2. result sentence
+
+Example:
+
+יהוה
+
+נכנס 10 פעמים (י׳)
+
+Visual hierarchy:
+
+- מילת היסוד: medium/semi-bold navy
+- result sentence: slightly smaller, muted navy
+- multiplier number may receive restrained emphasis
+- Hebrew numeral stays naturally inside parentheses
+
+Do NOT display:
+
+- gematria value
+- equation
+- source badge
+- detached Hebrew-number pill
+- extra metadata
+
+==================================================
+6. MULTIPLE RESULTS
+==================================================
+
+When several מילות יסוד match, render them as compact stacked rows.
+
+Example concept:
+
+יהוה
+נכנס 10 פעמים (י׳)
+
+────────────────
+
+אהיה
+נכנס 12 פעמים (י״ב)
+
+────────────────
+
+אדני
+נכנס 4 פעמים (ד׳)
+
+Use subtle dividers rather than separate giant cards if that produces the cleaner result.
+
+Do NOT introduce excessive spacing between matches.
+
+==================================================
+7. RESPONSIVE MULTIPLE-RESULT LAYOUT
+==================================================
+
+Desktop:
+
+Prefer a clean compact vertical list.
+
+Do NOT force multiple columns simply because space exists.
+
+The results are small enough that a focused vertical list is easier to scan.
+
+Mobile:
+
+same hierarchy
+full width
+no overflow
+comfortable tap/readability
+
+==================================================
+8. OPEN PANEL HEIGHT
+==================================================
+
+The open מילות יסוד container must size naturally to content.
+
+Remove any unnecessary:
+
+- min-height
+- fixed height
+- excessive top/bottom padding
+- large empty flex areas
+
+One result should produce a small panel.
+
+Three results should produce approximately three compact rows.
+
+Ten results may naturally become taller.
+
+==================================================
+9. EMPTY STATE
+==================================================
+
+If there are no results:
+
+show only a quiet compact line such as:
+
+אין התאמה במילות יסוד
+
+Do not create a large empty card.
+
+==================================================
+10. OPTIONAL RESULT COUNT
+==================================================
+
+If a result count is currently shown, keep it very subtle.
+
+Do NOT make:
+
+1 תוצאה
+3 תוצאות
+
+a prominent UI element.
+
+It may be removed entirely if the results themselves make the count obvious.
+
+==================================================
+11. SPLIT SAVE BUTTON — POLISH
+==================================================
+
+The current:
+
+שמור + dropdown arrow
+
+logic is correct.
+
+Visually refine it so it feels like ONE intentional split-button rather than two separate buttons touching each other.
+
+It should look conceptually like:
+
+[ שמור | ˅ ]
+
+The main section:
+
+שמור
+
+performs normal save.
+
+The smaller attached arrow section opens the secondary menu containing:
+
+שמור כמילת יסוד
+
+Requirements:
+
+- shared outer border
+- shared radius
+- clear internal divider
+- identical height
+- no visible gap
+- one hover/focus language
+- arrow section narrower than main action
+
+==================================================
+12. SAVE MENU
+==================================================
+
+The dropdown should remain compact and deliberate.
+
+Menu option:
+
+שמור כמילת יסוד
+
+Do not add unnecessary explanatory copy.
+
+If already a מילת יסוד, preserve existing feedback behavior.
+
+==================================================
+13. RTL DETAILS
+==================================================
+
+Audit carefully:
+
+- phrase alignment
+- result sentence alignment
+- parentheses around Hebrew numeral
+- dropdown alignment
+- disclosure chevrons
+- split-button direction
+
+Everything must feel native to Hebrew RTL.
+
+==================================================
+14. VERTICAL RHYTHM
+==================================================
+
+Preserve the approved sequence:
+
+three main results
+↓
+מילוי
+↓
+מילות יסוד
+↓
+lower Tanach/discovery content
+
+Keep approximately consistent small gaps between the advanced disclosures.
+
+Do not let an open מילות יסוד panel create a visually huge interruption.
+
+==================================================
+15. VISUAL LANGUAGE
+==================================================
+
+Keep existing:
+
+- cream/off-white
+- navy
+- restrained gold
+- thin warm borders
+- existing radius
+- subtle shadows
+- typography
+
+Do NOT add:
+
+- gradients
+- stronger shadows
+- new colors
+- decorative graphics
+- large icons
+- dashboard styling
+
+==================================================
+16. FINAL ACCEPTANCE EXAMPLES
+==================================================
+
+CURRENT GEMATRIA = 260
+
+ONE RESULT:
+
+יהוה
+נכנס 10 פעמים (י׳)
+
+The open panel should remain small and elegant.
+
+THREE RESULTS:
+
+יהוה
+נכנס 10 פעמים (י׳)
+
+אהיה
+נכנס 12 פעמים (י״ב)
+
+[another מילת יסוד]
+נכנס 4 פעמים (ד׳)
+
+These should appear as three compact refined rows.
+
+No equations.
+No badges.
+No detached Hebrew numerals.
+No wasted empty space.
+
+==================================================
+17. ACCEPTANCE CHECK
+==================================================
+
+The task is complete only when:
+
+1. מילות יסוד logic is unchanged.
+2. One result no longer creates a large empty panel.
+3. Multiple results form a clean compact list.
+4. Each result shows only phrase + נכנס X פעמים (Hebrew numeral).
+5. Empty state is compact.
+6. Split save looks like one deliberate control.
+7. שמור and שמור כמילת יסוד remain separate actions.
+8. RTL is correct.
+9. Mobile is clean.
+10. No database/API/schema changes occurred.
+11. No unrelated UI changed.
+
+After implementation, report:
+
+- files changed
+- UI spacing/height changes
+- split-button refinement
+- responsive verification
+- confirmation that no logic/database/API changed
+- test/build result
+
+Do not perform unrelated refactors.
