@@ -16,7 +16,7 @@ export const MATCH_TYPE_META = Object.freeze({
     badgeClass: 'match-badge--word',
   }),
   milui_gematria: Object.freeze({
-    label: 'גימטריית מילוי',
+    label: 'התאמה במילוי',
     badgeClass: 'match-badge--milui',
   }),
 });

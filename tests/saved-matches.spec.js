@@ -44,7 +44,6 @@ test('live saved-word matches identify and highlight the matching word once', as
 test('live matching shows the dedicated full מילוי badge', async ({ page }) => {
   await loginAndOpenCalculator(page);
   const savedText = 'אבג מילוי';
-  const matchingText = 'יולימ גבא';
   const createResponse = await page.request.post(new URL('/api/entries', page.url()).href, {
     data: { originalText: savedText },
   });
@@ -52,12 +51,13 @@ test('live matching shows the dedicated full מילוי badge', async ({ page })
   const savedId = (await createResponse.json()).id;
 
   try {
+    const matchingText = 'א'.repeat(813);
     await page.locator('.heb-input').fill(matchingText);
     const savedCard = page.locator('.match-panel:visible .match-item').filter({
       has: page.locator('.match-text', { hasText: savedText }),
     });
     await expect(savedCard).toHaveCount(1);
-    await expect(savedCard.locator('.match-badge--milui')).toHaveText('גימטריית מילוי');
+    await expect(savedCard.locator('.match-badge--milui')).toHaveText('התאמה במילוי');
   } finally {
     const cleanup = await page.request.delete(new URL(`/api/entries/${savedId}`, page.url()).href);
     expect(cleanup.ok()).toBe(true);

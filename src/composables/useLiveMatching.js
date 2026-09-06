@@ -4,6 +4,7 @@ export function emptyMatchState() {
   return {
     matches: [],
     isAlreadySaved: false,
+    allMiluiFormsSaved: false,
     error: false,
   };
 }
@@ -77,6 +78,7 @@ export function useLiveMatching(result, options = {}) {
         matches.value = {
           matches: Array.isArray(data.matches) ? data.matches : [],
           isAlreadySaved: data.isAlreadySaved === true,
+          allMiluiFormsSaved: data.allMiluiFormsSaved === true,
           error: false,
         };
       } catch (error) {

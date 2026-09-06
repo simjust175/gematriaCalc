@@ -466,8 +466,8 @@ export async function ensureActiveMiluiCoverage(db = pool, { force = false } = {
   return coverageCheckPromise;
 }
 
-export async function getActiveMiluiMatches(currentText, db = pool) {
-  if (!runtimeMatchingEnabled || !currentText) return [];
+export async function getActiveMiluiMatches(currentValue, db = pool) {
+  if (!runtimeMatchingEnabled || !Number.isInteger(currentValue) || currentValue <= 0) return [];
   if (!schemaAvailable && !(await detectSchema(db))) return [];
   await ensureActiveMiluiCoverage(db);
   const readHealth = () => db.query(
@@ -517,23 +517,47 @@ export async function getActiveMiluiMatches(currentText, db = pool) {
       error.code = 'MILUI_INDEX_UNAVAILABLE';
       throw error;
     }
-    const calculation = calculateMilui(currentText, checked.mapping);
-    if (!calculation?.fullGematria) return [];
 
     const result = await db.query(
-      `SELECT se.id, se.original_text, se.normalized_text,
+      `WITH matching_variants AS (
+         SELECT idx.saved_entry_id,
+                idx.full_milui_gematria AS value,
+                NULL::bigint AS interpretation_id,
+                NULL::text AS expanded_text,
+                'primary'::text AS source
+         FROM saved_entry_milui_index idx
+         WHERE idx.mapping_version = $1
+           AND idx.full_milui_gematria = $2
+         UNION ALL
+         SELECT mode.saved_entry_id,
+                form.full_milui_gematria AS value,
+                form.interpretation_id,
+                form.expanded_text,
+                form.form_id AS source
+         FROM saved_entry_milui_save_modes mode
+         JOIN saved_entry_milui_form_index form
+           ON form.saved_entry_id = mode.saved_entry_id
+         WHERE mode.save_mode = 'all_forms'
+           AND form.full_milui_gematria = $2
+       )
+       SELECT se.id, se.original_text, se.normalized_text,
               se.full_gematria, se.full_gematria_hebrew,
               se.initials, se.initials_gematria, se.initials_gematria_hebrew,
-              se.created_at, idx.full_milui_gematria
-       FROM milui_index_state state
-       JOIN saved_entry_milui_index idx ON idx.mapping_version = state.active_version
-       JOIN saved_entries se ON se.id = idx.saved_entry_id
-       WHERE state.id = $1
-         AND state.matching_enabled = TRUE
-         AND state.active_version = $2
-         AND idx.full_milui_gematria = $3
+              se.created_at, $2::int AS full_milui_gematria,
+              jsonb_agg(
+                jsonb_build_object(
+                  'value', variant.value,
+                  'expandedText', variant.expanded_text,
+                  'interpretationId', variant.interpretation_id,
+                  'source', variant.source
+                )
+                ORDER BY variant.interpretation_id NULLS FIRST
+              ) AS matched_milui_variants
+       FROM matching_variants variant
+       JOIN saved_entries se ON se.id = variant.saved_entry_id
+       GROUP BY se.id
        ORDER BY se.created_at DESC`,
-      [MILUI_STATE_ID, snapshot.active_version, calculation.fullGematria]
+      [snapshot.active_version, currentValue]
     );
     const currentState = await db.query(
       `SELECT active_version

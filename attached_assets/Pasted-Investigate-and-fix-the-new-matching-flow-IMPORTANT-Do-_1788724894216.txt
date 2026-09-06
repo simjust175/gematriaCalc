@@ -1,0 +1,79 @@
+Investigate and fix the new "שמור כל האופנים" מילוי matching flow.
+
+IMPORTANT: Do not assume the UI is wrong. Trace the full persistence + indexing + matching path first.
+
+EXPECTED BEHAVIOR:
+
+Regular "שמור":
+- saves/indexes only the primary/default מילוי for the entry.
+
+"שמור כל האופנים":
+- saves/indexes ALL calculated מילוי variants for that entry separately.
+
+Example:
+
+An entry has מילוי totals:
+
+default = 26
+alternative A = 35
+alternative B = 35
+alternative C = 30
+
+If the user used regular "שמור":
+- current full gematria 26 may match through מילוי
+- current full gematria 35 must NOT match through those alternatives
+
+If the user clicked "שמור כל האופנים":
+- current full gematria 26 must match
+- current full gematria 35 must match
+- current full gematria 30 must match
+
+The live matching lookup must compare the CURRENT FULL GEMATRIA against every persisted מילוי variant that was saved for the entry.
+
+Do not depend on whichever מילוי variant is currently selected/displayed in the calculator.
+
+IMPORTANT DUPLICATE RULE:
+
+If two saved מילוי variants of the same saved entry both equal 35, show that saved entry only ONCE in התאמות שמורות.
+
+Do not create duplicate match cards.
+
+The match should still preserve enough metadata internally to know which variant(s) caused the match.
+
+UI:
+When the match is caused by מילוי, clearly label it:
+"התאמה במילוי"
+
+Where useful, show the exact matched מילוי variant/text/value quietly underneath, but do not make the sidebar complicated.
+
+SAVE BUTTON STATE:
+
+After ordinary save:
+- ordinary button may show "כבר שמור"
+- "שמור כל האופנים" must remain available if all variants have not yet been persisted.
+
+After "שמור כל האופנים" succeeds:
+- make its state clearly indicate that all variants are now saved, e.g.
+  "כל האופנים נשמרו"
+- prevent duplicate persistence if clicked again.
+
+TEST THE FULL FLOW:
+
+1. Create/use an input whose default מילוי = 26 and alternatives include 35, 35, and 30.
+2. Ordinary-save it.
+3. Verify current gematria 35 does NOT produce the alternative-milui match.
+4. Click "שמור כל האופנים".
+5. Verify current gematria 35 DOES now produce a saved match.
+6. Verify current gematria 30 also matches.
+7. Verify duplicate 35 variants do not create duplicate saved-entry cards.
+8. Reload the app and repeat the test to prove persistence.
+9. Verify production-safe behavior and that no existing saved records were deleted or rewritten.
+
+Do not reset, truncate, reseed, or copy databases.
+Do not make destructive schema changes.
+Do not modify unrelated Tanach or מילות יסוד functionality.
+
+Report exactly:
+- what "שמור" persists
+- what "שמור כל האופנים" persists
+- what table/index the matcher reads

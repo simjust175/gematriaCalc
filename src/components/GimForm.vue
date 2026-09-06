@@ -115,8 +115,8 @@
                   :settings-disabled="!miluiSettingsLoaded"
                   :primary-save-disabled="saveStatus === 'loading' || matches.isAlreadySaved"
                   :primary-save-label="matches.isAlreadySaved ? 'כבר שמור' : saveStatus === 'saved' ? 'נשמר' : 'שמור'"
-                  :save-all-disabled="saveAllStatus === 'loading'"
-                  :save-all-label="saveAllStatus === 'loading' ? 'שומר...' : saveAllStatus === 'saved' ? 'כל האופנים נשמרו' : 'שמור כל האופנים'"
+                  :save-all-disabled="saveAllStatus === 'loading' || matches.allMiluiFormsSaved"
+                  :save-all-label="matches.allMiluiFormsSaved || saveAllStatus === 'saved' ? 'כל האופנים נשמרו' : saveAllStatus === 'loading' ? 'שומר...' : 'שמור כל האופנים'"
                   @open-settings="openMiluiSettings"
                   @explicit-total-change="explicitMiluiTotal = $event"
                   @interpretation-saved="miluiMatchRefresh += 1"
@@ -517,9 +517,10 @@ async function saveAllMiluiForms() {
     saveAllStatus.value = 'saved';
     saveStatus.value = 'saved';
     matches.value.isAlreadySaved = true;
+    matches.value.allMiluiFormsSaved = true;
     miluiMatchRefresh.value += 1;
     saveResetTimer = setTimeout(() => {
-      saveAllStatus.value = 'idle';
+      saveAllStatus.value = 'saved';
       saveStatus.value = 'idle';
     }, 3000);
   } catch {

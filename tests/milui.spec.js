@@ -246,4 +246,10 @@ test('save all keeps the primary action dominant and persists every common form'
   const payload = await listed.json();
   expect(payload.interpretations).toHaveLength(4);
   expect(new Set(payload.interpretations.map(item => item.full_milui_gematria)).size).toBe(4);
+
+  await page.reload();
+  await expect(page.locator('.heb-input')).toBeVisible();
+  await page.locator('.heb-input').fill(phrase);
+  await page.locator('.milui-toggle').click();
+  await expect(page.getByRole('button', { name: 'כל האופנים נשמרו' })).toBeDisabled();
 });

@@ -40,6 +40,17 @@ export async function ensureMiluiInterpretationSchema(db) {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    CREATE TABLE IF NOT EXISTS saved_entry_milui_form_index (
+      saved_entry_id INTEGER NOT NULL REFERENCES saved_entries(id) ON DELETE CASCADE,
+      form_id TEXT NOT NULL,
+      full_milui_gematria INTEGER NOT NULL CHECK (full_milui_gematria > 0),
+      expanded_text TEXT NOT NULL,
+      interpretation_id BIGINT REFERENCES explicit_milui_interpretations(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (saved_entry_id, form_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_saved_entry_milui_form_total
+      ON saved_entry_milui_form_index(full_milui_gematria, saved_entry_id);
   `);
 }
 
@@ -248,6 +259,7 @@ export async function saveAllCommonMiluiForms(originalText, db) {
     form,
   ])).values()];
   const results = [];
+  const resultBySelections = new Map();
   for (const form of uniqueForms) {
     const result = await createMiluiInterpretation({
       originalText,
@@ -255,6 +267,43 @@ export async function saveAllCommonMiluiForms(originalText, db) {
       expectedTotal: form.calculation.fullGematria,
     }, db);
     results.push({ ...result, formId: form.id, label: form.label });
+    resultBySelections.set(
+      JSON.stringify(form.calculation.selections.map(selection => [
+        selection.sourceIndex,
+        selection.selectedSpelling,
+      ])),
+      result
+    );
+  }
+  await db.query(
+    `UPDATE explicit_milui_interpretations
+     SET linked_saved_entry_id = $1
+     WHERE normalized_text = $2
+       AND (linked_saved_entry_id IS NULL OR linked_saved_entry_id = $1)`,
+    [savedEntry.id, forms[0].calculation.normalizedText]
+  );
+  for (const form of forms) {
+    const selectionKey = JSON.stringify(form.calculation.selections.map(selection => [
+      selection.sourceIndex,
+      selection.selectedSpelling,
+    ]));
+    const interpretation = resultBySelections.get(selectionKey)?.interpretation;
+    await db.query(
+      `INSERT INTO saved_entry_milui_form_index
+         (saved_entry_id, form_id, full_milui_gematria, expanded_text, interpretation_id)
+       VALUES ($1,$2,$3,$4,$5)
+       ON CONFLICT (saved_entry_id, form_id) DO UPDATE
+         SET full_milui_gematria = EXCLUDED.full_milui_gematria,
+             expanded_text = EXCLUDED.expanded_text,
+             interpretation_id = EXCLUDED.interpretation_id`,
+      [
+        savedEntry.id,
+        form.id,
+        form.calculation.fullGematria,
+        form.calculation.expandedText,
+        interpretation?.id || null,
+      ]
+    );
   }
   await recordMiluiSaveMode(
     savedEntry.id,
@@ -278,6 +327,7 @@ export async function getExplicitMiluiMatches(total, db) {
       `SELECT interpretation.id AS interpretation_id,
               interpretation.original_text AS interpretation_original_text,
               interpretation.full_milui_gematria,
+              interpretation.expanded_text AS interpretation_expanded_text,
               saved.id, saved.original_text, saved.normalized_text,
               saved.full_gematria, saved.full_gematria_hebrew,
               saved.initials, saved.initials_gematria, saved.initials_gematria_hebrew,

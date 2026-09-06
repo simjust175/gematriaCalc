@@ -54,7 +54,7 @@
               גימטריית ר״ת: {{ match.initials_gematria }}
             </span>
             <span v-if="hasMatchType(match, 'milui_gematria')" class="match-detail">
-              גימטריית מילוי: {{ match.full_milui_gematria }}
+              מילוי: {{ matchedMiluiSummary(match) }}
             </span>
           </div>
 
@@ -113,6 +113,21 @@ function highlightParts(match) {
 
 function matchedWordNames(match) {
   return [...new Set((match.matched_words || []).map(word => word.word).filter(Boolean))].join(' ו');
+}
+
+function matchedMiluiSummary(match) {
+  const variants = Array.isArray(match.matched_milui_variants)
+    ? match.matched_milui_variants
+    : [];
+  const labels = variants.map(variant => (
+    variant.expandedText
+      ? `${variant.value} · ${variant.expandedText}`
+      : String(variant.value)
+  ));
+  if (!labels.length && match.full_milui_gematria) {
+    labels.push(String(match.full_milui_gematria));
+  }
+  return [...new Set(labels)].join(' | ');
 }
 </script>
 

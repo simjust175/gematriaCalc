@@ -459,6 +459,7 @@ app.get('/api/matches', requireAuth, async (req, res) => {
 
     const entryMatches = new Map();
     let isAlreadySaved = false;
+    let allMiluiFormsSaved = false;
 
     if (g > 0) {
       // Check if current phrase is already saved
@@ -483,12 +484,16 @@ app.get('/api/matches', requireAuth, async (req, res) => {
           );
         } else {
           chk = await pool.query(
-            `SELECT id FROM saved_entries
-             WHERE tanach_book_slug IS NULL AND normalized_text = $1`,
+            `SELECT entry.id, mode.save_mode
+             FROM saved_entries entry
+             LEFT JOIN saved_entry_milui_save_modes mode
+               ON mode.saved_entry_id = entry.id
+             WHERE entry.tanach_book_slug IS NULL AND entry.normalized_text = $1`,
             [current.normalizedText]
           );
         }
         isAlreadySaved = chk.rows.length > 0;
+        allMiluiFormsSaved = chk.rows.some(row => row.save_mode === 'all_forms');
       }
 
       // Fetch every entry matching at least one entry-level criterion.
@@ -521,11 +526,11 @@ app.get('/api/matches', requireAuth, async (req, res) => {
         });
       }
 
-      // Compare the current text's full מילוי with saved entries calculated
-      // under that same active, completely built mapping version.
+      // Compare the current ordinary full gematria with the active primary
+      // מילוי index and every explicitly persisted all-form interpretation.
       let miluiMatches = [];
       try {
-        miluiMatches = await getActiveMiluiMatches(normalizedText);
+        miluiMatches = await getActiveMiluiMatches(g);
       } catch (miluiError) {
         console.error('Milui matching temporarily unavailable:', miluiError.message);
       }
@@ -537,6 +542,7 @@ app.get('/api/matches', requireAuth, async (req, res) => {
             ...miluiMatch,
             matchTypes: [],
             matched_words: [],
+            matched_milui_variants: [],
           };
           entryMatches.set(miluiMatch.id, result);
         }
@@ -544,6 +550,10 @@ app.get('/api/matches', requireAuth, async (req, res) => {
           result.matchTypes.push('milui_gematria');
         }
         result.full_milui_gematria = miluiMatch.full_milui_gematria;
+        result.matched_milui_variants = [
+          ...(result.matched_milui_variants || []),
+          ...(miluiMatch.matched_milui_variants || []),
+        ];
       }
 
       const explicitMiluiTotal = Number(req.query.explicitMiluiTotal);
@@ -574,6 +584,15 @@ app.get('/api/matches', requireAuth, async (req, res) => {
             result.matchTypes.push('milui_gematria');
           }
           result.full_milui_gematria = explicitMatch.full_milui_gematria;
+          result.matched_milui_variants = [
+            ...(result.matched_milui_variants || []),
+            {
+              value: explicitMatch.full_milui_gematria,
+              expandedText: explicitMatch.interpretation_expanded_text,
+              interpretationId: explicitMatch.interpretation_id,
+              source: 'selected_variant',
+            },
+          ];
           result.explicit_milui_interpretation_ids = [
             ...new Set([
               ...(result.explicit_milui_interpretation_ids || []),
@@ -644,7 +663,7 @@ app.get('/api/matches', requireAuth, async (req, res) => {
       return aPriority - bPriority;
     });
 
-    res.json({ matches, isAlreadySaved });
+    res.json({ matches, isAlreadySaved, allMiluiFormsSaved });
   } catch (err) {
     console.error('/api/matches error:', err.message);
     res.status(500).json({ error: err.message });
