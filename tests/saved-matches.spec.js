@@ -29,7 +29,7 @@ test('live saved-word matches identify and highlight the matching word once', as
     await expect(matchPanel.locator('.match-text')).toHaveText(savedText);
     await expect(matchPanel.locator('.match-text__word')).toHaveCount(1);
     await expect(matchPanel.locator('.match-text__word')).toHaveText('קולי');
-    await expect(matchPanel.locator('.matched-word-detail')).toContainText(/תיבה מתאימה:\s*קולי\s*·\s*146/);
+    await expect(matchPanel.locator('.matched-word-detail')).toContainText(/תיבה מתאימה:\s*קולי/);
 
     await textarea.fill('שלום');
     await expect(matchPanel.locator('.match-item')).toHaveCount(0);

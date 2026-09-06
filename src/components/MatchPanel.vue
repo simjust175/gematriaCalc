@@ -21,48 +21,48 @@
           class="match-item"
           :class="{ 'match-item--full': hasMatchType(match, 'full_gematria') }"
         >
-          <div class="match-text">
-            <template v-if="match.matched_words?.length">
+          <div class="match-item__main">
+            <div class="match-text">
+              <template v-if="match.matched_words?.length">
+                <span
+                  v-for="(part, index) in highlightParts(match)"
+                  :key="`${match.id}-part-${index}`"
+                  :class="{ 'match-text__word': part.highlighted }"
+                >{{ part.text }}</span>
+              </template>
+              <template v-else>{{ match.original_text }}</template>
+            </div>
+            <div v-if="gematria" class="match-value" dir="ltr">{{ gematria }}</div>
+          </div>
+
+          <div class="match-item__meta">
+            <div class="match-badges" aria-label="סיבות להתאמה">
               <span
-                v-for="(part, index) in highlightParts(match)"
-                :key="`${match.id}-part-${index}`"
-                :class="{ 'match-text__word': part.highlighted }"
-              >{{ part.text }}</span>
-            </template>
-            <template v-else>{{ match.original_text }}</template>
-          </div>
+                v-for="type in match.matchTypes"
+                :key="type"
+                class="match-badge"
+                :class="getMatchTypeMeta(type).badgeClass"
+              >
+                {{ getMatchTypeMeta(type).label }}
+              </span>
+            </div>
 
-          <div class="match-badges" aria-label="סיבות להתאמה">
-            <span
-              v-for="type in match.matchTypes"
-              :key="type"
-              class="match-badge"
-              :class="getMatchTypeMeta(type).badgeClass"
-            >
-              {{ getMatchTypeMeta(type).label }}
-            </span>
-          </div>
-
-          <div class="match-details">
-            <span v-if="hasMatchType(match, 'full_gematria')" class="match-detail match-detail--full">
-              גימטריה מלאה: {{ match.full_gematria }}
-            </span>
-            <span v-if="hasMatchType(match, 'initials_text')" class="match-detail">
-              ר״ת: {{ match.initials }}
-            </span>
-            <span v-if="hasMatchType(match, 'initials_gematria')" class="match-detail">
-              גימטריית ר״ת: {{ match.initials_gematria }}
-            </span>
-            <span v-if="hasMatchType(match, 'milui_gematria')" class="match-detail">
-              מילוי: {{ matchedMiluiSummary(match) }}
-            </span>
+            <div class="match-details">
+              <span v-if="hasMatchType(match, 'initials_text')" class="match-detail">
+                ר״ת: {{ match.initials }}
+              </span>
+              <span v-if="hasMatchType(match, 'initials_gematria')" class="match-detail">
+                גימטריית ר״ת: {{ match.initials_gematria }}
+              </span>
+              <span v-if="hasMatchType(match, 'milui_gematria')" class="match-detail">
+                מילוי: {{ matchedMiluiSummary(match) }}
+              </span>
+            </div>
           </div>
 
           <div v-if="match.matched_words?.length" class="matched-word-detail">
             <span>{{ match.matched_words.length > 1 ? 'תיבות מתאימות:' : 'תיבה מתאימה:' }}</span>
             <strong>{{ matchedWordNames(match) }}</strong>
-            <span aria-hidden="true">·</span>
-            <b>{{ match.matched_words[0].gematria }}</b>
           </div>
         </div>
         <button v-if="matches.length > showCount" class="show-more" @click="showCount += 5">
@@ -119,13 +119,11 @@ function matchedMiluiSummary(match) {
   const variants = Array.isArray(match.matched_milui_variants)
     ? match.matched_milui_variants
     : [];
-  const labels = variants.map(variant => (
-    variant.expandedText
-      ? `${variant.value} · ${variant.expandedText}`
-      : String(variant.value)
-  ));
+  const labels = variants
+    .map(variant => variant.expandedText)
+    .filter(Boolean);
   if (!labels.length && match.full_milui_gematria) {
-    labels.push(String(match.full_milui_gematria));
+    labels.push(`ערך ${match.full_milui_gematria}`);
   }
   return [...new Set(labels)].join(' | ');
 }
@@ -135,76 +133,103 @@ function matchedMiluiSummary(match) {
 .match-panel {
   display: flex;
   flex-direction: column;
+  direction: rtl;
 }
 
 .matches-section {
-  background: #fff;
-  border: 1px solid #E6DFD0;
-  border-radius: 10px;
-  padding: 14px 16px;
-  box-shadow: 0 1px 5px rgba(26, 39, 68, 0.035);
+  background: #fffdfa;
+  border: 1px solid #e6dfd0;
+  border-radius: 12px;
+  padding: 13px 15px 11px;
+  box-shadow: 0 2px 8px rgba(26, 39, 68, 0.035);
 }
 
 .matches-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 9px;
+  margin-bottom: 10px;
 }
 
 .matches-title {
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: #6B7A94;
-  text-transform: uppercase;
+  color: #1a2744;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .matches-context {
-  margin-top: 4px;
-  color: #6B7A94;
-  font-size: 0.78rem;
+  margin-top: 3px;
+  color: #77849a;
+  font-size: 0.73rem;
   line-height: 1.35;
 }
 
 .primary-accent {
-  color: #C09840;
-  font-family: "Source Sans Pro", Arial, sans-serif;
+  color: #a27b2d;
+  font-variant-numeric: tabular-nums;
 }
 
 .already-saved-badge {
-  color: #55715c;
-  font-size: 0.7rem;
+  color: #71806f;
+  font-size: 0.68rem;
   font-weight: 600;
-  margin-bottom: 5px;
+  margin: -2px 0 5px;
 }
 
 .match-item {
-  border-radius: 0;
-  padding: 9px 2px;
-  margin-bottom: 0;
+  padding: 9px 2px 10px;
   display: flex;
-  align-items: flex-start;
   flex-direction: column;
-  gap: 3px 8px;
+  align-items: stretch;
+  gap: 5px;
   background: transparent;
   border: 0;
   border-bottom: 1px solid #eee9df;
-  transition: background 0.15s;
+  transition: background 0.15s ease;
 }
 
-.match-item--full { background: transparent; }
+.match-item:last-of-type { border-bottom: 0; }
 
 .match-item:hover,
 .match-item--full:hover { background: #fcfaf5; }
 
+.match-item__main {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
 .match-text {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #1A2744;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #192844;
+  font-size: 0.96rem;
+  font-weight: 700;
   direction: rtl;
   text-align: right;
-  width: 100%;
+  line-height: 1.35;
+}
+
+.match-value {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: baseline;
+  color: #a27b2d;
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.match-item__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px 10px;
+  flex-wrap: wrap;
 }
 
 .match-badges {
@@ -217,70 +242,81 @@ function matchedMiluiSummary(match) {
 .match-badge {
   display: inline-flex;
   align-items: center;
-  min-height: 0;
-  border-radius: 0;
-  padding: 0;
-  font-size: 0.69rem;
+  min-height: 19px;
+  border-radius: 5px;
+  padding: 2px 6px;
+  font-size: 0.64rem;
   font-weight: 600;
   line-height: 1.2;
-  border: 0;
-  background: transparent;
+  border: 1px solid transparent;
+  white-space: nowrap;
 }
 
 .match-badge--full {
-  color: #765812;
+  color: #765b17;
+  background: #f5ecd6;
+  border-color: #eadbb9;
 }
 
 .match-badge--initials {
-  color: #40547A;
+  color: #435c7d;
+  background: #eaf0f6;
+  border-color: #d8e2ec;
 }
 
 .match-badge--initials-gematria {
-  color: #604B7A;
+  color: #66527c;
+  background: #eee9f3;
+  border-color: #e0d8e9;
 }
 
 .match-badge--word, .match-badge--default {
-  color: #456357;
+  color: #4b695e;
+  background: #eaf1ed;
+  border-color: #d9e6de;
 }
 
 .match-badge--milui {
-  color: #765f39;
+  color: #756044;
+  background: #f1ece5;
+  border-color: #e5ddd2;
 }
 
 .match-details {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px 12px;
+  gap: 3px 9px;
   direction: rtl;
-  color: #6B7A94;
-  font-size: 0.75rem;
+  color: #77849a;
+  font-size: 0.69rem;
+  line-height: 1.35;
+}
+
+.match-detail {
+  overflow-wrap: anywhere;
 }
 
 .match-detail--full {
-  color: #8C6A20;
+  color: #a27b2d;
   font-weight: 700;
 }
 
 .matched-word-detail {
   width: 100%;
-  border-top: 0;
-  padding-top: 2px;
+  border-top: 1px solid #edf1f4;
+  padding-top: 5px;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: 4px 6px;
   direction: rtl;
-  font-size: 0.76rem;
-  color: #6B7A94;
+  color: #8290a2;
+  font-size: 0.68rem;
+  line-height: 1.35;
 }
 
 .matched-word-detail strong {
-  color: #1A2744;
-  font-weight: 700;
-}
-
-.matched-word-detail b {
-  color: #8C6A20;
+  color: #395676;
   font-weight: 700;
 }
 
@@ -288,40 +324,60 @@ function matchedMiluiSummary(match) {
   display: inline;
   padding: 1px 4px;
   border-radius: 4px;
-  background: #F5E8C5;
-  color: #624A13;
+  background: #f5e8c5;
+  color: #624a13;
 }
 
 .show-more {
   width: 100%;
-  margin-top: 8px;
+  margin-top: 7px;
   padding: 6px;
-  font-size: 0.78rem;
-  color: #6B7A94;
+  font-size: 0.72rem;
+  color: #718096;
   background: none;
-  border: 1px dashed #D0CBBe;
-  border-radius: 8px;
+  border: 1px dashed #d0cbbe;
+  border-radius: 6px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background 0.15s ease, color 0.15s ease;
   direction: rtl;
 }
 
-.show-more:hover { background: #F7F4EF; color: #1A2744; }
+.show-more:hover { background: #f1f4f6; color: #1a2744; }
 
 .no-matches {
-  font-size: 0.85rem;
-  color: #ADB5BD;
+  font-size: 0.78rem;
+  color: #9aa5b2;
   text-align: center;
-  padding: 12px 0;
+  padding: 15px 0 12px;
   direction: rtl;
 }
 
 .matches-error {
-  color: #9b2c2c;
+  color: #9b4a4a;
   direction: rtl;
-  font-size: .82rem;
+  font-size: .76rem;
   padding: 12px 0;
   text-align: center;
+}
+
+@media (max-width: 520px) {
+  .matches-section {
+    padding-inline: 12px;
+  }
+
+  .match-item__main {
+    align-items: flex-start;
+  }
+
+  .match-value {
+    padding-top: 2px;
+  }
+
+  .match-item__meta {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
 }
 
 </style>
