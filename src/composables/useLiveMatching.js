@@ -58,6 +58,9 @@ export function useLiveMatching(result, options = {}) {
           params.set('start', String(newContext.start));
           params.set('end', String(newContext.end));
         }
+        if (Number.isInteger(newContext?.explicitMiluiTotal) && newContext.explicitMiluiTotal > 0) {
+          params.set('explicitMiluiTotal', String(newContext.explicitMiluiTotal));
+        }
         const response = await fetchImpl(`/api/matches?${params}`, {
           signal: controller.signal,
         });

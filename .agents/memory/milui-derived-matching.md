@@ -1,10 +1,10 @@
 ---
 name: Derived מילוי matching
-description: Product and safety rules for automatic saved-entry מילוי indexing and live matching.
+description: Product and safety rules for automatic מילוי and deliberate occurrence-level variants.
 ---
 
-Saved Hebrew text is the durable object. General מילוי is derived from that text using the current ready mapping; users never save a separate מילוי record or calculation.
+General מילוי remains derived from normally saved Hebrew text using the current ready mapping. A separate explicit interpretation may be saved only when the user deliberately composes accepted variants per letter occurrence.
 
-**Why:** Requiring a second save creates user confusion, while comparing current input against stale or filling-only derived values produces mathematically misleading matches.
+**Why:** Most calculations should stay automatic and simple, but deliberate variant choices must remain reproducible without altering the phrase, base-word collection, or automatic index. Repeated letters may require different choices.
 
-**How to apply:** Ordinary שמור must remain independent and automatically eligible for derived indexing. Compare current full מילוי only with saved full מילוי under the same ready active mapping version. Keep מילוי בלבד display-only unless a separately specified matching mode is introduced. During rebuild or failure, retain the previous ready index or suppress only מילוי matching; never hide ordinary matches or alter saved text.
+**How to apply:** Ordinary שמור remains independent and automatically indexed under one ready version. Explicit variants use additive standalone snapshots with ordered occurrence choices, mapping context, and duplicate protection; request their matches only while that composer is active. Keep מילוי בלבד display-only. Never hide ordinary matches or alter saved data when derived matching fails.

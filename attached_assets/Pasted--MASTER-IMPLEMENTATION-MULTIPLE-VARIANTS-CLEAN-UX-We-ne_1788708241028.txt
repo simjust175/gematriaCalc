@@ -1,0 +1,1101 @@
+# MASTER IMPLEMENTATION — MULTIPLE מילוי VARIANTS, CLEAN UX
+
+We need to generalize the existing multiple-מילוי functionality.
+
+CURRENT PROBLEM:
+
+The app currently exposes the special multiple-milui treatment mainly for:
+
+יהוה
+
+via the canonical מילויי הוי״ה area.
+
+The client wants multiple valid מילוי spellings to be available ANYWHERE in the calculator when the current Hebrew word/phrase contains letters for which more than one accepted מילוי spelling exists.
+
+However:
+
+THE APP MUST REMAIN EXTREMELY SIMPLE.
+
+Do NOT show every possible permutation.
+Do NOT generate a giant table of combinations.
+Do NOT turn מילוי into a configuration dashboard.
+
+The UX principle is:
+
+DEFAULT = one simple מילוי result.
+
+ADVANCED VARIANTS = only appear when relevant.
+
+USER CHOOSES one exact interpretation.
+
+APP shows ONE live result.
+
+USER may explicitly save THAT interpretation.
+
+==================================================
+1. PRODUCT MODEL
+==================================================
+
+There are now two different milui concepts:
+
+A. DEFAULT / CURRENT מילוי
+
+This is the normal calculation using the active default מילוי mapping.
+
+It remains automatic.
+
+It does NOT require a separate save.
+
+--------------------------------------------------
+
+B. EXPLICIT MULTI-VARIANT מילוי INTERPRETATION
+
+If the current text contains a letter occurrence with multiple accepted spellings, the user may deliberately choose among those spellings.
+
+That exact chosen combination is an interpretation.
+
+The user may explicitly preserve it using:
+
+שמור מילוי זה
+
+This is NOT the same as normal:
+
+שמור
+
+and NOT the same as:
+
+שמור כמילת יסוד
+
+==================================================
+2. THREE DISTINCT USER INTENTIONS
+==================================================
+
+Keep these concepts cleanly separate:
+
+### שמור
+Save the Hebrew phrase normally.
+
+### שמור כמילת יסוד
+Promote the complete phrase into the curated מילות יסוד collection.
+
+### שמור מילוי זה
+Preserve this exact user-selected מילוי interpretation.
+
+Do not blur these concepts together.
+
+==================================================
+3. DO NOT SHOW MULTI-VARIANT UI UNLESS RELEVANT
+==================================================
+
+For a normal word where every letter currently has one accepted מילוי spelling:
+
+show the normal מילוי UI only.
+
+Do NOT show:
+
+אפשרויות מילוי
+
+Do NOT show disabled controls.
+
+Do NOT show explanatory clutter.
+
+--------------------------------------------------
+
+If one or more letter occurrences have multiple accepted spellings:
+
+show a small secondary trigger:
+
+אפשרויות מילוי
+
+Optionally include a subtle count such as:
+
+אפשרויות מילוי · 2
+
+where the count refers to the number of relevant ambiguous letter occurrences/types, whichever is clearest in the existing architecture.
+
+Do not make the count visually important.
+
+==================================================
+4. THE TRIGGER MUST BE SUBORDINATE
+==================================================
+
+Inside the existing מילוי disclosure:
+
+show the normal result first.
+
+Then, only if variants exist:
+
+אפשרויות מילוי
+
+This should feel like an advanced disclosure.
+
+It should NOT compete visually with the main מילוי result.
+
+Use:
+- small text
+- subtle chevron
+- restrained gold/navy interaction
+- no giant card
+- no large icon
+
+==================================================
+5. OPEN VARIANT COMPOSER
+==================================================
+
+When the user opens:
+
+אפשרויות מילוי
+
+show a compact variant composer.
+
+Conceptually:
+
+אפשרויות מילוי
+
+ה    [ ה״א ] [ ה״י ] [ ה״ה ]
+ו    [ ו״ו ] [ וא״ו ] [ וי״ו ]
+
+--------------------------------
+
+המילוי הנבחר
+1,248
+
+[ שמור מילוי זה ]
+
+This is conceptual.
+
+Adapt to the existing design system.
+
+==================================================
+6. ONE RESULT AT A TIME
+==================================================
+
+Very important:
+
+DO NOT calculate and display every possible combination as separate result cards.
+
+If:
+- ה has 3 possibilities
+- ו has 3 possibilities
+
+do NOT show 9 result cards.
+
+Instead:
+
+the user chooses one option for each relevant letter occurrence.
+
+The result recalculates instantly.
+
+There is ONE currently selected interpretation and ONE visible total.
+
+This prevents combinatorial UI explosion.
+
+==================================================
+7. VARIANT REGISTRY — GENERALIZE THE ENGINE
+==================================================
+
+Do NOT hard-code the feature only to יהוה.
+
+Create/reuse a clean configuration model:
+
+Hebrew letter
+→ accepted מילוי spellings
+
+Example conceptually:
+
+ה:
+- הא
+- הי
+- הה
+
+ו:
+- וו
+- ואו
+- ויו
+
+Only seed forms that are already confirmed by the application's/client's accepted rules.
+
+Do NOT invent additional accepted spellings.
+
+The architecture must allow additional letters/variants to be added later without redesigning the feature.
+
+==================================================
+8. IMPORTANT — DO NOT ASSUME ONLY THREE LETTERS
+==================================================
+
+The code must NOT assume:
+
+"exactly three letters have alternatives."
+
+It should support:
+
+0
+1
+2
+3
+or more letters
+
+with multiple accepted spellings.
+
+The accepted variant registry is data/configuration.
+
+The UI derives from it.
+
+==================================================
+9. USE ORIGINAL DISPLAY TEXT
+==================================================
+
+Normalize for detection/calculation using the existing Hebrew normalization utilities.
+
+Preserve the original user's Hebrew text for display.
+
+Do not mutate the visible phrase.
+
+Continue handling:
+- niqqud
+- cantillation
+- punctuation
+- finals
+- existing normalization rules
+
+consistently with the rest of the app.
+
+==================================================
+10. DEFAULT SELECTION
+==================================================
+
+When opening אפשרויות מילוי:
+
+preselect the currently active/default general מילוי spelling for each ambiguous letter where possible.
+
+Therefore opening the selector should initially produce the SAME result as the normal current מילוי result.
+
+The user can then deliberately change one or more variants.
+
+Do not force the user to rebuild the whole מילוי from scratch.
+
+==================================================
+11. LIVE RECALCULATION
+==================================================
+
+Changing any chip/option must recalculate immediately.
+
+No:
+
+חשב
+
+button.
+
+No:
+
+החל
+
+button.
+
+Selection → instant result.
+
+This is consistent with the rest of the calculator.
+
+==================================================
+12. VISUAL CHOICE CONTROL
+==================================================
+
+Use compact segmented chips/buttons.
+
+Example:
+
+ה
+
+[ ה״א ] [ ה״י ] [ ה״ה ]
+
+Selected:
+- restrained gold border/background tint
+- clear selected state
+- accessible aria-selected / equivalent
+
+Unselected:
+- cream/white
+- warm border
+- navy text
+
+No bright colors.
+No gradients.
+No oversized controls.
+
+==================================================
+13. REPEATED LETTER OCCURRENCES — IMPORTANT
+==================================================
+
+Do NOT assume that two occurrences of the same ambiguous letter must always share one choice.
+
+Internally model selections PER LETTER OCCURRENCE.
+
+Example:
+
+If the phrase contains two separate ה occurrences:
+
+the architecture must be capable of representing:
+
+ה occurrence 1 → ה״א
+ה occurrence 2 → ה״י
+
+even if most users usually choose the same spelling.
+
+This avoids locking the engine into an assumption that may later prove religiously/semantically incorrect.
+
+==================================================
+14. KEEP REPEATED-LETTER UI CLEAN
+==================================================
+
+If an ambiguous letter appears only once:
+
+show simply:
+
+ה
+[ ה״א ] [ ה״י ] [ ה״ה ]
+
+If the same ambiguous letter appears multiple times:
+
+show compact occurrence labels only when necessary.
+
+For example:
+
+ה · 1
+[ ה״א ] [ ה״י ] [ ה״ה ]
+
+ה · 2
+[ ה״א ] [ ה״י ] [ ה״ה ]
+
+Prefer a more natural Hebrew/context-aware label if the existing UI can show a tiny local word context.
+
+Do NOT create confusing developer-style labels.
+
+==================================================
+15. OPTIONAL GROUPING FOR REPEATED OCCURRENCES
+==================================================
+
+If all repeated occurrences initially use the same default choice, it is acceptable to visually group them for compactness.
+
+However:
+
+the user must still be able to separate/edit individual occurrences if needed.
+
+Do NOT sacrifice correctness merely to save pixels.
+
+==================================================
+16. RESULT AREA
+==================================================
+
+Under the selectors show:
+
+המילוי הנבחר
+
+then prominently:
+
+1,248
+
+Optionally show the expanded spelling underneath in smaller text.
+
+Example:
+
+אלף למד פה ...
+
+Do NOT display:
+- huge equations
+- every branch
+- every alternative total
+- giant cards
+
+The selected total is the main result.
+
+==================================================
+17. SAVE ACTION — ONLY HERE
+==================================================
+
+Inside the OPEN advanced variant composer include:
+
+שמור מילוי זה
+
+This is the correct place for the dedicated save action.
+
+Do NOT place it:
+- in the main calculator save menu
+- beside the primary שמור
+- permanently outside אפשרויות מילוי
+- in navigation
+
+It should appear only when the user is actively looking at/changing an explicit מילוי interpretation.
+
+==================================================
+18. WHY SAVE EXISTS HERE
+==================================================
+
+The dedicated save exists because the user has made a deliberate semantic/calculation choice.
+
+They are saying:
+
+"Preserve THIS exact variant combination."
+
+This differs from ordinary automatic מילוי.
+
+Therefore:
+
+normal default מילוי remains derived/automatic.
+
+explicit variant composition may be intentionally saved.
+
+==================================================
+19. WHAT A SAVED VARIANT MUST PRESERVE
+==================================================
+
+Persist enough information to reproduce the chosen interpretation exactly.
+
+Conceptually store:
+
+- id
+- original_text
+- normalized_text
+- calculation_mode
+- total
+- ordered per-occurrence selections
+- expanded milui representation
+- mapping/variant-definition version or fingerprint
+- created_at
+- optional linked_saved_entry_id
+
+Use project conventions for exact names.
+
+==================================================
+20. PER-OCCURRENCE SELECTION DATA
+==================================================
+
+Do NOT save only:
+
+"ה = הי"
+
+if the phrase contains multiple ה occurrences.
+
+Persist ordered occurrence-level choices.
+
+Conceptually:
+
+[
+  {
+    sourceIndex: ...,
+    letter: "ה",
+    selectedSpelling: "הי"
+  },
+  {
+    sourceIndex: ...,
+    letter: "ו",
+    selectedSpelling: "ואו"
+  }
+]
+
+Use a robust equivalent representation.
+
+It must reproduce exactly what the user selected.
+
+==================================================
+21. NORMAL SAVE IS STILL INDEPENDENT
+==================================================
+
+Pressing:
+
+שמור
+
+does NOT automatically create an explicit variant snapshot.
+
+Pressing:
+
+שמור מילוי זה
+
+does NOT automatically create a normal SavedEntry.
+
+If the same phrase already exists in saved entries, it is fine to link it.
+
+Do not require that link.
+
+==================================================
+22. DUPLICATE PREVENTION
+==================================================
+
+Do not save exact duplicate explicit interpretations.
+
+Duplicate identity should include at least:
+
+- normalized text
+- calculation mode
+- ordered occurrence-level selections
+- resulting total
+
+If identical:
+
+show:
+
+כבר נשמר
+
+Do not insert another record.
+
+==================================================
+23. SUCCESS FEEDBACK
+==================================================
+
+On save:
+
+המילוי נשמר
+
+or:
+
+המילוי הזה נשמר
+
+Use the most natural wording consistent with the app.
+
+Temporary feedback only.
+
+Then restore the button to:
+
+שמור מילוי זה
+
+==================================================
+24. EDITING A VARIANT AFTER SAVE
+==================================================
+
+If the user changes a selector after saving:
+
+the UI should treat that as a NEW interpretation.
+
+The previous saved variant remains intact.
+
+The save button becomes available again for the newly selected combination.
+
+Do not overwrite historical interpretations silently.
+
+==================================================
+25. SAVED VARIANT MATCHING
+==================================================
+
+Explicitly saved variant interpretations should participate in מילוי matching.
+
+But keep two concepts distinct:
+
+A. automatic/default milui matching
+B. explicit saved-variant matching
+
+The existing matching engine must not become confusing.
+
+If a current explicit selected variant total equals a saved explicit variant total under the same mode:
+
+it may surface as:
+
+התאמת מילוי
+
+Do not clutter the match card with technical variant metadata.
+
+==================================================
+26. DEFAULT MILUI MATCHING REMAINS
+==================================================
+
+Do NOT remove the previously approved automatic matching behavior for normal saved phrases using the current/default active milui rules.
+
+That remains useful.
+
+Explicit saved variants are ADDITIONAL deliberate interpretations.
+
+Do not make users save variants just to retain normal milui matching.
+
+==================================================
+27. AVOID DUPLICATE MATCH RESULTS
+==================================================
+
+If the same saved phrase matches both:
+
+- automatic/default milui
+and
+- an explicit saved variant
+
+do not show two visually duplicate cards.
+
+Merge/deduplicate presentation sensibly.
+
+If useful, preserve reasons internally.
+
+Keep the user-facing match list simple.
+
+==================================================
+28. CANONICAL מילויי הוי״ה
+==================================================
+
+Preserve the canonical:
+
+ע״ב · 72
+ס״ג · 63
+מ״ה · 45
+ב״ן · 52
+
+These remain fixed canonical presets.
+
+However, the new generic variant engine should not be conceptually restricted to שם הוי״ה.
+
+If the current architecture can cleanly reuse the same low-level variant definitions, do so carefully.
+
+Do NOT destroy the special canonical הוי״ה presentation.
+
+==================================================
+29. WHEN יהוה IS ENTERED
+==================================================
+
+For יהוה, the user may potentially see:
+
+- normal מילוי
+- generic אפשרויות מילוי if variant letters are present
+- canonical מילויי הוי״ה
+
+Avoid duplicating the same information awkwardly.
+
+The UI hierarchy should be:
+
+מילוי רגיל
+
+אפשרויות מילוי
+(if user wants to compose manually)
+
+מילויי הוי״ה
+(canonical traditional presets)
+
+Keep each compact.
+
+Do NOT show giant duplicate sections.
+
+==================================================
+30. CANONICAL PRESET → VARIANT COMPOSER
+==================================================
+
+A high-quality UX enhancement:
+
+when the user clicks a canonical preset such as:
+
+ע״ב
+
+the generic variant composer may update its selections to the corresponding canonical spelling combination.
+
+Likewise:
+
+ס״ג
+מ״ה
+ב״ן
+
+This is excellent UX IF it can be implemented cleanly and safely.
+
+Example:
+
+click ע״ב
+→ per-occurrence selectors reflect:
+יו״ד ה״י וי״ו ה״י
+→ selected result = 72
+
+This creates one coherent system rather than two disconnected calculators.
+
+Do this only if implementation is reliable.
+
+==================================================
+31. DO NOT SHOW PERMUTATIONS
+==================================================
+
+Explicitly prohibit:
+
+"9 possible results"
+"27 combinations"
+grids of all totals
+tables of combinations
+carousel of alternatives
+
+The user composes one interpretation.
+
+One interpretation → one result.
+
+==================================================
+32. RESPONSIVE UX
+==================================================
+
+Desktop:
+
+letter label + variant chips may fit comfortably in one horizontal row.
+
+Mobile:
+
+stack label and chips naturally.
+
+Do not shrink text excessively.
+
+No horizontal page overflow.
+
+The expanded advanced section should remain compact.
+
+==================================================
+33. ACCESSIBILITY
+==================================================
+
+Variant choices must support:
+
+- keyboard navigation
+- visible focus
+- selected state beyond color alone
+- semantic buttons/radio-group behavior
+- correct RTL order
+- touch targets
+
+Do not sacrifice usability for visual minimalism.
+
+==================================================
+34. RTL
+==================================================
+
+Audit carefully:
+
+אפשרויות מילוי
+המילוי הנבחר
+שמור מילוי זה
+כבר נשמר
+המילוי נשמר
+
+Ensure:
+- chips flow correctly
+- punctuation is correct
+- Hebrew numerals display correctly
+- repeated occurrence labels read naturally
+
+==================================================
+35. DESIGN LANGUAGE
+==================================================
+
+Keep the current premium app language:
+
+- cream/off-white
+- navy
+- restrained gold
+- thin warm borders
+- subtle shadows
+- current typography
+- current radius
+
+Do not add:
+- gradients
+- bright colors
+- illustrations
+- dashboard cards
+- oversized icons
+
+==================================================
+36. PRODUCTION DATABASE SAFETY
+==================================================
+
+This app is actively used by the client.
+
+Any schema work must be ADDITIVE ONLY.
+
+Do NOT:
+
+- DROP
+- TRUNCATE
+- reset
+- reseed
+- recreate
+- overwrite production
+- copy dev DB over production
+- delete SavedEntry
+- delete SavedWord
+- modify Tanach corpus
+- modify מילות יסוד
+- destroy existing milui index/history
+
+If Publishing offers:
+
+Copy your development database to production database
+
+KEEP IT UNCHECKED.
+
+==================================================
+37. PREFER ADDITIVE EXPLICIT-VARIANT STORAGE
+==================================================
+
+If no suitable existing table exists, add a dedicated additive table for explicitly saved variant interpretations.
+
+Do NOT repurpose or rewrite ordinary SavedEntry rows.
+
+Do NOT overload מילות יסוד.
+
+Do NOT overwrite derived saved_entry_milui_index rows.
+
+These are separate concepts.
+
+==================================================
+38. MIGRATION SAFETY
+==================================================
+
+Before production schema change:
+
+record counts for important existing tables.
+
+After migration verify:
+
+SavedEntry deleted = 0
+SavedWord deleted = 0
+Tanach changed = 0
+מילות יסוד changed = 0
+existing milui preference data changed destructively = 0
+
+Only new additive explicit-variant data/storage may be introduced.
+
+==================================================
+39. TEST — NO VARIANTS
+==================================================
+
+Input a phrase containing no multi-variant letters.
+
+Expected:
+
+normal מילוי works.
+
+No:
+
+אפשרויות מילוי
+
+trigger appears.
+
+==================================================
+40. TEST — ONE AMBIGUOUS LETTER
+==================================================
+
+Input a word containing one letter with 3 accepted spellings.
+
+Expected:
+
+אפשרויות מילוי appears.
+
+Opening it shows exactly 3 compact choices.
+
+Default choice matches current general mapping.
+
+Changing choice immediately recalculates one total.
+
+==================================================
+41. TEST — MULTIPLE AMBIGUOUS LETTERS
+==================================================
+
+Input a word/phrase containing:
+
+ה
+and
+ו
+
+with multiple variants.
+
+Expected:
+
+selectors for both appear.
+
+Changing either updates ONE current selected result.
+
+No permutation grid is created.
+
+==================================================
+42. TEST — REPEATED SAME LETTER
+==================================================
+
+Input a phrase containing the same ambiguous letter twice.
+
+Verify architecture tracks both occurrences independently.
+
+Change occurrence 1 without forcing occurrence 2 to change.
+
+Result recalculates correctly.
+
+==================================================
+43. TEST — SAVE EXACT INTERPRETATION
+==================================================
+
+Choose:
+
+occurrence A → variant 1
+occurrence B → variant 3
+
+Press:
+
+שמור מילוי זה
+
+Verify:
+
+exact ordered selections are persisted.
+
+Reload.
+
+Verify:
+
+saved interpretation can be reconstructed exactly.
+
+==================================================
+44. TEST — DUPLICATE
+==================================================
+
+Save same:
+
+text
+mode
+ordered selections
+total
+
+again.
+
+Expected:
+
+no duplicate.
+
+Show:
+
+כבר נשמר
+
+==================================================
+45. TEST — NEW COMBINATION
+==================================================
+
+Change one occurrence to another accepted spelling.
+
+Expected:
+
+new total.
+
+Expected:
+
+שמור מילוי זה
+
+is available again.
+
+Saving creates a distinct intentional interpretation.
+
+Old saved one remains.
+
+==================================================
+46. TEST — NORMAL SAVE INDEPENDENCE
+==================================================
+
+Press:
+
+שמור
+
+Verify:
+
+normal phrase saving remains unchanged.
+
+No explicit variant interpretation is created automatically.
+
+==================================================
+47. TEST — DEFAULT MATCHING STILL WORKS
+==================================================
+
+Existing automatic/current-mapping milui matching must continue working for ordinary saved entries.
+
+Do not regress it.
+
+==================================================
+48. TEST — EXPLICIT VARIANT MATCHING
+==================================================
+
+Create an explicitly saved variant interpretation.
+
+Create/select another phrase with same explicit milui total and same calculation mode.
+
+Verify:
+
+matching works without exposing technical selection metadata.
+
+==================================================
+49. TEST — יהוה CANONICAL PRESETS
+==================================================
+
+Verify:
+
+ע״ב = 72
+ס״ג = 63
+מ״ה = 45
+ב״ן = 52
+
+remain correct.
+
+If canonical preset → generic selector synchronization was implemented, verify each preset creates the correct occurrence-level selections.
+
+==================================================
+50. FINAL UX TARGET
+==================================================
+
+For most words:
+
+מילוי
+[current result]
+
+Nothing more.
+
+--------------------------------------------------
+
+For a word with variant possibilities:
+
+מילוי
+[current result]
+
+אפשרויות מילוי ˅
+
+--------------------------------------------------
+
+When opened:
+
+אפשרויות מילוי
+
+ה
+[ ה״א ] [ ה״י ] [ ה״ה ]
+
+ו
+[ ו״ו ] [ וא״ו ] [ וי״ו ]
+
+המילוי הנבחר
+1,248
+
+[ שמור מילוי זה ]
+
+That is the entire experience.
+
+Simple by default.
+Powerful on demand.
+One interpretation at a time.
+No combinatorial clutter.
+
+==================================================
+51. REQUIRED IMPLEMENTATION REPORT
+==================================================
+
+After implementation report:
+
+1. files changed
+2. variant-registry structure
+3. which accepted variants are currently seeded
+4. how relevant letters are detected
+5. how per-occurrence selections are represented
+6. how repeated letters are handled
+7. how live recalculation works
+8. how explicit saved interpretations are stored
+9. duplicate-prevention rule
+10. how explicit variant matching integrates with existing matching
+11. confirmation automatic/default milui matching still works
+12. confirmation canonical ע״ב/ס״ג/מ״ה/ב״ן remain correct
+13. schema changes, if any
+14. before/after production data counts
+15. test results
+16. production build result
+17. confirmation no destructive production changes occurred
+
+Do not perform unrelated refactors.
+
+If the current code architecture conflicts with this plan, adapt implementation details while preserving the UX and data semantics above.
+
+If a destructive production change would be required:
+
+STOP and report the conflict instead.

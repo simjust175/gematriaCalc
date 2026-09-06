@@ -4,9 +4,12 @@ import { calcGematria } from '../src/composables/useGematria.js';
 import {
   CANONICAL_HAVAYAH_MILUI,
   MILUI_DEFAULT_MAPPING,
+  MILUI_VARIANT_REGISTRY,
+  calculateMiluiVariant,
   calculateMilui,
   cloneMiluiMapping,
   containsStandaloneHavayah,
+  getMiluiVariantOccurrences,
 } from '../src/utils/milui.js';
 
 test('canonical מילויי הוי״ה spellings have their fixed traditional values', () => {
@@ -66,4 +69,33 @@ test('standalone שם הוי״ה detection is mark-tolerant and token-safe', () 
   for (const value of misses) {
     assert.equal(containsStandaloneHavayah(value), false, value);
   }
+});
+
+test('variant registry contains only the confirmed ה and ו spellings', () => {
+  assert.deepEqual(MILUI_VARIANT_REGISTRY, {
+    ה: ['הא', 'הי', 'הה'],
+    ו: ['וו', 'ואו', 'ויו'],
+  });
+  assert.equal(getMiluiVariantOccurrences('אב', MILUI_DEFAULT_MAPPING).length, 0);
+  assert.deepEqual(
+    getMiluiVariantOccurrences('הו', MILUI_DEFAULT_MAPPING).map(item => item.defaultSpelling),
+    ['הא', 'ואו']
+  );
+});
+
+test('repeated ambiguous letters retain independent occurrence-level choices', () => {
+  const occurrences = getMiluiVariantOccurrences('ההו', MILUI_DEFAULT_MAPPING);
+  const selections = occurrences.map((occurrence, index) => ({
+    ...occurrence,
+    selectedSpelling: ['הי', 'הה', 'וו'][index],
+  }));
+  const calculation = calculateMiluiVariant('ההו', MILUI_DEFAULT_MAPPING, selections);
+
+  assert.deepEqual(
+    calculation.selections.map(item => [item.sourceIndex, item.letter, item.selectedSpelling]),
+    [[0, 'ה', 'הי'], [1, 'ה', 'הה'], [2, 'ו', 'וו']]
+  );
+  assert.equal(calculation.expandedText, 'הי הה וו');
+  assert.equal(calculation.fullGematria, calcGematria('הי הה וו'));
+  assert.equal(calculation.words.length, 1);
 });

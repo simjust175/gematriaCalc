@@ -19,7 +19,9 @@ import { createTanachCursor } from '../src/composables/useTanachCursor.js';
 import {
   MILUI_DEFAULT_MAPPING,
   calculateMilui,
+  calculateMiluiVariant,
   cloneMiluiMapping,
+  getMiluiVariantOccurrences,
 } from '../src/utils/milui.js';
 
 // Set required env vars before importing the app
@@ -438,6 +440,123 @@ test('מילוי settings persist and never mutate saved gematria records', asyn
     assert.deepEqual(savedWordsAfter.rows, savedWordsBefore.rows);
   } finally {
     await agent.put('/api/settings/milui').send({ mapping: originalSettings.body.mapping });
+  }
+});
+
+test('explicit מילוי interpretations persist exact occurrences, deduplicate, and merge into matching', async () => {
+  const agent = request.agent(app);
+  await agent.post('/api/auth/login').send({ password: 'correct-test-password-12345' });
+  const settings = await agent.get('/api/settings/milui');
+  assert.equal(settings.status, 200);
+
+  const uniqueSuffix = uniqueHebrewToken().replace(/[הו]/g, 'ז');
+  const originalText = `ההו ${uniqueSuffix}`;
+  const occurrences = getMiluiVariantOccurrences(originalText, settings.body.mapping);
+  assert.equal(occurrences.length, 3);
+  const selections = occurrences.map((occurrence, index) => ({
+    sourceIndex: occurrence.sourceIndex,
+    wordIndex: occurrence.wordIndex,
+    letterIndex: occurrence.letterIndex,
+    letter: occurrence.letter,
+    selectedSpelling: ['הי', 'הה', 'וו'][index],
+  }));
+  const calculation = calculateMiluiVariant(originalText, settings.body.mapping, selections);
+  const interpretationIds = [];
+  let savedEntryId;
+
+  try {
+    const created = await agent.post('/api/milui-interpretations').send({
+      originalText,
+      selections,
+      expectedTotal: calculation.fullGematria,
+    });
+    assert.equal(created.status, 201);
+    interpretationIds.push(created.body.id);
+    assert.equal(created.body.normalized_text, calculation.normalizedText);
+    assert.equal(created.body.full_milui_gematria, calculation.fullGematria);
+    assert.equal(created.body.expanded_text, calculation.expandedText);
+    assert.deepEqual(
+      created.body.selections.map(item => [item.sourceIndex, item.selectedSpelling]),
+      calculation.selections.map(item => [item.sourceIndex, item.selectedSpelling])
+    );
+
+    const duplicate = await agent.post('/api/milui-interpretations').send({
+      originalText,
+      selections,
+      expectedTotal: calculation.fullGematria,
+    });
+    assert.equal(duplicate.status, 409);
+    assert.equal(duplicate.body.error, 'interpretation_already_exists');
+    assert.equal(duplicate.body.interpretation.id, created.body.id);
+
+    const changedSelections = selections.map((selection, index) => (
+      index === 0 ? { ...selection, selectedSpelling: 'הא' } : selection
+    ));
+    const changedCalculation = calculateMiluiVariant(
+      originalText,
+      settings.body.mapping,
+      changedSelections
+    );
+    const changed = await agent.post('/api/milui-interpretations').send({
+      originalText,
+      selections: changedSelections,
+      expectedTotal: changedCalculation.fullGematria,
+    });
+    assert.equal(changed.status, 201);
+    interpretationIds.push(changed.body.id);
+    assert.notEqual(changed.body.id, created.body.id);
+
+    const listed = await agent.get('/api/milui-interpretations').query({
+      normalizedText: calculation.normalizedText,
+    });
+    assert.equal(listed.status, 200);
+    assert.equal(listed.body.interpretations.length, 2);
+    assert.ok(listed.body.interpretations.every(item => item.mapping_snapshot));
+
+    const unlinkedMatch = await agent.get('/api/matches').query({
+      normalizedText: originalText,
+      explicitMiluiTotal: calculation.fullGematria,
+    });
+    assert.equal(unlinkedMatch.status, 200);
+    const explicitCard = unlinkedMatch.body.matches.find(
+      item => item.original_text === originalText
+        && item.explicit_milui_interpretation_ids?.includes(created.body.id)
+    );
+    assert.ok(explicitCard?.matchTypes.includes('milui_gematria'));
+
+    const interpretationCountBeforeNormalSave = await pool.query(
+      'SELECT COUNT(*)::int AS count FROM explicit_milui_interpretations WHERE normalized_text = $1',
+      [calculation.normalizedText]
+    );
+    const normalSave = await agent.post('/api/entries').send({ originalText });
+    assert.equal(normalSave.status, 200);
+    savedEntryId = normalSave.body.id;
+    const interpretationCountAfterNormalSave = await pool.query(
+      'SELECT COUNT(*)::int AS count FROM explicit_milui_interpretations WHERE normalized_text = $1',
+      [calculation.normalizedText]
+    );
+    assert.equal(
+      interpretationCountAfterNormalSave.rows[0].count,
+      interpretationCountBeforeNormalSave.rows[0].count
+    );
+
+    const merged = await agent.get('/api/matches').query({
+      normalizedText: originalText,
+      explicitMiluiTotal: calculation.fullGematria,
+    });
+    assert.equal(merged.status, 200);
+    const mergedRows = merged.body.matches.filter(item => item.id === savedEntryId);
+    assert.equal(mergedRows.length, 1);
+    assert.ok(mergedRows[0].matchTypes.includes('full_gematria'));
+    assert.ok(mergedRows[0].matchTypes.includes('milui_gematria'));
+  } finally {
+    if (savedEntryId) await agent.delete(`/api/entries/${savedEntryId}`);
+    if (interpretationIds.length) {
+      await pool.query(
+        'DELETE FROM explicit_milui_interpretations WHERE id = ANY($1::bigint[])',
+        [interpretationIds]
+      );
+    }
   }
 });
 

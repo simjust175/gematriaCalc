@@ -83,6 +83,13 @@ export const MILUI_DEFAULT_MAPPING = Object.freeze({
   ת: 'תו',
 });
 
+export const MILUI_VARIANT_REGISTRY_VERSION = '2026-09-06-1';
+
+export const MILUI_VARIANT_REGISTRY = Object.freeze({
+  ה: Object.freeze(['הא', 'הי', 'הה']),
+  ו: Object.freeze(['וו', 'ואו', 'ויו']),
+});
+
 function baseLetter(letter) {
   return MILUI_FINAL_TO_BASE[letter] || letter;
 }
@@ -131,9 +138,9 @@ export function isDefaultMiluiMapping(mapping) {
   return MILUI_BASE_LETTERS.every(letter => mapping?.[letter] === MILUI_DEFAULT_MAPPING[letter]);
 }
 
-function getLetterDetail(letter, mapping) {
+function getLetterDetail(letter, mapping, selectedSpelling = null) {
   const base = baseLetter(letter);
-  const spelling = mapping[base];
+  const spelling = selectedSpelling || mapping[base];
   const fillingOnly = spelling.slice(1);
   return {
     letter,
@@ -145,8 +152,10 @@ function getLetterDetail(letter, mapping) {
   };
 }
 
-function getWordResult(word, mapping, position) {
-  const letters = [...word].map(letter => getLetterDetail(letter, mapping));
+function getWordResult(word, mapping, position, spellingForLetter = null) {
+  const letters = [...word].map((letter, letterIndex) => (
+    getLetterDetail(letter, mapping, spellingForLetter?.(letter, letterIndex))
+  ));
   const expandedText = letters.map(detail => detail.spelling).join(' ');
   const fullGematria = letters.reduce((total, detail) => total + detail.fullValue, 0);
   const fillingOnlyGematria = letters.reduce((total, detail) => total + detail.fillingOnlyValue, 0);
@@ -187,5 +196,98 @@ export function calculateMilui(text, mapping = MILUI_DEFAULT_MAPPING) {
     fillingOnlyGematria,
     fillingOnlyHebrewNumber: toHebrewNumber(fillingOnlyGematria),
     words,
+  };
+}
+
+export function formatMiluiVariantSpelling(spelling) {
+  const letters = [...String(spelling || '')];
+  if (letters.length < 2) return String(spelling || '');
+  return `${letters.slice(0, -1).join('')}״${letters.at(-1)}`;
+}
+
+export function getMiluiVariantOccurrences(text, mapping = MILUI_DEFAULT_MAPPING) {
+  const checked = normalizeMiluiMapping(mapping);
+  if (!checked.valid) throw new Error(checked.error);
+  const normalizedText = normalize(text || '');
+  if (!normalizedText) return [];
+
+  let sourceIndex = 0;
+  const occurrences = [];
+  normalizedText.split(/\s+/).filter(Boolean).forEach((word, wordIndex) => {
+    [...word].forEach((letter, letterIndex) => {
+      const base = baseLetter(letter);
+      const acceptedSpellings = MILUI_VARIANT_REGISTRY[base];
+      if (acceptedSpellings?.length > 1) {
+        const defaultSpelling = acceptedSpellings.includes(checked.mapping[base])
+          ? checked.mapping[base]
+          : acceptedSpellings[0];
+        occurrences.push({
+          sourceIndex,
+          wordIndex,
+          letterIndex,
+          letter,
+          baseLetter: base,
+          acceptedSpellings: [...acceptedSpellings],
+          defaultSpelling,
+        });
+      }
+      sourceIndex += 1;
+    });
+  });
+  return occurrences;
+}
+
+export function calculateMiluiVariant(text, mapping = MILUI_DEFAULT_MAPPING, selections = []) {
+  const checked = normalizeMiluiMapping(mapping);
+  if (!checked.valid) throw new Error(checked.error);
+  const normalizedText = normalize(text || '');
+  if (!normalizedText) return null;
+
+  const occurrences = getMiluiVariantOccurrences(normalizedText, checked.mapping);
+  const provided = new Map(
+    (Array.isArray(selections) ? selections : []).map(selection => [
+      Number(selection?.sourceIndex),
+      selection?.selectedSpelling,
+    ])
+  );
+  const resolvedSelections = occurrences.map(occurrence => {
+    const selectedSpelling = provided.get(occurrence.sourceIndex) || occurrence.defaultSpelling;
+    if (!occurrence.acceptedSpellings.includes(selectedSpelling)) {
+      throw new Error(`בחירת המילוי עבור ${occurrence.letter} אינה תקינה`);
+    }
+    return {
+      sourceIndex: occurrence.sourceIndex,
+      wordIndex: occurrence.wordIndex,
+      letterIndex: occurrence.letterIndex,
+      letter: occurrence.letter,
+      selectedSpelling,
+    };
+  });
+  const selectionBySourceIndex = new Map(
+    resolvedSelections.map(selection => [selection.sourceIndex, selection.selectedSpelling])
+  );
+
+  let sourceIndex = 0;
+  const words = normalizedText
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word, position) => getWordResult(word, checked.mapping, position, () => {
+      const spelling = selectionBySourceIndex.get(sourceIndex) || null;
+      sourceIndex += 1;
+      return spelling;
+    }));
+  const fullGematria = words.reduce((total, word) => total + word.fullGematria, 0);
+  const fillingOnlyGematria = words.reduce((total, word) => total + word.fillingOnlyGematria, 0);
+
+  return {
+    normalizedText,
+    expandedText: words.map(word => word.expandedText).join(' '),
+    fullGematria,
+    fullHebrewNumber: toHebrewNumber(fullGematria),
+    fillingOnlyGematria,
+    fillingOnlyHebrewNumber: toHebrewNumber(fillingOnlyGematria),
+    words,
+    selections: resolvedSelections,
+    registryVersion: MILUI_VARIANT_REGISTRY_VERSION,
   };
 }

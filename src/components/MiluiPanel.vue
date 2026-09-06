@@ -36,6 +36,86 @@
       </div>
     </div>
 
+    <section v-if="variantOccurrences.length" class="milui-variants">
+      <button
+        class="milui-variants__toggle"
+        type="button"
+        :aria-expanded="variantOpen"
+        aria-controls="milui-variant-composer"
+        @click="variantOpen = !variantOpen"
+      >
+        <span>אפשרויות מילוי</span>
+        <small>· {{ variantOccurrences.length }}</small>
+        <span
+          class="milui-summary-chevron ui-chevron"
+          :class="variantOpen ? 'ui-chevron--up' : 'ui-chevron--down'"
+          aria-hidden="true"
+        ></span>
+      </button>
+
+      <div
+        v-if="variantOpen"
+        id="milui-variant-composer"
+        ref="composerRef"
+        class="milui-variant-composer"
+      >
+        <div class="milui-variant-rows">
+          <div
+            v-for="occurrence in labeledOccurrences"
+            :key="occurrence.sourceIndex"
+            class="milui-variant-row"
+          >
+            <div :id="`milui-occurrence-${occurrence.sourceIndex}`" class="milui-variant-letter">
+              {{ occurrence.label }}
+            </div>
+            <div
+              class="milui-variant-options"
+              role="radiogroup"
+              :aria-labelledby="`milui-occurrence-${occurrence.sourceIndex}`"
+            >
+              <button
+                v-for="spelling in occurrence.acceptedSpellings"
+                :key="spelling"
+                type="button"
+                role="radio"
+                :tabindex="selectedSpelling(occurrence.sourceIndex) === spelling ? 0 : -1"
+                :aria-checked="selectedSpelling(occurrence.sourceIndex) === spelling"
+                :data-occurrence="occurrence.sourceIndex"
+                :class="{ 'milui-variant-option--selected': selectedSpelling(occurrence.sourceIndex) === spelling }"
+                @click="selectVariant(occurrence.sourceIndex, spelling)"
+                @keydown="onVariantKeydown($event, occurrence, spelling)"
+              >
+                <span aria-hidden="true" class="milui-variant-option__mark">✓</span>
+                {{ formatMiluiVariantSpelling(spelling) }}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="variantCalculation" class="milui-selected-result" aria-live="polite">
+          <div class="milui-label">המילוי הנבחר</div>
+          <div class="milui-selected-result__value">
+            {{ variantCalculation.fullGematria }}
+            <span class="milui-dot">·</span>
+            {{ variantCalculation.fullHebrewNumber }}
+          </div>
+          <div class="milui-selected-result__spelling">{{ variantCalculation.expandedText }}</div>
+        </div>
+
+        <button
+          class="milui-variant-save"
+          type="button"
+          :disabled="saveState === 'saving' || saveState === 'saved'"
+          @click="saveInterpretation"
+        >
+          {{ saveButtonLabel }}
+        </button>
+        <p v-if="saveMessage" class="milui-variant-feedback" :class="{ 'milui-variant-feedback--error': saveState === 'error' }" role="status">
+          {{ saveMessage }}
+        </p>
+      </div>
+    </section>
+
     <section
       v-if="canonicalPresets?.length"
       class="havayah-milui"
@@ -93,10 +173,23 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import {
+  calculateMiluiVariant,
+  formatMiluiVariantSpelling,
+  getMiluiVariantOccurrences,
+} from '@/utils/milui.js';
 
 const props = defineProps({
   calculation: {
+    type: Object,
+    required: true,
+  },
+  sourceText: {
+    type: String,
+    required: true,
+  },
+  mapping: {
     type: Object,
     required: true,
   },
@@ -110,11 +203,142 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(['open-settings']);
+const emit = defineEmits(['open-settings', 'explicit-total-change', 'interpretation-saved']);
 const activeCanonicalId = ref(null);
+const composerRef = ref(null);
+const variantOpen = ref(false);
+const variantSelections = ref([]);
+const saveState = ref('idle');
+const saveMessage = ref('');
+let feedbackTimer = null;
 const activeCanonical = computed(() => (
   props.canonicalPresets?.find(preset => preset.id === activeCanonicalId.value) || null
 ));
+const variantOccurrences = computed(() => (
+  getMiluiVariantOccurrences(props.sourceText, props.mapping)
+));
+const labeledOccurrences = computed(() => {
+  const totals = variantOccurrences.value.reduce((counts, occurrence) => {
+    counts[occurrence.baseLetter] = (counts[occurrence.baseLetter] || 0) + 1;
+    return counts;
+  }, {});
+  const seen = {};
+  return variantOccurrences.value.map(occurrence => {
+    seen[occurrence.baseLetter] = (seen[occurrence.baseLetter] || 0) + 1;
+    return {
+      ...occurrence,
+      label: totals[occurrence.baseLetter] > 1
+        ? `${occurrence.letter} · ${seen[occurrence.baseLetter]}`
+        : occurrence.letter,
+    };
+  });
+});
+const variantCalculation = computed(() => (
+  variantOccurrences.value.length
+    ? calculateMiluiVariant(props.sourceText, props.mapping, variantSelections.value)
+    : null
+));
+const saveButtonLabel = computed(() => ({
+  saving: 'שומר...',
+  saved: 'המילוי נשמר',
+  duplicate: 'כבר נשמר',
+}[saveState.value] || 'שמור מילוי זה'));
+
+function selectedSpelling(sourceIndex) {
+  return variantSelections.value.find(selection => selection.sourceIndex === sourceIndex)
+    ?.selectedSpelling;
+}
+
+function clearSaveFeedback() {
+  clearTimeout(feedbackTimer);
+  saveState.value = 'idle';
+  saveMessage.value = '';
+}
+
+function resetSelections() {
+  variantOpen.value = false;
+  variantSelections.value = variantOccurrences.value.map(occurrence => ({
+    sourceIndex: occurrence.sourceIndex,
+    wordIndex: occurrence.wordIndex,
+    letterIndex: occurrence.letterIndex,
+    letter: occurrence.letter,
+    selectedSpelling: occurrence.defaultSpelling,
+  }));
+  clearSaveFeedback();
+  emit('explicit-total-change', 0);
+}
+
+function selectVariant(sourceIndex, selectedSpellingValue) {
+  variantSelections.value = variantSelections.value.map(selection => (
+    selection.sourceIndex === sourceIndex
+      ? { ...selection, selectedSpelling: selectedSpellingValue }
+      : selection
+  ));
+  clearSaveFeedback();
+}
+
+function onVariantKeydown(event, occurrence, currentSpelling) {
+  const options = occurrence.acceptedSpellings;
+  const currentIndex = options.indexOf(currentSpelling);
+  let nextIndex = currentIndex;
+  if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+    nextIndex = (currentIndex + 1) % options.length;
+  } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+    nextIndex = (currentIndex - 1 + options.length) % options.length;
+  } else if (event.key === 'Home') {
+    nextIndex = 0;
+  } else if (event.key === 'End') {
+    nextIndex = options.length - 1;
+  } else {
+    return;
+  }
+  event.preventDefault();
+  selectVariant(occurrence.sourceIndex, options[nextIndex]);
+  nextTick(() => {
+    const buttons = composerRef.value?.querySelectorAll(
+      `[data-occurrence="${occurrence.sourceIndex}"]`
+    );
+    buttons?.[nextIndex]?.focus();
+  });
+}
+
+async function saveInterpretation() {
+  if (!variantCalculation.value || saveState.value === 'saving') return;
+  saveState.value = 'saving';
+  saveMessage.value = '';
+  try {
+    const response = await fetch('/api/milui-interpretations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        originalText: props.sourceText,
+        selections: variantCalculation.value.selections,
+        expectedTotal: variantCalculation.value.fullGematria,
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (response.status === 409 && payload.error === 'interpretation_already_exists') {
+      saveState.value = 'duplicate';
+      saveMessage.value = 'כבר נשמר';
+    } else if (response.ok) {
+      saveState.value = 'saved';
+      saveMessage.value = 'המילוי נשמר';
+      emit('interpretation-saved');
+    } else if (payload.error === 'milui_interpretation_changed') {
+      saveState.value = 'error';
+      saveMessage.value = 'הגדרות המילוי השתנו. יש לפתוח מחדש את האפשרויות';
+    } else {
+      throw new Error('save_failed');
+    }
+    feedbackTimer = setTimeout(() => {
+      saveState.value = 'idle';
+      saveMessage.value = '';
+    }, 2200);
+  } catch {
+    saveState.value = 'error';
+    saveMessage.value = 'לא ניתן לשמור את המילוי כרגע';
+  }
+}
 
 function toggleCanonical(id) {
   activeCanonicalId.value = activeCanonicalId.value === id ? null : id;
@@ -124,11 +348,26 @@ watch(() => props.calculation.normalizedText, () => {
   activeCanonicalId.value = null;
 });
 
+watch(
+  () => [
+    props.calculation.normalizedText,
+    JSON.stringify(props.mapping),
+  ],
+  resetSelections,
+  { immediate: true }
+);
+
+watch([variantOpen, variantCalculation], ([open, current]) => {
+  emit('explicit-total-change', open && current ? current.fullGematria : 0);
+});
+
 watch(() => props.canonicalPresets, (presets) => {
   if (!presets?.some(preset => preset.id === activeCanonicalId.value)) {
     activeCanonicalId.value = null;
   }
 });
+
+onBeforeUnmount(() => clearTimeout(feedbackTimer));
 </script>
 
 <style scoped>
@@ -232,6 +471,168 @@ watch(() => props.canonicalPresets, (presets) => {
   font-size: .95rem;
   font-weight: 600;
   margin-top: 6px;
+}
+
+.milui-variants {
+  border-top: 1px solid var(--border);
+}
+
+.milui-variants__toggle {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  font-size: .78rem;
+  font-weight: 600;
+  gap: 5px;
+  padding: 10px 18px;
+  width: 100%;
+}
+
+.milui-variants__toggle:hover,
+.milui-variants__toggle:focus-visible {
+  color: var(--navy);
+  background: #fdfaf5;
+}
+
+.milui-variants__toggle:focus-visible,
+.milui-variant-options button:focus-visible,
+.milui-variant-save:focus-visible {
+  outline: 2px solid var(--navy);
+  outline-offset: -2px;
+}
+
+.milui-variants__toggle small {
+  color: var(--gold);
+  font-size: .68rem;
+}
+
+.milui-variants__toggle .milui-summary-chevron {
+  margin-inline-start: auto;
+}
+
+.milui-variant-composer {
+  background: #fdfbf6;
+  border-top: 1px solid #f1eadc;
+  padding: 12px 18px 14px;
+}
+
+.milui-variant-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.milui-variant-row {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(42px, auto) 1fr;
+}
+
+.milui-variant-letter {
+  color: var(--navy);
+  font-family: "Noto Serif Hebrew", "Times New Roman", serif;
+  font-size: .92rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.milui-variant-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.milui-variant-options button {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #ded5c4;
+  border-radius: 8px;
+  color: var(--navy);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: .78rem;
+  font-weight: 600;
+  gap: 4px;
+  min-height: 34px;
+  padding: 5px 10px;
+}
+
+.milui-variant-options button:hover {
+  border-color: var(--gold);
+}
+
+.milui-variant-options button[aria-checked="true"] {
+  background: var(--gold-light);
+  border-color: var(--gold);
+  box-shadow: inset 0 -2px 0 var(--gold);
+}
+
+.milui-variant-option__mark {
+  color: #765812;
+  opacity: 0;
+  width: 0;
+}
+
+.milui-variant-options button[aria-checked="true"] .milui-variant-option__mark {
+  opacity: 1;
+  width: auto;
+}
+
+.milui-selected-result {
+  border-top: 1px solid #e9e0cf;
+  margin-top: 13px;
+  padding-top: 11px;
+}
+
+.milui-selected-result__value {
+  color: var(--navy);
+  font-size: 1.35rem;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+.milui-selected-result__spelling {
+  color: var(--text-secondary);
+  font-family: "Noto Serif Hebrew", "Times New Roman", serif;
+  font-size: .82rem;
+  line-height: 1.6;
+  margin-top: 3px;
+  overflow-wrap: anywhere;
+}
+
+.milui-variant-save {
+  background: var(--navy);
+  border: 1px solid var(--navy);
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: .78rem;
+  font-weight: 700;
+  margin-top: 11px;
+  min-height: 36px;
+  padding: 6px 14px;
+}
+
+.milui-variant-save:disabled {
+  cursor: default;
+  opacity: .65;
+}
+
+.milui-variant-feedback {
+  color: #3f6846;
+  font-size: .75rem;
+  margin: 7px 0 0;
+}
+
+.milui-variant-feedback--error {
+  color: #9b2c2c;
 }
 
 .havayah-milui {
@@ -448,6 +849,12 @@ watch(() => props.canonicalPresets, (presets) => {
   .milui-letter__values {
     flex-basis: 100%;
     padding-inline-start: 27px;
+  }
+
+  .milui-variant-row {
+    align-items: flex-start;
+    grid-template-columns: 1fr;
+    gap: 5px;
   }
 }
 </style>

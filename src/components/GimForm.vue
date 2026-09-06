@@ -108,9 +108,13 @@
                   v-if="miluiCalculation"
                   id="milui-calculation"
                   :calculation="miluiCalculation"
+                  :source-text="inputText"
+                  :mapping="miluiMapping"
                   :canonical-presets="havayahMiluiPresets"
                   :settings-disabled="!miluiSettingsLoaded"
                   @open-settings="openMiluiSettings"
+                  @explicit-total-change="explicitMiluiTotal = $event"
+                  @interpretation-saved="miluiMatchRefresh += 1"
                 />
                 <p v-if="miluiOpen && miluiSettingsError && !miluiSettingsLoaded" class="milui-load-error" role="alert">
                   {{ miluiSettingsError }}
@@ -263,13 +267,19 @@ const miluiSettingsError = ref('');
 const miluiSettingsSuccess = ref('');
 const saveMenuOpen = ref(false);
 const baseWordFeedback = ref('');
+const explicitMiluiTotal = ref(0);
+const miluiMatchRefresh = ref(0);
 
 let saveResetTimer = null;
 
 // ── Computed result ───────────────────────────────────────────────────────────
 const result  = computed(() => computeAll(inputText.value));
 const hasInput = computed(() => !!result.value);
-const { matches } = useLiveMatching(result);
+const matchingContext = computed(() => ({
+  explicitMiluiTotal: explicitMiluiTotal.value,
+  refresh: miluiMatchRefresh.value,
+}));
+const { matches } = useLiveMatching(result, { context: matchingContext });
 const miluiCalculation = computed(() => {
   if (!miluiOpen.value || !result.value) return null;
   return calculateMilui(inputText.value, miluiMapping.value);
@@ -285,6 +295,7 @@ watch(inputText, (val) => {
   expandedWords.value = {};
   saveStatus.value = 'idle';
   saveError.value = '';
+  explicitMiluiTotal.value = 0;
   if (!val) {
     miluiOpen.value = false;
     miluiSettingsOpen.value = false;
@@ -298,7 +309,11 @@ watch(inputText, (val) => {
 
 async function toggleMilui() {
   miluiOpen.value = !miluiOpen.value;
-  if (miluiOpen.value) await loadMiluiSettings();
+  if (miluiOpen.value) {
+    await loadMiluiSettings();
+  } else {
+    explicitMiluiTotal.value = 0;
+  }
 }
 
 async function loadMiluiSettings() {

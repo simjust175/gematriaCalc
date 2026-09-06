@@ -20,6 +20,10 @@ import {
 } from './multipleDiscovery.js';
 import { registerBaseWordRoutes } from './baseWords.js';
 import {
+  getExplicitMiluiMatches,
+  registerMiluiInterpretationRoutes,
+} from './miluiInterpretations.js';
+import {
   isApplicationReady,
   requireApplicationReady,
 } from './readiness.js';
@@ -121,6 +125,7 @@ function requireAuth(req, res, next) {
 // ── Protected API routes ─────────────────────────────────────────────────────
 
 registerBaseWordRoutes(app, { pool, requireAuth });
+registerMiluiInterpretationRoutes(app, { pool, requireAuth });
 
 /** GET /api/settings/milui — retrieve the current private מילוי preference. */
 app.get('/api/settings/milui', requireAuth, async (_req, res) => {
@@ -532,6 +537,43 @@ app.get('/api/matches', requireAuth, async (req, res) => {
           result.matchTypes.push('milui_gematria');
         }
         result.full_milui_gematria = miluiMatch.full_milui_gematria;
+      }
+
+      const explicitMiluiTotal = Number(req.query.explicitMiluiTotal);
+      if (Number.isInteger(explicitMiluiTotal) && explicitMiluiTotal > 0) {
+        const explicitMatches = await getExplicitMiluiMatches(explicitMiluiTotal, pool);
+        for (const explicitMatch of explicitMatches) {
+          const resultKey = explicitMatch.id || `milui-${explicitMatch.interpretation_id}`;
+          let result = entryMatches.get(resultKey);
+          if (!result) {
+            result = {
+              type: explicitMatch.id ? 'entry' : 'milui_interpretation',
+              id: resultKey,
+              original_text: explicitMatch.original_text
+                || explicitMatch.interpretation_original_text,
+              normalized_text: explicitMatch.normalized_text,
+              full_gematria: explicitMatch.full_gematria,
+              full_gematria_hebrew: explicitMatch.full_gematria_hebrew,
+              initials: explicitMatch.initials,
+              initials_gematria: explicitMatch.initials_gematria,
+              initials_gematria_hebrew: explicitMatch.initials_gematria_hebrew,
+              created_at: explicitMatch.created_at,
+              matchTypes: [],
+              matched_words: [],
+            };
+            entryMatches.set(resultKey, result);
+          }
+          if (!result.matchTypes.includes('milui_gematria')) {
+            result.matchTypes.push('milui_gematria');
+          }
+          result.full_milui_gematria = explicitMatch.full_milui_gematria;
+          result.explicit_milui_interpretation_ids = [
+            ...new Set([
+              ...(result.explicit_milui_interpretation_ids || []),
+              explicitMatch.interpretation_id,
+            ]),
+          ];
+        }
       }
 
       // Attach matching words to their parent entry instead of duplicating cards.

@@ -196,6 +196,11 @@ export async function initDb() {
 
   await ensureMiluiPreferences();
 
+  if (process.env.NODE_ENV !== 'production') {
+    const { ensureMiluiInterpretationSchema } = await import('./miluiInterpretations.js');
+    await ensureMiluiInterpretationSchema(pool);
+  }
+
   const { initializeMiluiMatching } = await import('./miluiIndex.js');
   const miluiIndex = await initializeMiluiMatching({
     // Development owns the candidate schema. Replit Publish compares it with

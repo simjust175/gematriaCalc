@@ -131,3 +131,80 @@ test('canonical מילויי הוי״ה appears only for a normalized standalone
   }));
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
 });
+
+test('מילוי variants stay compact, track repeated occurrences independently, and save exactly', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await login(page);
+  const input = page.locator('.heb-input');
+  const phrase = testInfo.project.name.includes('mobile') ? 'ההו ב' : 'ההו א';
+  await input.fill('אב');
+  await page.locator('.milui-toggle').click();
+  await expect(page.getByRole('button', { name: /אפשרויות מילוי/ })).toHaveCount(0);
+
+  await input.fill(phrase);
+  const trigger = page.getByRole('button', { name: /אפשרויות מילוי/ });
+  await expect(trigger).toBeVisible();
+  await trigger.click();
+
+  const composer = page.locator('#milui-variant-composer');
+  const groups = composer.getByRole('radiogroup');
+  await expect(groups).toHaveCount(3);
+  await expect(groups.nth(0).getByRole('radio')).toHaveCount(3);
+  await expect(groups.nth(1).getByRole('radio')).toHaveCount(3);
+  await expect(groups.nth(2).getByRole('radio')).toHaveCount(3);
+  await expect(composer.locator('.milui-selected-result')).toHaveCount(1);
+
+  await expect(groups.nth(0).getByRole('radio', { name: /ה״א/ })).toHaveAttribute('aria-checked', 'true');
+  await expect(groups.nth(1).getByRole('radio', { name: /ה״א/ })).toHaveAttribute('aria-checked', 'true');
+  await expect(groups.nth(2).getByRole('radio', { name: /וא״ו/ })).toHaveAttribute('aria-checked', 'true');
+  await expect(groups.nth(0).getByRole('radio', { name: /ה״א/ })).toHaveAttribute('tabindex', '0');
+  await expect(groups.nth(0).getByRole('radio', { name: /ה״י/ })).toHaveAttribute('tabindex', '-1');
+  await groups.nth(0).getByRole('radio', { name: /ה״א/ }).focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(groups.nth(0).getByRole('radio', { name: /ה״י/ })).toBeFocused();
+  await expect(groups.nth(0).getByRole('radio', { name: /ה״י/ })).toHaveAttribute('aria-checked', 'true');
+  await page.keyboard.press('Home');
+  await expect(groups.nth(0).getByRole('radio', { name: /ה״א/ })).toBeFocused();
+  await expect(groups.nth(0).getByRole('radio', { name: /ה״א/ })).toHaveAttribute('aria-checked', 'true');
+  const initialTotal = await composer.locator('.milui-selected-result__value').textContent();
+
+  await groups.nth(0).getByRole('radio', { name: /ה״י/ }).click();
+  await expect(groups.nth(0).getByRole('radio', { name: /ה״י/ })).toHaveAttribute('aria-checked', 'true');
+  await expect(groups.nth(1).getByRole('radio', { name: /ה״א/ })).toHaveAttribute('aria-checked', 'true');
+  await expect(composer.locator('.milui-selected-result__value')).not.toHaveText(initialTotal.trim());
+
+  await groups.nth(1).getByRole('radio', { name: /ה״ה/ }).click();
+  await expect(groups.nth(0).getByRole('radio', { name: /ה״י/ })).toHaveAttribute('aria-checked', 'true');
+  await expect(groups.nth(1).getByRole('radio', { name: /ה״ה/ })).toHaveAttribute('aria-checked', 'true');
+
+  const save = composer.getByRole('button', { name: 'שמור מילוי זה' });
+  await save.click();
+  await expect(composer.getByRole('status')).toHaveText('המילוי נשמר');
+  await expect(page.locator('.match-badge--milui:visible')).toHaveCount(1);
+
+  await expect.poll(async () => composer.getByRole('button').filter({ hasText: 'שמור מילוי זה' }).count()).toBe(1);
+  await composer.getByRole('button', { name: 'שמור מילוי זה' }).click();
+  await expect(composer.getByRole('status')).toHaveText('כבר נשמר');
+
+  await groups.nth(2).getByRole('radio', { name: /ו״ו/ }).click();
+  await expect(composer.getByRole('button', { name: 'שמור מילוי זה' })).toBeEnabled();
+  await composer.getByRole('button', { name: 'שמור מילוי זה' }).click();
+  await expect(composer.getByRole('status')).toHaveText('המילוי נשמר');
+
+  const listed = await page.request.get(
+    `/api/milui-interpretations?normalizedText=${encodeURIComponent(phrase)}`
+  );
+  expect(listed.ok()).toBe(true);
+  const payload = await listed.json();
+  expect(payload.interpretations).toHaveLength(2);
+  expect(payload.interpretations[0].selections).toHaveLength(3);
+
+  await page.locator('.milui-toggle').click();
+  await expect(page.locator('.match-badge--milui:visible')).toHaveCount(0);
+
+  const overflow = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    clientWidth: document.documentElement.clientWidth,
+  }));
+  expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
+});
