@@ -1,0 +1,273 @@
+Refine the existing מילוי feature in the gematria calculator.
+
+IMPORTANT:
+This is a refinement of the current implementation.
+Do NOT do unrelated redesigns.
+Do NOT remove existing functionality.
+Do NOT damage or rewrite existing saved entries.
+Do NOT reset or recreate the database.
+If schema changes are needed, they must be additive only.
+
+==================================================
+GOAL
+==================================================
+
+The current מילוי area is too complicated and visually noisy.
+
+We want a cleaner and more intuitive structure:
+
+1. In the MAIN מילוי area, show only the PRIMARY / MOST COMMON מילוי.
+2. Under that, show the OTHER 3 מילוי options in a simpler secondary area.
+3. Regular "שמור" should save only the DEFAULT / BASIC מילוי.
+4. Add a second button:
+   "שמור כל האופנים"
+   which saves all available מילוי variants for the current input.
+5. The entire experience must stay neat, modern, and simple.
+
+==================================================
+DESIRED UX LOGIC
+==================================================
+
+### A. Primary מילוי presentation
+
+When the user opens מילוי, the first thing they should see is only the main / standard / most common מילוי.
+
+This main area should contain:
+
+- כותרת: "מילוי"
+- a small subtitle if needed, subtle only
+- "שם האות במילואה" / expanded text
+- "גימטריית המילוי המלא"
+- "מילוי בלבד"
+
+This primary display should represent the **default / standard מילוי only**.
+
+This is the version the user sees first.
+This is also the version saved when the user clicks the regular save button.
+
+### B. Secondary מילוי options
+
+Below the main primary מילוי result, show the other 3 available מילוי forms.
+
+These should be shown in a much lighter and simpler way than now.
+
+Do NOT make them feel like the main result.
+Do NOT clutter the top area with all options equally.
+
+They should appear as a secondary section such as:
+
+"אופנים נוספים"
+or
+"אפשרויות נוספות"
+
+Each option should be shown clearly and compactly.
+
+For each secondary option, show:
+- the variant label
+- the expanded text
+- the total מילוי gematria
+- the מילוי בלבד gematria
+
+But keep these compact and visually subordinate.
+
+==================================================
+SAVE LOGIC
+==================================================
+
+We need two distinct save actions.
+
+### 1. Regular save button
+
+Keep the existing standard save button:
+"שמור"
+
+New logic:
+When the user clicks "שמור", save ONLY the PRIMARY / DEFAULT / BASIC מילוי.
+
+Meaning:
+- save the current input as normal
+- save the standard מילוי version only
+- do NOT automatically save the other מילוי variants
+
+This should be the default behavior.
+
+### 2. New save-all button
+
+Add a second clearly labeled button:
+"שמור כל האופנים"
+
+When clicked:
+- save the current input
+- save all available מילוי variants for that input
+- this should include the primary מילוי and the 3 other variants
+
+This button must be visually secondary to the main "שמור", but still easy to find.
+
+Suggested hierarchy:
+- primary button: "שמור"
+- secondary button / outlined button: "שמור כל האופנים"
+
+Do not make the layout feel crowded.
+
+==================================================
+VISUAL HIERARCHY
+==================================================
+
+The problem now is that all variants are competing visually.
+
+We want this hierarchy:
+
+1. MAIN / PRIMARY מילוי result
+   - large
+   - calm
+   - elegant
+   - easiest to read
+
+2. Secondary options area
+   - compact
+   - quieter
+   - neatly stacked or in compact cards/rows
+   - clearly "other options", not equal to the primary one
+
+3. Save actions
+   - "שמור" close to the main result
+   - "שמור כל האופנים" nearby, but less dominant
+
+The user should immediately understand:
+- this is the main מילוי
+- here are other valid options
+- I can save just the main one
+- or save all of them
+
+==================================================
+LAYOUT REQUIREMENTS
+==================================================
+
+Use the existing visual language of the app:
+- RTL
+- cream / off-white background
+- navy headings
+- restrained gold accents
+- subtle borders
+- premium, clean spacing
+
+Do NOT introduce loud colors.
+Do NOT make it busy.
+Do NOT create card-inside-card clutter if avoidable.
+
+Suggested structure:
+
+--------------------------------
+מילוי
+[main primary מילוי result]
+
+[שמור]   [שמור כל האופנים]
+
+אופנים נוספים
+[secondary option 1]
+[secondary option 2]
+[secondary option 3]
+--------------------------------
+
+Or an equivalent cleaner structure if you see a better implementation.
+
+==================================================
+DATA / PERSISTENCE REQUIREMENTS
+==================================================
+
+Be careful:
+this app already contains real saved data.
+
+Do NOT:
+- delete saved entries
+- rewrite old saved entries unnecessarily
+- drop tables
+- truncate data
+- reset database
+- recreate schema destructively
+
+If additional persistence is needed for "save all variants", do it additively only.
+
+Before any migration:
+1. record row counts of relevant tables
+2. apply additive migration only
+3. verify no existing saved data was lost or modified unexpectedly
+
+Required safety outcome:
+- existing saved records deleted = 0
+- existing saved records modified unintentionally = 0
+
+==================================================
+HOW SAVED DATA SHOULD WORK
+==================================================
+
+The distinction must be clear in the logic.
+
+### Regular save:
+Saves:
+- the text / phrase
+- its normal gematria data
+- only the primary/default מילוי version
+
+### Save all variants:
+Saves:
+- the text / phrase
+- its normal gematria data
+- all מילוי variants for that phrase
+
+The implementation should make it possible later to identify whether:
+- only the standard מילוי was saved
+or
+- all variants were saved
+
+But do this cleanly and additively.
+
+==================================================
+UI TEXT
+==================================================
+
+Use polished Hebrew wording.
+
+Recommended labels:
+
+- "מילוי"
+- "שנה מילוי" (if needed for settings)
+- "אופנים נוספים"
+- "שמור"
+- "שמור כל האופנים"
+
+If you think a slightly better Hebrew phrasing fits the existing product tone, you may improve it — but keep it traditional, clean, and natural.
+
+==================================================
+DO NOT DO
+==================================================
+
+Do NOT:
+- show all variants as equally dominant
+- overload the top of the מילוי panel
+- hide the main save logic
+- make "שמור כל האופנים" the default instead of "שמור"
+- perform destructive schema work
+- refactor unrelated Tanach / saved-library / calculator features
+
+==================================================
+ACCEPTANCE CRITERIA
+==================================================
+
+This task is complete when:
+
+1. The main מילוי panel shows only the primary / most common מילוי prominently.
+2. The other 3 options appear underneath in a quieter secondary area.
+3. Regular "שמור" saves only the standard/default מילוי.
+4. New "שמור כל האופנים" saves all מילוי variants for that input.
+5. The UI is simpler and cleaner than the current version.
+6. The design remains elegant and consistent with the current app.
+7. No existing client data is lost or unintentionally altered.
+8. Build passes and relevant tests pass.
+
+At the end, report:
+- what UI components were changed
+- exact save behavior for both buttons
+- whether any schema changes were needed
+- proof that existing saved data remained intact
+- test/build results

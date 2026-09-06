@@ -61,6 +61,15 @@ test('מילוי stays optional, updates live, persists edits, and resets safely
   await input.fill('ו');
   await expect(page.locator('.milui-expanded-text')).toHaveText('ויו');
   await input.fill('יהוה');
+  const additional = page.locator('.milui-additional');
+  await expect(additional.getByRole('heading', { name: 'אופנים נוספים' })).toBeVisible();
+  await expect(additional.locator('.milui-additional__row')).toHaveCount(3);
+  await expect(additional).toContainText('מילוי ע״ב');
+  await expect(additional).toContainText('72');
+  await expect(additional).toContainText('מילוי ס״ג');
+  await expect(additional).toContainText('63');
+  await expect(additional).toContainText('מילוי ב״ן');
+  await expect(additional).toContainText('52');
   await page.getByRole('button', { name: 'שנה מילוי' }).click();
   const canonical = page.locator('.havayah-milui');
   await expect(canonical.getByRole('heading', { name: 'מילויי הוי״ה' })).toBeVisible();
@@ -215,4 +224,26 @@ test('מילוי variants stay compact, track repeated occurrences independently
     clientWidth: document.documentElement.clientWidth,
   }));
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
+});
+
+test('save all keeps the primary action dominant and persists every common form', async ({ page }, testInfo) => {
+  await login(page);
+  const phrase = testInfo.project.name.includes('mobile') ? 'יהוה זצק' : 'יהוה זצר';
+  await page.locator('.heb-input').fill(phrase);
+  await page.locator('.milui-toggle').click();
+
+  const saveAll = page.getByRole('button', { name: 'שמור כל האופנים' });
+  await expect(saveAll).toBeVisible();
+  await expect(page.locator('.milui-additional__row')).toHaveCount(3);
+  await saveAll.click();
+  await expect(page.getByRole('button', { name: 'כל האופנים נשמרו' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'כבר שמור' })).toBeDisabled();
+
+  const listed = await page.request.get(
+    `/api/milui-interpretations?normalizedText=${encodeURIComponent(phrase)}`
+  );
+  expect(listed.ok()).toBe(true);
+  const payload = await listed.json();
+  expect(payload.interpretations).toHaveLength(4);
+  expect(new Set(payload.interpretations.map(item => item.full_milui_gematria)).size).toBe(4);
 });

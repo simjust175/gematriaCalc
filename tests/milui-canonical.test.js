@@ -9,6 +9,7 @@ import {
   calculateMilui,
   cloneMiluiMapping,
   containsStandaloneHavayah,
+  getCommonMiluiForms,
   getMiluiVariantOccurrences,
 } from '../src/utils/milui.js';
 
@@ -98,4 +99,17 @@ test('repeated ambiguous letters retain independent occurrence-level choices', (
   assert.equal(calculation.expandedText, 'הי הה וו');
   assert.equal(calculation.fullGematria, calcGematria('הי הה וו'));
   assert.equal(calculation.words.length, 1);
+});
+
+test('common forms keep one primary result and three traditional companion forms', () => {
+  const forms = getCommonMiluiForms('יהוה', MILUI_DEFAULT_MAPPING);
+  assert.deepEqual(forms.map(form => form.id), ['primary', 'av', 'sag', 'ban']);
+  assert.deepEqual(
+    forms.map(form => form.calculation.fullGematria),
+    [45, 72, 63, 52]
+  );
+  assert.deepEqual(
+    forms.slice(1).map(form => form.calculation.expandedText),
+    ['יוד הי ויו הי', 'יוד הי ואו הי', 'יוד הה וו הה']
+  );
 });

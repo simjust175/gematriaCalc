@@ -90,6 +90,13 @@ export const MILUI_VARIANT_REGISTRY = Object.freeze({
   ו: Object.freeze(['וו', 'ואו', 'ויו']),
 });
 
+export const MILUI_COMMON_FORMS = Object.freeze([
+  Object.freeze({ id: 'primary', label: 'מילוי רגיל', primary: true }),
+  Object.freeze({ id: 'av', label: 'מילוי ע״ב', spellings: Object.freeze({ ה: 'הי', ו: 'ויו' }) }),
+  Object.freeze({ id: 'sag', label: 'מילוי ס״ג', spellings: Object.freeze({ ה: 'הי', ו: 'ואו' }) }),
+  Object.freeze({ id: 'ban', label: 'מילוי ב״ן', spellings: Object.freeze({ ה: 'הה', ו: 'וו' }) }),
+]);
+
 function baseLetter(letter) {
   return MILUI_FINAL_TO_BASE[letter] || letter;
 }
@@ -290,4 +297,23 @@ export function calculateMiluiVariant(text, mapping = MILUI_DEFAULT_MAPPING, sel
     selections: resolvedSelections,
     registryVersion: MILUI_VARIANT_REGISTRY_VERSION,
   };
+}
+
+export function getCommonMiluiForms(text, mapping = MILUI_DEFAULT_MAPPING) {
+  const occurrences = getMiluiVariantOccurrences(text, mapping);
+  return MILUI_COMMON_FORMS.map(form => {
+    const selections = occurrences.map(occurrence => ({
+      sourceIndex: occurrence.sourceIndex,
+      wordIndex: occurrence.wordIndex,
+      letterIndex: occurrence.letterIndex,
+      letter: occurrence.letter,
+      selectedSpelling: form.primary
+        ? occurrence.defaultSpelling
+        : form.spellings[occurrence.baseLetter],
+    }));
+    return {
+      ...form,
+      calculation: calculateMiluiVariant(text, mapping, selections),
+    };
+  });
 }

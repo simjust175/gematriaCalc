@@ -560,6 +560,109 @@ test('explicit מילוי interpretations persist exact occurrences, deduplicate
   }
 });
 
+test('save-all creates one ordinary entry and all distinct common מילוי forms atomically', async () => {
+  const agent = request.agent(app);
+  await agent.post('/api/auth/login').send({ password: 'correct-test-password-12345' });
+  const suffix = uniqueHebrewToken().replace(/[הו]/g, 'א');
+  const originalText = `יהוה ${suffix}`;
+  const normalizedText = normalize(originalText);
+  const before = await pool.query(
+    `SELECT
+       (SELECT COUNT(*)::int FROM saved_entries) AS entries,
+       (SELECT COUNT(*)::int FROM saved_words) AS words,
+       (SELECT COUNT(*)::int FROM explicit_milui_interpretations) AS interpretations`
+  );
+
+  try {
+    const saved = await agent.post('/api/milui-interpretations/save-all').send({ originalText });
+    assert.equal(saved.status, 201);
+    assert.equal(saved.body.savedEntry.created, true);
+    assert.equal(saved.body.created, 4);
+    assert.equal(saved.body.existing, 0);
+    assert.equal(saved.body.interpretations.length, 4);
+    assert.deepEqual(saved.body.formIds, ['primary', 'av', 'sag', 'ban']);
+    const provenance = await pool.query(
+      `SELECT save_mode, form_ids
+       FROM saved_entry_milui_save_modes
+       WHERE saved_entry_id = $1`,
+      [saved.body.savedEntry.id]
+    );
+    assert.equal(provenance.rows[0].save_mode, 'all_forms');
+    assert.deepEqual(provenance.rows[0].form_ids, ['primary', 'av', 'sag', 'ban']);
+
+    const after = await pool.query(
+      `SELECT
+         (SELECT COUNT(*)::int FROM saved_entries) AS entries,
+         (SELECT COUNT(*)::int FROM saved_words) AS words,
+         (SELECT COUNT(*)::int FROM explicit_milui_interpretations) AS interpretations`
+    );
+    assert.equal(after.rows[0].entries, before.rows[0].entries + 1);
+    assert.equal(after.rows[0].words, before.rows[0].words + 2);
+    assert.equal(after.rows[0].interpretations, before.rows[0].interpretations + 4);
+
+    const repeated = await agent.post('/api/milui-interpretations/save-all').send({ originalText });
+    assert.equal(repeated.status, 200);
+    assert.equal(repeated.body.savedEntry.created, false);
+    assert.equal(repeated.body.created, 0);
+    assert.equal(repeated.body.existing, 4);
+
+    const unchanged = await pool.query(
+      `SELECT
+         (SELECT COUNT(*)::int FROM saved_entries) AS entries,
+         (SELECT COUNT(*)::int FROM saved_words) AS words,
+         (SELECT COUNT(*)::int FROM explicit_milui_interpretations) AS interpretations`
+    );
+    assert.deepEqual(unchanged.rows[0], after.rows[0]);
+  } finally {
+    await pool.query(
+      'DELETE FROM explicit_milui_interpretations WHERE normalized_text = $1',
+      [normalizedText]
+    );
+    await pool.query(
+      `DELETE FROM saved_entry_milui_index
+       WHERE saved_entry_id IN (
+         SELECT id FROM saved_entries
+         WHERE tanach_book_slug IS NULL AND normalized_text = $1
+       )`,
+      [normalizedText]
+    );
+    await pool.query(
+      'DELETE FROM saved_entries WHERE tanach_book_slug IS NULL AND normalized_text = $1',
+      [normalizedText]
+    );
+  }
+});
+
+test('regular save records primary-only מילוי provenance without explicit variants', async () => {
+  const agent = request.agent(app);
+  await agent.post('/api/auth/login').send({ password: 'correct-test-password-12345' });
+  const originalText = `יהוה ${uniqueHebrewToken().replace(/[הו]/g, 'א')}`;
+  const normalizedText = normalize(originalText);
+  let savedEntryId;
+  try {
+    const saved = await agent.post('/api/entries').send({ originalText });
+    assert.equal(saved.status, 200);
+    savedEntryId = saved.body.id;
+    const provenance = await pool.query(
+      `SELECT save_mode, form_ids
+       FROM saved_entry_milui_save_modes
+       WHERE saved_entry_id = $1`,
+      [savedEntryId]
+    );
+    assert.equal(provenance.rows[0].save_mode, 'primary_only');
+    assert.deepEqual(provenance.rows[0].form_ids, ['primary']);
+    const explicit = await pool.query(
+      `SELECT COUNT(*)::int AS count
+       FROM explicit_milui_interpretations
+       WHERE normalized_text = $1`,
+      [normalizedText]
+    );
+    assert.equal(explicit.rows[0].count, 0);
+  } finally {
+    if (savedEntryId) await agent.delete(`/api/entries/${savedEntryId}`);
+  }
+});
+
 test('active full מילוי values participate in live matching and repair missing derived rows', async () => {
   const agent = request.agent(app);
   await agent.post('/api/auth/login').send({ password: 'correct-test-password-12345' });

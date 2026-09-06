@@ -21,6 +21,7 @@ import {
 import { registerBaseWordRoutes } from './baseWords.js';
 import {
   getExplicitMiluiMatches,
+  recordMiluiSaveMode,
   registerMiluiInterpretationRoutes,
 } from './miluiInterpretations.js';
 import {
@@ -125,7 +126,13 @@ function requireAuth(req, res, next) {
 // ── Protected API routes ─────────────────────────────────────────────────────
 
 registerBaseWordRoutes(app, { pool, requireAuth });
-registerMiluiInterpretationRoutes(app, { pool, requireAuth });
+registerMiluiInterpretationRoutes(app, {
+  pool,
+  requireAuth,
+  acquireSaveLock: acquireMiluiSaveLock,
+  indexSavedEntry: indexSavedEntryForCurrentVersions,
+  invalidateCoverage: invalidateMiluiCoverageCheck,
+});
 
 /** GET /api/settings/milui — retrieve the current private מילוי preference. */
 app.get('/api/settings/milui', requireAuth, async (_req, res) => {
@@ -777,6 +784,9 @@ app.post('/api/entries', requireAuth, async (req, res) => {
          VALUES ($1,$2,$3,$4,$5)`,
         [entryId, w.word, w.word, w.gematria, w.position]
       );
+    }
+    if (!verifiedContext) {
+      await recordMiluiSaveMode(entryId, 'primary_only', ['primary'], client);
     }
 
     await client.query('COMMIT');

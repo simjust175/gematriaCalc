@@ -10,7 +10,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "node --test tests/auth-startup.test.js tests/gematria.test.js tests/hebrewKeyboard.test.js tests/milui-canonical.test.js tests/multiples.test.js tests/tanach.test.js tests/tanach-gematria-search.test.js tests/tanach-startup.test.js tests/uxlc-text.test.js",
-    "test:api": "node --test tests/api.test.js tests/base-words.test.js",
+    "test:api": "node --test --test-concurrency=1 tests/api.test.js tests/base-words.test.js",
     "test:browser": "node scripts/run-e2e.js tests/calculator-keyboard.spec.js tests/tanach-browser.spec.js",
     "test:e2e": "node scripts/run-e2e.js",
     "import:tanach": "node scripts/import-tanach.js"

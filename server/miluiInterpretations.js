@@ -1,9 +1,11 @@
 import { createHash } from 'node:crypto';
 import {
   calculateMiluiVariant,
+  getCommonMiluiForms,
   getMiluiVariantOccurrences,
   normalizeMiluiMapping,
 } from '../src/utils/milui.js';
+import { computeAll } from '../src/composables/useGematria.js';
 
 const MODE = 'full_milui';
 
@@ -31,6 +33,13 @@ export async function ensureMiluiInterpretationSchema(db) {
       ON explicit_milui_interpretations(calculation_mode, full_milui_gematria, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_explicit_milui_normalized
       ON explicit_milui_interpretations(normalized_text, created_at DESC);
+    CREATE TABLE IF NOT EXISTS saved_entry_milui_save_modes (
+      saved_entry_id INTEGER PRIMARY KEY REFERENCES saved_entries(id) ON DELETE CASCADE,
+      save_mode TEXT NOT NULL CHECK (save_mode IN ('primary_only', 'all_forms')),
+      form_ids JSONB NOT NULL DEFAULT '["primary"]'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
 }
 
@@ -149,6 +158,119 @@ export async function createMiluiInterpretation(input, db) {
   return { created: false, interpretation: existing.rows[0] };
 }
 
+export async function recordMiluiSaveMode(savedEntryId, mode, formIds, db) {
+  const normalizedMode = mode === 'all_forms' ? 'all_forms' : 'primary_only';
+  const normalizedFormIds = normalizedMode === 'all_forms'
+    ? [...new Set(formIds)]
+    : ['primary'];
+  await db.query(
+    `INSERT INTO saved_entry_milui_save_modes
+       (saved_entry_id, save_mode, form_ids)
+     VALUES ($1,$2,$3::jsonb)
+     ON CONFLICT (saved_entry_id) DO UPDATE
+       SET save_mode = CASE
+             WHEN saved_entry_milui_save_modes.save_mode = 'all_forms' THEN 'all_forms'
+             ELSE EXCLUDED.save_mode
+           END,
+           form_ids = CASE
+             WHEN saved_entry_milui_save_modes.save_mode = 'all_forms'
+               THEN saved_entry_milui_save_modes.form_ids
+             ELSE EXCLUDED.form_ids
+           END,
+           updated_at = NOW()`,
+    [savedEntryId, normalizedMode, JSON.stringify(normalizedFormIds)]
+  );
+}
+
+async function ensureOrdinarySavedEntry(originalText, db) {
+  const calculated = computeAll(originalText);
+  if (!calculated) {
+    const error = new Error('Missing save fields');
+    error.code = 'MISSING_FIELDS';
+    throw error;
+  }
+  const existing = await db.query(
+    `SELECT id FROM saved_entries
+     WHERE tanach_book_slug IS NULL AND normalized_text = $1
+     ORDER BY id ASC LIMIT 1`,
+    [calculated.normalizedText]
+  );
+  if (existing.rowCount) return { id: existing.rows[0].id, created: false };
+
+  const inserted = await db.query(
+    `INSERT INTO saved_entries
+       (original_text, normalized_text, full_gematria, full_gematria_hebrew,
+        initials, initials_gematria, initials_gematria_hebrew)
+     VALUES ($1,$2,$3,$4,$5,$6,$7)
+     RETURNING id`,
+    [
+      originalText,
+      calculated.normalizedText,
+      calculated.fullGematria,
+      calculated.fullHebrewNumber,
+      calculated.initials,
+      calculated.initialsGematria,
+      calculated.initialsHebrewNumber,
+    ]
+  );
+  const entryId = inserted.rows[0].id;
+  for (const word of calculated.words) {
+    await db.query(
+      `INSERT INTO saved_words (entry_id, word, normalized_word, gematria, position)
+       VALUES ($1,$2,$3,$4,$5)`,
+      [entryId, word.word, word.word, word.gematria, word.position]
+    );
+  }
+  return { id: entryId, created: true };
+}
+
+export async function saveAllCommonMiluiForms(originalText, db) {
+  const { mapping } = await getActiveMapping(db);
+  const occurrences = getMiluiVariantOccurrences(originalText, mapping);
+  const savedEntry = await ensureOrdinarySavedEntry(originalText, db);
+  if (!occurrences.length) {
+    await recordMiluiSaveMode(savedEntry.id, 'all_forms', ['primary'], db);
+    return {
+      savedEntry,
+      formIds: ['primary'],
+      created: 0,
+      existing: 0,
+      interpretations: [],
+    };
+  }
+
+  const forms = getCommonMiluiForms(originalText, mapping);
+  const uniqueForms = [...new Map(forms.map(form => [
+    JSON.stringify(form.calculation.selections.map(selection => [
+      selection.sourceIndex,
+      selection.selectedSpelling,
+    ])),
+    form,
+  ])).values()];
+  const results = [];
+  for (const form of uniqueForms) {
+    const result = await createMiluiInterpretation({
+      originalText,
+      selections: form.calculation.selections,
+      expectedTotal: form.calculation.fullGematria,
+    }, db);
+    results.push({ ...result, formId: form.id, label: form.label });
+  }
+  await recordMiluiSaveMode(
+    savedEntry.id,
+    'all_forms',
+    forms.map(form => form.id),
+    db
+  );
+  return {
+    savedEntry,
+    formIds: forms.map(form => form.id),
+    created: results.filter(result => result.created).length,
+    existing: results.filter(result => !result.created).length,
+    interpretations: results.map(result => result.interpretation),
+  };
+}
+
 export async function getExplicitMiluiMatches(total, db) {
   if (!Number.isInteger(total) || total <= 0) return [];
   try {
@@ -182,7 +304,41 @@ export async function getExplicitMiluiMatches(total, db) {
   }
 }
 
-export function registerMiluiInterpretationRoutes(app, { pool, requireAuth }) {
+export function registerMiluiInterpretationRoutes(app, {
+  pool,
+  requireAuth,
+  acquireSaveLock = async () => {},
+  indexSavedEntry = async () => {},
+  invalidateCoverage = () => {},
+}) {
+  app.post('/api/milui-interpretations/save-all', requireAuth, async (req, res) => {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await acquireSaveLock(client);
+      const result = await saveAllCommonMiluiForms(req.body?.originalText, client);
+      await client.query('COMMIT');
+      if (result.savedEntry.created) {
+        try {
+          await indexSavedEntry(result.savedEntry.id);
+        } catch (indexError) {
+          invalidateCoverage();
+          console.error(`Saved entry ${result.savedEntry.id}, but מילוי indexing failed:`, indexError.message);
+        }
+      }
+      return res.status(result.created ? 201 : 200).json(result);
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => {});
+      if (error.code === 'MISSING_FIELDS') {
+        return res.status(400).json({ error: 'missing_fields' });
+      }
+      console.error('/api/milui-interpretations/save-all POST error:', error.message);
+      return res.status(500).json({ error: 'milui_interpretation_save_all_failed' });
+    } finally {
+      client.release();
+    }
+  });
+
   app.post('/api/milui-interpretations', requireAuth, async (req, res) => {
     try {
       const result = await createMiluiInterpretation(req.body, pool);

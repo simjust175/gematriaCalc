@@ -38,6 +38,44 @@
       </div>
     </div>
 
+    <div class="milui-save-actions">
+      <button
+        class="milui-save-primary"
+        type="button"
+        :disabled="primarySaveDisabled"
+        @click="emit('save-primary')"
+      >
+        {{ primarySaveLabel }}
+      </button>
+      <button
+        class="milui-save-all"
+        type="button"
+        :disabled="saveAllDisabled"
+        @click="emit('save-all')"
+      >
+        {{ saveAllLabel }}
+      </button>
+    </div>
+
+    <section v-if="variantOccurrences.length" class="milui-additional" aria-labelledby="milui-additional-title">
+      <h3 id="milui-additional-title">אופנים נוספים</h3>
+      <div class="milui-additional__list">
+        <div v-for="form in additionalForms" :key="form.id" class="milui-additional__row">
+          <div class="milui-additional__heading">
+            <span>{{ form.label }}</span>
+            <span class="milui-additional__total">
+              {{ form.calculation.fullGematria }} · {{ form.calculation.fullHebrewNumber }}
+            </span>
+          </div>
+          <div class="milui-additional__spelling">{{ form.calculation.expandedText }}</div>
+          <div class="milui-additional__filling">
+            מילוי בלבד: {{ form.calculation.fillingOnlyGematria }} ·
+            {{ form.calculation.fillingOnlyHebrewNumber }}
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section v-if="variantOpen" id="milui-advanced" class="milui-variants">
       <div class="milui-advanced-heading">
         <span>התאמת מילוי</span>
@@ -176,6 +214,7 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import {
   calculateMiluiVariant,
   formatMiluiVariantSpelling,
+  getCommonMiluiForms,
   getMiluiVariantOccurrences,
 } from '@/utils/milui.js';
 
@@ -200,9 +239,31 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  primarySaveDisabled: {
+    type: Boolean,
+    default: false,
+  },
+  primarySaveLabel: {
+    type: String,
+    default: 'שמור',
+  },
+  saveAllDisabled: {
+    type: Boolean,
+    default: false,
+  },
+  saveAllLabel: {
+    type: String,
+    default: 'שמור כל האופנים',
+  },
 });
 
-const emit = defineEmits(['open-settings', 'explicit-total-change', 'interpretation-saved']);
+const emit = defineEmits([
+  'open-settings',
+  'explicit-total-change',
+  'interpretation-saved',
+  'save-primary',
+  'save-all',
+]);
 const activeCanonicalId = ref(null);
 const composerRef = ref(null);
 const variantOpen = ref(false);
@@ -237,6 +298,9 @@ const variantCalculation = computed(() => (
   variantOccurrences.value.length
     ? calculateMiluiVariant(props.sourceText, props.mapping, variantSelections.value)
     : null
+));
+const additionalForms = computed(() => (
+  getCommonMiluiForms(props.sourceText, props.mapping).slice(1)
 ));
 const saveButtonLabel = computed(() => ({
   saving: 'שומר...',
@@ -472,6 +536,117 @@ onBeforeUnmount(() => clearTimeout(feedbackTimer));
   font-size: .95rem;
   font-weight: 600;
   margin-top: 6px;
+}
+
+.milui-save-actions {
+  align-items: center;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 11px 18px;
+}
+
+.milui-save-primary,
+.milui-save-all {
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-size: .78rem;
+  font-weight: 700;
+  min-height: 36px;
+  padding: 6px 14px;
+}
+
+.milui-save-primary {
+  background: var(--navy);
+  border: 1px solid var(--navy);
+  color: #fff;
+}
+
+.milui-save-all {
+  background: #fff;
+  border: 1px solid #c9b57f;
+  color: #806221;
+}
+
+.milui-save-primary:hover:not(:disabled) {
+  background: var(--navy-light);
+}
+
+.milui-save-all:hover:not(:disabled) {
+  background: rgba(192, 152, 64, .08);
+  border-color: #a07c2e;
+}
+
+.milui-save-primary:focus-visible,
+.milui-save-all:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.milui-save-primary:disabled,
+.milui-save-all:disabled {
+  cursor: default;
+  opacity: .55;
+}
+
+.milui-additional {
+  border-top: 1px solid var(--border);
+  padding: 12px 18px 14px;
+}
+
+.milui-additional h3 {
+  color: var(--navy);
+  font-size: .79rem;
+  font-weight: 650;
+  margin: 0 0 7px;
+}
+
+.milui-additional__list {
+  display: flex;
+  flex-direction: column;
+}
+
+.milui-additional__row {
+  border-top: 1px solid #f0ebdf;
+  padding: 8px 0;
+}
+
+.milui-additional__row:first-child {
+  border-top: 0;
+  padding-top: 3px;
+}
+
+.milui-additional__heading {
+  align-items: baseline;
+  color: var(--navy);
+  display: flex;
+  font-size: .78rem;
+  font-weight: 650;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.milui-additional__total {
+  color: #8d6d29;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.milui-additional__spelling {
+  color: var(--text-secondary);
+  font-family: "Noto Serif Hebrew", "Times New Roman", serif;
+  font-size: .81rem;
+  line-height: 1.55;
+  margin-top: 2px;
+  overflow-wrap: anywhere;
+}
+
+.milui-additional__filling {
+  color: var(--text-secondary);
+  font-size: .68rem;
+  margin-top: 2px;
 }
 
 .milui-variants {

@@ -9,3 +9,4 @@
 - [Production startup readiness](production-startup-readiness.md) — Autoscale health checks need the app shell before corpus/database initialization completes
 - [Production recovery](production-recovery.md) — Production PostgreSQL has a verified seven-day point-in-time restore window
 - [Managed schema releases](managed-schema-releases.md) — Post-merge applies additive SQL to dev; Publish owns production schema diffs
+- [Database test isolation](database-test-isolation.md) — DB-mutating Node test files must run serially or global row-count assertions observe temporary rows
