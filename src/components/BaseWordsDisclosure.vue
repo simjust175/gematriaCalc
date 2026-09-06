@@ -11,7 +11,7 @@
       <template v-else>
         <div v-for="item in matches" :key="item.id" class="base-result">
           <strong>{{ item.originalText }}</strong>
-          <span>נכנס {{ item.times }} {{ item.times === 1 ? 'פעם' : 'פעמים' }} ({{ toHebrewNumber(item.times) }})</span>
+          <span class="base-relationship">נכנס <b class="base-multiplier">{{ item.times }}</b> {{ item.times === 1 ? 'פעם' : 'פעמים' }} ({{ toHebrewNumber(item.times) }})</span>
         </div>
       </template>
     </div>
@@ -36,17 +36,18 @@ onBeforeUnmount(() => window.removeEventListener('base-words-changed', loadMatch
 .base-toggle span{display:flex;align-items:baseline;gap:8px;min-width:0}
 .base-toggle small{font-size:.69rem;color:var(--text-secondary)}
 .base-toggle i{color:var(--gold);width:9px;height:9px}
-.base-results{padding:2px 14px}
-.base-result{display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:2px;min-height:55px;padding:8px 3px;border-bottom:1px solid #f0ebe2;text-align:right}
+.base-results{padding:0 14px}
+.base-result{display:flex;align-items:baseline;justify-content:flex-start;gap:10px;padding:10px 3px;border-bottom:1px solid #f0ebe2;text-align:right}
 .base-result:last-child{border:0}
 .base-result strong{font-size:.93rem;font-weight:600}
 .base-result span,.base-state{color:var(--text-secondary);font-size:.77rem}
-.base-result span{line-height:1.45}
-.base-state{text-align:center;padding:11px 4px}
+.base-relationship{line-height:1.4}
+.base-multiplier{color:var(--gold);font-size:inherit;font-weight:700}
+.base-state{text-align:center;padding:10px 4px}
 @media (max-width:520px){
   .base-toggle{padding-inline:13px}
   .base-results{padding-inline:10px}
-  .base-result{padding-inline:2px}
+  .base-result{flex-direction:column;align-items:flex-start;gap:1px;padding:7px 2px}
   .base-result strong{min-width:0;overflow-wrap:anywhere}
   .base-result span{font-size:.72rem}
 }

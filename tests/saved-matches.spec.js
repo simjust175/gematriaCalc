@@ -110,10 +110,32 @@ test('מילות יסוד stays closed on demand, shows exact compact results, a
         direction: getComputedStyle(row).flexDirection,
       };
     });
-    expect(compactLayout.resultHeight).toBeGreaterThanOrEqual(55);
-    expect(compactLayout.resultHeight).toBeLessThanOrEqual(70);
-    expect(compactLayout.panelHeight).toBeLessThanOrEqual(compactLayout.toggleHeight + 75);
+    expect(compactLayout.resultHeight).toBeGreaterThanOrEqual(44);
+    expect(compactLayout.resultHeight).toBeLessThanOrEqual(60);
+    expect(compactLayout.panelHeight).toBeLessThanOrEqual(compactLayout.toggleHeight + 65);
     expect(compactLayout.direction).toBe('column');
+    await expect(result.locator('.base-multiplier')).toHaveText('10');
+
+    const overflow = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+    }));
+    expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
+
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const desktopLayout = await result.evaluate((row) => {
+      const phrase = row.querySelector('strong').getBoundingClientRect();
+      const relationship = row.querySelector('.base-relationship').getBoundingClientRect();
+      return {
+        direction: getComputedStyle(row).flexDirection,
+        phraseRight: phrase.right,
+        relationshipRight: relationship.right,
+        visualGap: Math.abs(phrase.left - relationship.right),
+      };
+    });
+    expect(desktopLayout.direction).toBe('row');
+    expect(desktopLayout.phraseRight).toBeGreaterThan(desktopLayout.relationshipRight);
+    expect(desktopLayout.visualGap).toBeLessThanOrEqual(12);
     expect(matchRequests).toHaveLength(1);
 
     await input.fill('יהוה');
@@ -125,12 +147,6 @@ test('מילות יסוד stays closed on demand, shows exact compact results, a
     await input.fill('רס');
     await page.waitForTimeout(200);
     expect(matchRequests).toHaveLength(2);
-
-    const overflow = await page.evaluate(() => ({
-      scrollWidth: document.documentElement.scrollWidth,
-      clientWidth: document.documentElement.clientWidth,
-    }));
-    expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
   } finally {
     const cleanup = await page.request.delete(new URL(`/api/base-words/${baseWordId}`, page.url()).href);
     expect(cleanup.ok()).toBe(true);
