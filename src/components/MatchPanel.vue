@@ -11,7 +11,7 @@
         </div>
       </div>
 
-      <div v-if="isAlreadySaved" class="already-saved-badge">כבר שמור ✓</div>
+      <div v-if="isAlreadySaved" class="already-saved-badge">כבר שמור</div>
 
       <div v-if="error" class="matches-error" role="status">לא ניתן לטעון התאמות כרגע</div>
       <template v-else-if="matches.length > 0">
@@ -125,16 +125,16 @@ function matchedWordNames(match) {
 .matches-section {
   background: #fff;
   border: 1px solid #E6DFD0;
-  border-radius: 14px;
-  padding: 20px;
-  box-shadow: 0 2px 12px rgba(26, 39, 68, 0.06);
+  border-radius: 10px;
+  padding: 14px 16px;
+  box-shadow: 0 1px 5px rgba(26, 39, 68, 0.035);
 }
 
 .matches-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: 9px;
 }
 
 .matches-title {
@@ -158,37 +158,30 @@ function matchedWordNames(match) {
 }
 
 .already-saved-badge {
-  display: inline-flex;
-  align-items: center;
-  background: #EBF5EB;
-  color: #388E3C;
-  border-radius: 20px;
-  padding: 3px 12px;
-  font-size: 0.8rem;
+  color: #55715c;
+  font-size: 0.7rem;
   font-weight: 600;
-  margin-bottom: 10px;
+  margin-bottom: 5px;
 }
 
 .match-item {
-  border-radius: 8px;
-  padding: 12px;
-  margin-bottom: 8px;
+  border-radius: 0;
+  padding: 9px 2px;
+  margin-bottom: 0;
   display: flex;
   align-items: flex-start;
   flex-direction: column;
-  gap: 8px;
-  background: #F7F8FB;
-  border: 1px solid #E0E7F0;
+  gap: 3px 8px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid #eee9df;
   transition: background 0.15s;
 }
 
-.match-item--full {
-  background: #FBF8F3;
-  border-color: #EDE5D4;
-}
+.match-item--full { background: transparent; }
 
-.match-item:hover { background: #F1F4F8; }
-.match-item--full:hover { background: #F5EDD8; }
+.match-item:hover,
+.match-item--full:hover { background: #fcfaf5; }
 
 .match-text {
   font-size: 0.95rem;
@@ -202,50 +195,41 @@ function matchedWordNames(match) {
 .match-badges {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: 4px;
   direction: rtl;
 }
 
 .match-badge {
   display: inline-flex;
   align-items: center;
-  min-height: 22px;
-  border-radius: 999px;
-  padding: 2px 9px;
+  min-height: 0;
+  border-radius: 0;
+  padding: 0;
   font-size: 0.69rem;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.2;
-  border: 1px solid transparent;
+  border: 0;
+  background: transparent;
 }
 
 .match-badge--full {
   color: #765812;
-  background: #F5E8C5;
-  border-color: #E6CE91;
 }
 
 .match-badge--initials {
   color: #40547A;
-  background: #E9EEF7;
-  border-color: #CBD6E9;
 }
 
 .match-badge--initials-gematria {
   color: #604B7A;
-  background: #F0EBF7;
-  border-color: #DCD0EB;
 }
 
 .match-badge--word, .match-badge--default {
   color: #456357;
-  background: #EAF3EE;
-  border-color: #CEE1D6;
 }
 
 .match-badge--milui {
   color: #765f39;
-  background: #f7f1e6;
-  border-color: #ded0b8;
 }
 
 .match-details {
@@ -264,8 +248,8 @@ function matchedWordNames(match) {
 
 .matched-word-detail {
   width: 100%;
-  border-top: 1px solid #E4E8EF;
-  padding-top: 7px;
+  border-top: 0;
+  padding-top: 2px;
   display: flex;
   align-items: center;
   flex-wrap: wrap;

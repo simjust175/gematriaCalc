@@ -478,6 +478,7 @@ async function saveEntry() {
     } else if (res.ok) {
       saveStatus.value = 'saved';
       matches.value.isAlreadySaved = true;
+      miluiMatchRefresh.value += 1;
     } else {
       saveStatus.value = 'idle';
       saveError.value = 'שגיאה בשמירה';

@@ -24,10 +24,13 @@ test('מילוי stays optional, updates live, persists edits, and resets safely
   await expect(page.locator('.milui-expanded-text')).toHaveText('אלף בית');
   await expect(page.locator('.milui-value')).toContainText('523');
   await expect(page.locator('.milui-secondary-value')).toContainText('520');
+  await page.getByRole('button', { name: 'פירוט' }).click();
+  await expect(page.locator('.milui-details')).toBeVisible();
 
   await input.fill('א');
   await expect(page.locator('.milui-expanded-text')).toHaveText('אלף');
   await expect(page.locator('.milui-value')).toContainText('111');
+  await expect(page.locator('.milui-details')).toHaveCount(0);
 
   await toggle.press('Space');
   await expect(page.locator('.milui-panel')).toHaveCount(0);
@@ -36,6 +39,8 @@ test('מילוי stays optional, updates live, persists edits, and resets safely
 
   await toggle.click();
   await expect(page.locator('.milui-expanded-text')).toHaveText('בית');
+  await page.getByRole('button', { name: 'שנה מילוי' }).click();
+  await expect(page.getByText('התאמת מילוי', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'הגדרות מילוי' }).click();
   const dialog = page.getByRole('dialog', { name: 'הגדרות מילוי' });
   await expect(dialog).toBeVisible();
@@ -56,6 +61,7 @@ test('מילוי stays optional, updates live, persists edits, and resets safely
   await input.fill('ו');
   await expect(page.locator('.milui-expanded-text')).toHaveText('ויו');
   await input.fill('יהוה');
+  await page.getByRole('button', { name: 'שנה מילוי' }).click();
   const canonical = page.locator('.havayah-milui');
   await expect(canonical.getByRole('heading', { name: 'מילויי הוי״ה' })).toBeVisible();
   await expect(canonical.getByRole('button')).toHaveCount(4);
@@ -74,6 +80,7 @@ test('מילוי stays optional, updates live, persists edits, and resets safely
   await toggle.click();
   await expect(page.locator('.milui-expanded-text')).toHaveText('ויו');
 
+  await page.getByRole('button', { name: 'שנה מילוי' }).click();
   await page.getByRole('button', { name: 'הגדרות מילוי' }).click();
   const reloadedDialog = page.getByRole('dialog', { name: 'הגדרות מילוי' });
   page.once('dialog', confirmation => confirmation.accept());
@@ -98,6 +105,7 @@ test('canonical מילויי הוי״ה appears only for a normalized standalone
   await expect(page.locator('.havayah-milui')).toHaveCount(0);
 
   await input.fill('ברוך אתה יְהֹוָה');
+  await page.getByRole('button', { name: 'שנה מילוי' }).click();
   const canonical = page.locator('.havayah-milui');
   await expect(canonical).toHaveCount(1);
   const options = canonical.getByRole('button');
@@ -119,6 +127,7 @@ test('canonical מילויי הוי״ה appears only for a normalized standalone
   await input.fill('אביהוה');
   await expect(page.locator('.havayah-milui')).toHaveCount(0);
   await input.fill('י.ה.ו.ה יהוה');
+  await page.getByRole('button', { name: 'שנה מילוי' }).click();
   await expect(page.locator('.havayah-milui')).toHaveCount(1);
 
   const gridColumns = await canonical.locator('.havayah-options').evaluate(
@@ -139,12 +148,11 @@ test('מילוי variants stay compact, track repeated occurrences independently
   const phrase = testInfo.project.name.includes('mobile') ? 'ההו ב' : 'ההו א';
   await input.fill('אב');
   await page.locator('.milui-toggle').click();
+  await expect(page.getByRole('button', { name: 'שנה מילוי' })).toBeVisible();
   await expect(page.getByRole('button', { name: /אפשרויות מילוי/ })).toHaveCount(0);
 
   await input.fill(phrase);
-  const trigger = page.getByRole('button', { name: /אפשרויות מילוי/ });
-  await expect(trigger).toBeVisible();
-  await trigger.click();
+  await page.getByRole('button', { name: 'שנה מילוי' }).click();
 
   const composer = page.locator('#milui-variant-composer');
   const groups = composer.getByRole('radiogroup');

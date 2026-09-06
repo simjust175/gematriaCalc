@@ -1,0 +1,444 @@
+# MAJOR UX SIMPLIFICATION — HIDE COMPLEXITY, KEEP ALL FUNCTIONALITY
+
+The calculator has become too complicated visually and cognitively.
+
+The underlying features are good and must remain.
+
+The problem is that too much advanced machinery is exposed directly inside the main calculator.
+
+This task is to radically simplify the user-facing experience while preserving all existing calculations, persistence, APIs, database data, מילוי logic, saved matching, Tanach logic, and מילות יסוד logic.
+
+CORE UX PRINCIPLE:
+
+The app should feel extremely simple on the surface while retaining all existing sophistication underneath.
+
+Do NOT delete features.
+
+HIDE or MOVE advanced controls rather than removing the functionality.
+
+==================================================
+1. MAIN CALCULATOR HIERARCHY
+==================================================
+
+The main calculator should primarily contain:
+
+1. input
+2. the three main results:
+   - גימטריה מלאה
+   - ראשי תיבות
+   - גימטריית ר״ת
+3. מילוי
+4. מילות יסוד
+5. Tanach/discovery below
+
+Do not turn the calculator into a settings/control dashboard.
+
+==================================================
+2. מילוי — RADICALLY SIMPLIFY
+==================================================
+
+The current expanded מילוי area exposes too many controls.
+
+Currently it shows things such as:
+
+- שם האות במילואה
+- מילוי configuration
+- multiple variant buttons
+- options section
+- selected מילוי
+- save-this-milui action
+- word/letter breakdown
+- configuration controls
+
+This is too much.
+
+The DEFAULT expanded מילוי state should show only the useful answer.
+
+Conceptually:
+
+מילוי
+
+יוד הא
+
+26 · כו
+מילוי בלבד: 11 · יא
+
+שנה מילוי
+
+That is approximately the maximum amount of information that should be visible.
+
+==================================================
+3. REMOVE ADVANCED CONTROLS FROM NORMAL מילוי VIEW
+==================================================
+
+Do NOT permanently show controls such as:
+
+ה״א
+ה״י
+ה״ה
+
+inside the main מילוי result.
+
+Do NOT permanently show:
+
+שמור מילוי זה
+
+Do NOT permanently show a large:
+
+אפשרויות מילוי
+
+area.
+
+Do NOT make users understand the implementation before seeing the result.
+
+==================================================
+4. "שנה מילוי" ADVANCED ACTION
+==================================================
+
+Add one quiet secondary action:
+
+שנה מילוי
+
+or use the existing settings/sliders icon with a clear tooltip.
+
+Only when the user explicitly clicks this should the advanced מילוי configuration appear.
+
+Use a small popover, drawer, modal, or compact secondary panel.
+
+Do not expand another huge section inside the calculator.
+
+The advanced editor may contain the existing מילוי alternatives and configuration.
+
+All current functionality remains available there.
+
+==================================================
+5. CURRENT SELECTED מילוי
+==================================================
+
+The app should remember and use the currently selected מילוי configuration exactly as it does now.
+
+The user does NOT need to choose it every time.
+
+The calculator simply displays the resulting מילוי.
+
+Changing the configuration is an exceptional action, not a primary workflow.
+
+==================================================
+6. מילוי RESULT PRESENTATION
+==================================================
+
+Use simple typography rather than mini dashboards.
+
+Preferred structure:
+
+שם האות במילואה
+יוד הא
+
+גימטריה
+26 · כו
+
+מילוי בלבד
+11 · יא
+
+This can be even more compact if visually appropriate.
+
+No unnecessary boxes.
+
+No large gaps.
+
+No extra cards inside the accordion.
+
+==================================================
+7. מילוי BREAKDOWN
+==================================================
+
+The detailed letter/word breakdown is advanced information.
+
+Do not display a permanent separate accordion directly in the primary flow if it makes the interface busy.
+
+Move it behind a small action such as:
+
+פירוט
+
+within the מילוי area.
+
+Clicking פירוט may reveal the existing breakdown.
+
+Keep it closed by default.
+
+==================================================
+8. שמור מילוי זה
+==================================================
+
+Do not make "שמור מילוי זה" a prominent primary button in the calculator.
+
+If this functionality is still genuinely needed, move it into:
+
+- the advanced מילוי controls
+or
+- a small overflow/context menu
+
+Do NOT delete the functionality.
+
+==================================================
+9. מילות יסוד — KEEP EXTREMELY SIMPLE
+==================================================
+
+The מילות יסוד section should remain one of the simplest parts of the application.
+
+When expanded, show only matching phrases.
+
+Example:
+
+יהוה   נכנס 10 פעמים (י׳)
+
+י׳     נכנס 20 פעמים (כ׳)
+
+Use compact rows.
+
+No cards inside cards.
+No equations.
+No gematria values.
+No badges.
+No source metadata.
+No configuration controls.
+
+The management of מילות יסוד belongs on the dedicated מילות יסוד page.
+
+The calculator should only show the answer.
+
+==================================================
+10. מילות יסוד HEADER
+==================================================
+
+Keep:
+
+מילות יסוד
+
+with subtle subtitle:
+
+כניסות שלמות בלבד
+
+Closed by default.
+
+Open state should hug the results.
+
+==================================================
+11. SAVED MATCHES SIDEBAR — SIMPLIFY
+==================================================
+
+The left התאמות שמורות panel is also becoming visually heavy.
+
+Currently individual matches look like substantial pale-blue cards with badges and metadata.
+
+Simplify them.
+
+Each saved match should primarily communicate:
+
+- phrase/text
+- why it matched, only when useful
+
+Avoid presenting every match as a large card.
+
+Prefer compact list rows with subtle separators.
+
+Example:
+
+יהוה
+ראשי תיבות
+
+יב
+ראשי תיבות
+
+The label may be smaller/muted.
+
+Do not use large decorative badges unless they materially improve comprehension.
+
+==================================================
+12. MATCH SIDEBAR DENSITY
+==================================================
+
+Reduce:
+
+- card height
+- internal padding
+- empty space
+- oversized badges
+- unnecessary metadata
+
+The sidebar should feel secondary to the calculator.
+
+It should not compete visually with the main result.
+
+==================================================
+13. ADVANCED SETTINGS BELONG ELSEWHERE
+==================================================
+
+General rule:
+
+If an option changes HOW the calculation works rather than showing WHAT the answer is, it should not dominate the calculator.
+
+Examples:
+
+- מילוי spelling variants
+- mapping configuration
+- advanced saved-milui controls
+- detailed breakdown configuration
+
+Put these behind:
+
+הגדרות
+שנה
+פירוט
+⋯
+
+as appropriate.
+
+==================================================
+14. DO NOT REMOVE CAPABILITY
+==================================================
+
+Important:
+
+Do NOT remove existing underlying functionality.
+
+Do NOT delete:
+
+- מילוי variants
+- editable mappings
+- מילוי preferences
+- מילוי index/matching
+- saved entries
+- saved words
+- Tanach
+- מילות יסוד
+- existing configuration persistence
+
+This is UX simplification, not feature deletion.
+
+==================================================
+15. DATABASE SAFETY
+==================================================
+
+NO database changes are required for this task.
+
+Do not:
+
+- migrate schema
+- alter tables
+- delete data
+- rewrite saved entries
+- reset database
+- copy development DB to production
+
+Existing production data must remain untouched.
+
+==================================================
+16. VISUAL DESIGN
+==================================================
+
+Preserve the current premium design language:
+
+- cream/off-white
+- navy
+- restrained gold
+- warm thin borders
+- RTL
+- existing typography
+
+But reduce:
+
+- nested cards
+- nested accordions
+- badges
+- borders
+- controls
+- visible configuration
+- empty space
+
+Use typography and spacing instead of additional containers.
+
+==================================================
+17. USER EXPERIENCE TARGET
+==================================================
+
+A user entering Hebrew should be able to understand the page immediately without knowing what any settings mean.
+
+Main results answer:
+
+"What is the gematria?"
+
+מילוי answers:
+
+"What is the מילוי?"
+
+מילות יסוד answers:
+
+"Which curated words fit exactly?"
+
+Saved matches answer:
+
+"What have I saved that relates to this?"
+
+Advanced controls should appear only if intentionally requested.
+
+==================================================
+18. FINAL TARGET EXAMPLE
+==================================================
+
+MAIN RESULTS
+
+גימטריה מלאה
+15 · טו
+
+ראשי תיבות
+י
+
+גימטריית ר״ת
+10 · י
+
+
+מילוי
+────────────────────────
+יוד הא
+26 · כו
+
+מילוי בלבד: 11 · יא
+
+שנה מילוי · פירוט
+
+
+מילות יסוד
+────────────────────────
+יהוה   נכנס 10 פעמים (י׳)
+י׳     נכנס 20 פעמים (כ׳)
+
+
+That is the level of simplicity desired.
+
+==================================================
+19. ACCEPTANCE CRITERIA
+==================================================
+
+The task is complete when:
+
+1. מילוי no longer exposes all configuration by default.
+2. The expanded מילוי area primarily shows results.
+3. Advanced מילוי options are accessible only on demand.
+4. מילות יסוד remains a very compact results-only section.
+5. Saved matches are visually lighter and denser.
+6. Existing calculation behavior remains identical.
+7. Existing persistence remains identical.
+8. No database/API/schema changes occur.
+9. Existing client data remains untouched.
+10. Mobile and desktop RTL remain clean.
+11. No unrelated redesign occurs.
+
+Before coding, inspect the existing implementation and reuse current state/actions rather than rebuilding the features.
+
+After completion, report:
+- UI components changed
+- which advanced controls were moved behind on-demand actions
+- confirmation that no functionality was removed
+- confirmation no DB/API/schema changes occurred
+- build/test results

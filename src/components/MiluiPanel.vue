@@ -8,10 +8,12 @@
         class="milui-settings-link"
         type="button"
         :disabled="settingsDisabled"
-        @click="emit('open-settings')"
+        :aria-expanded="variantOpen"
+        aria-controls="milui-advanced"
+        @click="variantOpen = !variantOpen"
       >
         <span class="mdi mdi-tune-variant" aria-hidden="true"></span>
-        הגדרות מילוי
+        שנה מילוי
       </button>
     </div>
 
@@ -36,29 +38,25 @@
       </div>
     </div>
 
-    <section v-if="variantOccurrences.length" class="milui-variants">
-      <button
-        class="milui-variants__toggle"
-        type="button"
-        :aria-expanded="variantOpen"
-        aria-controls="milui-variant-composer"
-        @click="variantOpen = !variantOpen"
-      >
-        <span>אפשרויות מילוי</span>
-        <small>· {{ variantOccurrences.length }}</small>
-        <span
-          class="milui-summary-chevron ui-chevron"
-          :class="variantOpen ? 'ui-chevron--up' : 'ui-chevron--down'"
-          aria-hidden="true"
-        ></span>
-      </button>
-
+    <section v-if="variantOpen" id="milui-advanced" class="milui-variants">
+      <div class="milui-advanced-heading">
+        <span>התאמת מילוי</span>
+        <button
+          class="milui-inline-settings"
+          type="button"
+          :disabled="settingsDisabled"
+          @click="emit('open-settings')"
+        >
+          הגדרות מילוי
+        </button>
+      </div>
       <div
-        v-if="variantOpen"
+        v-if="variantOccurrences.length"
         id="milui-variant-composer"
         ref="composerRef"
         class="milui-variant-composer"
       >
+        <div class="milui-variant-section-label">אפשרויות מילוי</div>
         <div class="milui-variant-rows">
           <div
             v-for="occurrence in labeledOccurrences"
@@ -117,7 +115,7 @@
     </section>
 
     <section
-      v-if="canonicalPresets?.length"
+      v-if="variantOpen && canonicalPresets?.length"
       class="havayah-milui"
       aria-labelledby="havayah-milui-title"
     >
@@ -141,11 +139,12 @@
       </div>
     </section>
 
-    <details class="milui-details">
-      <summary>
-        <span>פירוט מילים ואותיות</span>
-        <span class="milui-summary-chevron ui-chevron ui-chevron--down" aria-hidden="true"></span>
-      </summary>
+    <button class="milui-detail-trigger" type="button" :aria-expanded="detailsOpen" @click="detailsOpen = !detailsOpen">
+      <span>פירוט</span>
+      <span class="milui-summary-chevron ui-chevron" :class="detailsOpen ? 'ui-chevron--up' : 'ui-chevron--down'" aria-hidden="true"></span>
+    </button>
+    <details v-if="detailsOpen" open class="milui-details">
+      <summary class="sr-only">פירוט מילים ואותיות</summary>
       <div class="milui-word-list">
         <details v-for="word in calculation.words" :key="`${word.position}-${word.word}`" class="milui-word">
           <summary>
@@ -207,6 +206,7 @@ const emit = defineEmits(['open-settings', 'explicit-total-change', 'interpretat
 const activeCanonicalId = ref(null);
 const composerRef = ref(null);
 const variantOpen = ref(false);
+const detailsOpen = ref(false);
 const variantSelections = ref([]);
 const saveState = ref('idle');
 const saveMessage = ref('');
@@ -346,6 +346,7 @@ function toggleCanonical(id) {
 
 watch(() => props.calculation.normalizedText, () => {
   activeCanonicalId.value = null;
+  detailsOpen.value = false;
 });
 
 watch(
@@ -475,43 +476,17 @@ onBeforeUnmount(() => clearTimeout(feedbackTimer));
 
 .milui-variants {
   border-top: 1px solid var(--border);
+  max-height: min(62vh, 520px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
-.milui-variants__toggle {
-  align-items: center;
-  background: transparent;
-  border: 0;
-  color: var(--text-secondary);
-  cursor: pointer;
-  display: flex;
-  font: inherit;
-  font-size: .78rem;
-  font-weight: 600;
-  gap: 5px;
-  padding: 10px 18px;
-  width: 100%;
-}
-
-.milui-variants__toggle:hover,
-.milui-variants__toggle:focus-visible {
-  color: var(--navy);
-  background: #fdfaf5;
-}
-
-.milui-variants__toggle:focus-visible,
 .milui-variant-options button:focus-visible,
-.milui-variant-save:focus-visible {
+.milui-variant-save:focus-visible,
+.milui-inline-settings:focus-visible,
+.milui-detail-trigger:focus-visible {
   outline: 2px solid var(--navy);
-  outline-offset: -2px;
-}
-
-.milui-variants__toggle small {
-  color: var(--gold);
-  font-size: .68rem;
-}
-
-.milui-variants__toggle .milui-summary-chevron {
-  margin-inline-start: auto;
+  outline-offset: 2px;
 }
 
 .milui-variant-composer {
@@ -520,10 +495,45 @@ onBeforeUnmount(() => clearTimeout(feedbackTimer));
   padding: 12px 18px 14px;
 }
 
+.milui-advanced-heading {
+  align-items: center;
+  background: #fdfbf6;
+  border-bottom: 1px solid #f1eadc;
+  color: var(--text-secondary);
+  display: flex;
+  font-size: .76rem;
+  font-weight: 650;
+  justify-content: space-between;
+  padding: 10px 18px;
+}
+
+.milui-inline-settings {
+  background: transparent;
+  border: 0;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: .72rem;
+  padding: 3px 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.milui-inline-settings:hover {
+  color: var(--navy);
+}
+
 .milui-variant-rows {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.milui-variant-section-label {
+  color: var(--text-secondary);
+  font-size: .72rem;
+  font-weight: 600;
+  margin-bottom: 8px;
 }
 
 .milui-variant-row {
@@ -706,6 +716,28 @@ onBeforeUnmount(() => clearTimeout(feedbackTimer));
   border-top: 1px solid var(--border);
 }
 
+.milui-detail-trigger {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--border);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  font-size: .78rem;
+  font-weight: 600;
+  justify-content: space-between;
+  padding: 10px 18px;
+  text-align: right;
+  width: 100%;
+}
+
+.milui-detail-trigger:hover {
+  background: #fafaf6;
+  color: var(--navy);
+}
+
 .milui-details > summary,
 .milui-word > summary {
   cursor: pointer;
@@ -821,6 +853,15 @@ onBeforeUnmount(() => clearTimeout(feedbackTimer));
 .milui-letter__values {
   color: var(--text-secondary);
   font-size: .75rem;
+}
+
+.sr-only {
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  position: absolute;
+  width: 1px;
+  clip: rect(0, 0, 0, 0);
 }
 
 @media (max-width: 480px) {
