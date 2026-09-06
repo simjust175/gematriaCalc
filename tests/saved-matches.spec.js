@@ -85,6 +85,12 @@ test('ראשי תיבות match highlights only the exact contributing source le
     await expect(savedCard.locator('.match-text__initial').nth(1)).toHaveText('ב');
     await expect(savedCard.locator('.match-text__initial').nth(2)).toHaveText('ש');
     await expect(savedCard.locator('.match-text')).toHaveText(savedText);
+    const initialsHighlightStyle = await savedCard.locator('.match-text__initial').first().evaluate(element => {
+      const style = getComputedStyle(element);
+      return { color: style.color, backgroundColor: style.backgroundColor };
+    });
+    expect(initialsHighlightStyle.color).toBe('rgb(25, 40, 68)');
+    expect(initialsHighlightStyle.backgroundColor).toBe('rgb(243, 230, 189)');
 
     await page.locator('.heb-input').fill('וגח');
     await expect(savedCard).toHaveCount(1);

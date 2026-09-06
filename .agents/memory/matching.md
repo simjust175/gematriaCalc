@@ -15,6 +15,8 @@ Each saved entry appears at most once. Its reasons include full, ראשי תיב
 
 **Text rule:** Canonical current text plus generated first and final letters are compared with the corresponding saved derived values. Punctuation, גרש/גרשיים, ניקוד, and whitespace normalize before comparison.
 
+**Highlight rule:** Exact contributing graphemes keep the normal dark navy text color and use only a restrained, compact gold background marker. Never render the matched letters themselves in gold.
+
 **Why:** Explicit Hebrew badges explain every reason without duplicate cards or misleading derived values as full gematria. Versioning prevents mixed מילוי data. Request IDs and abort handling prevent stale A→B→A responses.
 
 **How to apply:** Derive all criteria server-side, map highlighted first/final graphemes back to original text, and fail closed if mapping cannot be verified. Consolidate by saved-entry ID. Apply production schema changes only through Publish.

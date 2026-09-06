@@ -370,8 +370,14 @@ function matchedMiluiSummary(match) {
 }
 
 .match-text__initial {
-  color: #b58a2e;
+  display: inline;
+  padding: 0 2px;
+  border-radius: 3px;
+  background: #f3e6bd;
+  color: #192844;
   font-weight: 800;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 
 .show-more {
