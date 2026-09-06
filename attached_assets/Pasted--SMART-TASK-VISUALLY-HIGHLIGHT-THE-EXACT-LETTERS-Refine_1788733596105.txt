@@ -1,0 +1,318 @@
+# SMART TASK — VISUALLY HIGHLIGHT THE EXACT ראשי תיבות LETTERS
+
+Refine the saved-match sidebar so that a ראשי תיבות match is immediately understandable from the phrase itself.
+
+Do NOT redesign the sidebar.
+Do NOT change the matching rules.
+Do NOT change the database.
+Do NOT change saved data.
+
+This is a focused presentation improvement.
+
+==================================================
+GOAL
+==================================================
+
+When a saved result matches through ראשי תיבות, visually highlight ONLY the exact letters in the saved phrase that form those ראשי תיבות.
+
+Use the app's existing restrained GOLD accent.
+
+The user should be able to glance at the phrase and instantly see:
+
+"These are the letters that caused the ראשי תיבות match."
+
+==================================================
+EXAMPLE
+==================================================
+
+Saved phrase:
+
+שקנו בג שח
+
+Relevant ראשי תיבות:
+
+שבש
+
+The displayed phrase should visually appear as:
+
+שקנו בג שח
+
+BUT only these letters should be highlighted in gold:
+
+ש from שקנו
+ב from בג
+ש from שח
+
+Conceptually:
+
+[ש]קנו [ב]ג [ש]ח
+
+Do NOT add brackets in the actual UI.
+
+The brackets above only illustrate which letters receive the styling.
+
+==================================================
+IMPORTANT VISUAL RULE
+==================================================
+
+Do NOT highlight:
+
+- the whole word
+- the whole phrase
+- the ראשי תיבות badge
+- every occurrence of the same Hebrew letter
+
+Highlight ONLY the specific contributing letters inside the phrase.
+
+For:
+
+שקנו בג שח
+
+there are exactly 3 highlighted characters.
+
+==================================================
+STYLE
+==================================================
+
+Use the existing gold accent already used throughout the app.
+
+Preferred treatment:
+
+- gold text
+- slightly stronger font weight
+
+Optionally add a VERY subtle soft-gold background if needed for readability.
+
+Do not make the letters look like separate large badges.
+
+They should remain part of the natural Hebrew phrase.
+
+The phrase should still read normally.
+
+==================================================
+WHERE TO APPLY
+==================================================
+
+Apply this specifically to saved-match results in:
+
+התאמות שמורות
+
+when the match reason involves ראשי תיבות.
+
+Also reuse the same rendering wherever that saved-match phrase is shown elsewhere if the same component already serves multiple views.
+
+Do not independently redesign unrelated screens.
+
+==================================================
+MATCH TYPES
+==================================================
+
+A. גימטריה מלאה
+
+Do NOT highlight initials.
+
+Example:
+
+תנו
+602 — גימטריה מלאה
+
+Phrase remains normal.
+
+--------------------------------------------------
+
+B. ראשי תיבות
+
+Highlight the exact letters that form the matched ראשי תיבות.
+
+Example:
+
+שקנו בג שח
+
+If ראשי תיבות = שבש:
+
+highlight only:
+
+ש + ב + ש
+
+--------------------------------------------------
+
+C. גימטריית ר"ת / ראשי תיבות numeric match
+
+If the result is explicitly matched through the phrase's ראשי תיבות calculation, also highlight the contributing initials.
+
+This helps the user understand which letters produced that ראשי תיבות value.
+
+==================================================
+IMPORTANT: USE THE ACTUAL MATCH DATA
+==================================================
+
+Do not simply highlight the first character of every displayed word unless those words are actually the source of the current ראשי תיבות match.
+
+Use the existing match metadata wherever possible to determine which letters contributed.
+
+If the saved phrase's full ראשי תיבות are the match, then highlight its contributing initials.
+
+If only part of a saved phrase is responsible for a word/range match, highlight only the initials belonging to that relevant matched portion.
+
+Do not create misleading highlights.
+
+==================================================
+HEBREW NORMALIZATION
+==================================================
+
+The visual mapping must remain correct when the saved phrase contains:
+
+- multiple spaces
+- Hebrew punctuation
+- geresh / gershayim
+- commas
+- periods
+- parentheses
+- niqqud
+- cantillation
+
+Use the existing Hebrew normalization logic for matching, but preserve the ORIGINAL stored/display text when rendering.
+
+Do not replace the phrase with normalized text.
+
+==================================================
+RTL
+==================================================
+
+Preserve proper RTL order.
+
+The highlight must not:
+
+- change spacing
+- reverse words
+- break punctuation
+- separate Hebrew combining marks from their base letter
+
+==================================================
+FAIL SAFELY
+==================================================
+
+If Replit cannot reliably map the matched ראשי תיבות back to exact source characters:
+
+render the phrase normally.
+
+Do NOT guess.
+
+A missed highlight is better than highlighting incorrect letters.
+
+==================================================
+BADGES
+==================================================
+
+Keep the recently improved compact match-type badges.
+
+For example:
+
+ראשי תיבות
+
+or:
+
+גימטריית ר"ת
+
+The inline gold letters complement the badge.
+
+Do not add a new badge purely for "highlighted letters."
+
+==================================================
+EXAMPLES
+==================================================
+
+Example 1:
+
+Phrase:
+שקנו בג שח
+
+ראשי תיבות:
+שבש
+
+Highlight:
+ש in שקנו
+ב in בג
+ש in שח
+
+--------------------------------------------------
+
+Example 2:
+
+Phrase:
+שנה טובה ומתוקה
+
+ראשי תיבות:
+שטו
+
+Highlight:
+ש in שנה
+ט in טובה
+ו in ומתוקה
+
+--------------------------------------------------
+
+Example 3:
+
+Phrase:
+קולי שמע וראה דמע
+
+ראשי תיבות:
+קשוד
+
+Highlight:
+ק in קולי
+ש in שמע
+ו in וראה
+ד in דמע
+
+==================================================
+DO NOT
+==================================================
+
+Do NOT:
+
+- highlight all identical letters in the phrase
+- highlight entire words
+- create character pills
+- increase row height substantially
+- add new explanatory paragraphs
+- change match logic
+- change APIs
+- change database schema
+- modify saved records
+- refactor unrelated calculator/Tanach/מילוי/מילות יסוד logic
+
+==================================================
+ACCEPTANCE CRITERIA
+==================================================
+
+Complete when:
+
+1. A ראשי תיבות match visually highlights the exact contributing source letters.
+2. Only those letters use the restrained gold accent.
+3. The original phrase remains fully readable.
+4. RTL and Hebrew punctuation remain correct.
+5. Full-gematria-only matches receive no initials highlight.
+6. No incorrect letters are highlighted.
+7. Existing match badges remain clean and compact.
+8. Sidebar height/density stays essentially the same.
+9. No database/API/schema changes occur.
+10. Existing matching behavior remains unchanged.
+
+Before finishing, test specifically with:
+
+שקנו בג שח
+
+Expected ראשי תיבות:
+
+שבש
+
+Verify visually that ONLY the first ש, the ב, and the final contributing ש are gold.
+
+After implementation, report:
+- how the source letters are mapped
+- which match types trigger highlighting
+- edge cases handled
+- confirmation that no matching/data logic changed
+- test/build result

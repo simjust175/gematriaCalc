@@ -64,6 +64,33 @@ test('live matching shows the dedicated full מילוי badge', async ({ page })
   }
 });
 
+test('ראשי תיבות match highlights only the exact contributing source letters', async ({ page }) => {
+  await loginAndOpenCalculator(page);
+  const savedText = 'שְׁקנו בג שח';
+  const createResponse = await page.request.post(new URL('/api/entries', page.url()).href, {
+    data: { originalText: savedText },
+  });
+  expect(createResponse.status()).toBe(200);
+  const savedId = (await createResponse.json()).id;
+
+  try {
+    await page.locator('.heb-input').fill('שבש');
+    const savedCard = page.locator('.match-panel:visible .match-item').filter({
+      has: page.locator('.match-text', { hasText: savedText }),
+    });
+    await expect(savedCard).toHaveCount(1);
+    await expect(savedCard.locator('.match-badge--initials')).toHaveText('ראשי תיבות');
+    await expect(savedCard.locator('.match-text__initial')).toHaveCount(3);
+    await expect(savedCard.locator('.match-text__initial').nth(0)).toHaveText('שְׁ');
+    await expect(savedCard.locator('.match-text__initial').nth(1)).toHaveText('ב');
+    await expect(savedCard.locator('.match-text__initial').nth(2)).toHaveText('ש');
+    await expect(savedCard.locator('.match-text')).toHaveText(savedText);
+  } finally {
+    const cleanup = await page.request.delete(new URL(`/api/entries/${savedId}`, page.url()).href);
+    expect(cleanup.ok()).toBe(true);
+  }
+});
+
 test('מילות יסוד stays closed on demand, shows exact compact results, and fits mobile', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await loginAndOpenCalculator(page);

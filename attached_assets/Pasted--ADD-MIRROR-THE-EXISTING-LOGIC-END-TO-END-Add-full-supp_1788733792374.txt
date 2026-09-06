@@ -1,0 +1,471 @@
+# ADD סופי תיבות — MIRROR THE EXISTING ראשי תיבות LOGIC END-TO-END
+
+Add full support for:
+
+סופי תיבות
+
+Use the SAME conceptual logic, matching behavior, saving behavior, badges, highlighting, and production-safety principles already used for ראשי תיבות.
+
+IMPORTANT:
+Do not bolt on an isolated calculation.
+Treat סופי תיבות as a first-class derived value parallel to ראשי תיבות.
+
+Before changing anything, inspect the current ראשי תיבות implementation and reuse its architecture wherever possible.
+
+Do NOT redesign unrelated parts of the app.
+Do NOT destructively migrate production data.
+
+==================================================
+1. DEFINITION
+==================================================
+
+ראשי תיבות:
+first relevant Hebrew letter of each word.
+
+סופי תיבות:
+last relevant Hebrew letter of each word.
+
+Example:
+
+שקנו בג שח
+
+ראשי תיבות:
+שבש
+
+סופי תיבות:
+וגח
+
+For סופי תיבות, take the final actual Hebrew letter of each word while ignoring trailing:
+
+- punctuation
+- spaces
+- geresh / gershayim
+- niqqud
+- cantillation
+
+Preserve the original displayed text.
+
+==================================================
+2. GEMATRIA
+==================================================
+
+Calculate:
+
+1. the סופי תיבות string
+2. גימטריית סופי תיבות
+
+Reuse the EXISTING standard gematria engine.
+
+Do not create a separate value system.
+
+Final-form Hebrew letters must follow whatever normalization/value rules the existing standard gematria engine already uses.
+
+Do not introduce special מנצפ״ך values unless the current app already defines them that way.
+
+==================================================
+3. MAIN CALCULATOR
+==================================================
+
+Add סופי תיבות without making the main result area feel crowded.
+
+The user needs to be able to see:
+
+- גימטריה מלאה
+- ראשי תיבות
+- גימטריית ראשי תיבות
+- סופי תיבות
+- גימטריית סופי תיבות
+
+BUT do not simply create five oversized equal cards.
+
+Use a clean hierarchy.
+
+Preferred concept:
+
+גימטריה מלאה
+[main value]
+
+ראשי תיבות
+[letters] · [gematria]
+
+סופי תיבות
+[letters] · [gematria]
+
+In other words, it is acceptable to combine each derived string with its gematria visually so the top calculation area remains simple.
+
+Preserve the current premium RTL design.
+
+==================================================
+4. SAVE LOGIC
+==================================================
+
+When an entry is normally saved, derive and persist/index its סופי תיבות information in the same way that ראשי תיבות information is currently persisted/indexed.
+
+Normal save should support:
+
+- full gematria
+- ראשי תיבות
+- gematria of ראשי תיבות
+- סופי תיבות
+- gematria of סופי תיבות
+- existing מילוי behavior according to the current rules
+
+Do not require the user to separately click a "save סופי תיבות" action.
+
+It is derived data.
+
+==================================================
+5. EXISTING ENTRIES
+==================================================
+
+Existing saved entries must also become searchable/matchable by סופי תיבות.
+
+Do this safely.
+
+Prefer an additive derived/indexing approach consistent with the current production architecture.
+
+Do NOT:
+
+- delete saved entries
+- rewrite client text
+- truncate tables
+- reset production
+- recreate the database
+- copy development DB over production
+
+If backfilling derived values is necessary, make it idempotent and production-safe.
+
+Existing saved-entry text must remain unchanged.
+
+==================================================
+6. LIVE MATCHING — MIRROR ראשי תיבות
+==================================================
+
+Inspect exactly how ראשי תיבות currently participates in התאמות שמורות.
+
+Implement the SAME categories for סופי תיבות.
+
+Where ראשי תיבות supports:
+
+- exact derived-letter match
+- numeric gematria match
+- saved-match reason metadata
+- deduplication
+- highlighting
+
+סופי תיבות should support the equivalent behavior.
+
+Do not invent a different matching philosophy.
+
+==================================================
+7. EXACT סופי תיבות MATCH
+==================================================
+
+If the current derived סופי תיבות string matches the saved entry's סופי תיבות string according to the same rules used for ראשי תיבות:
+
+show the saved result.
+
+Use a compact badge:
+
+סופי תיבות
+
+==================================================
+8. GEMATRIA OF סופי תיבות MATCH
+==================================================
+
+If the applicable current value matches a saved entry via גימטריית סופי תיבות according to the same numeric matching semantics already used for גימטריית ראשי תיבות:
+
+show the result.
+
+Use a clear badge such as:
+
+גימטריית סופי תיבות
+
+Avoid ambiguous wording if "ס״ת" could be misunderstood.
+
+==================================================
+9. SIDEBAR HIGHLIGHTING
+==================================================
+
+This is important.
+
+We just improved ראשי תיבות matches so the exact contributing letters inside the phrase are highlighted in the restrained gold accent.
+
+Do the SAME for סופי תיבות.
+
+For:
+
+שקנו בג שח
+
+סופי תיבות:
+
+וגח
+
+The phrase should remain:
+
+שקנו בג שח
+
+but highlight ONLY:
+
+ו at the end of שקנו
+ג at the end of בג
+ח at the end of שח
+
+Conceptually:
+
+שקנ[ו] ב[ג] ש[ח]
+
+DO NOT show brackets in the real UI.
+
+Only the exact contributing letters should be gold.
+
+==================================================
+10. DIFFERENCE BETWEEN ראשי AND סופי HIGHLIGHTING
+==================================================
+
+ראשי תיבות match:
+
+highlight contributing FIRST letters.
+
+Example:
+
+[ש]קנו [ב]ג [ש]ח
+
+סופי תיבות match:
+
+highlight contributing LAST letters.
+
+Example:
+
+שקנ[ו] ב[ג] ש[ח]
+
+This must be visually precise.
+
+==================================================
+11. DO NOT HIGHLIGHT THE WRONG LETTERS
+==================================================
+
+Never:
+
+- highlight every occurrence of the same letter
+- highlight the whole word
+- highlight the whole phrase
+- simply search the rendered string for the characters
+
+Map the derived letters back to the actual contributing words/characters.
+
+Use existing match metadata and original text.
+
+If mapping cannot be determined reliably, show plain text rather than an incorrect highlight.
+
+==================================================
+12. HEBREW EDGE CASES
+==================================================
+
+Handle:
+
+- final letters ך ם ן ף ץ
+- punctuation after the word
+- geresh/gershayim
+- commas
+- periods
+- parentheses
+- niqqud
+- cantillation
+- repeated spaces
+- multiple Hebrew combining marks
+
+Example:
+
+שלום,
+
+The סופי תיבות character is:
+
+ם
+
+not the comma.
+
+If niqqud is attached to the final character, preserve the marks visually with their base letter.
+
+==================================================
+13. ORIGINAL TEXT MUST BE PRESERVED
+==================================================
+
+Normalization is for calculations/matching.
+
+Rendering must preserve the originally saved phrase.
+
+Do not replace it with normalized text.
+
+==================================================
+14. SIDEBAR RESULT DESIGN
+==================================================
+
+Continue using the newly approved compact sidebar style.
+
+For example:
+
+[phrase with relevant final letters highlighted gold]
+
+602
+
+[סופי תיבות]
+
+or:
+
+[גימטריית סופי תיבות]
+
+Use the same restrained badge/color system already used for:
+
+- גימטריה מלאה
+- ראשי תיבות
+- מילוי
+- גימטריית ר״ת
+
+Do NOT add a generic "תואם" badge.
+
+==================================================
+15. MULTIPLE MATCH REASONS
+==================================================
+
+One saved entry may match through several paths:
+
+- גימטריה מלאה
+- ראשי תיבות
+- גימטריית ראשי תיבות
+- סופי תיבות
+- גימטריית סופי תיבות
+- מילוי
+
+Do NOT duplicate the saved entry as several separate cards.
+
+Show the entry once and display the relevant reason badges compactly.
+
+If both ראשי תיבות and סופי תיבות are simultaneous reasons, the phrase highlighting must remain understandable.
+
+If combining both highlight types would become visually confusing, prioritize the match reason currently being represented or use subtly distinct treatment while preserving the existing restrained palette.
+
+Do not create visual noise.
+
+==================================================
+16. SEARCH / SAVED LIBRARY
+==================================================
+
+Where saved-entry search or filtering currently understands ראשי תיבות and its gematria, add equivalent support for:
+
+- סופי תיבות
+- גימטריית סופי תיבות
+
+Only where this naturally mirrors existing functionality.
+
+Do not redesign the saved library.
+
+==================================================
+17. TEST CASE
+==================================================
+
+Explicitly test:
+
+Input / saved phrase:
+
+שקנו בג שח
+
+Expected:
+
+ראשי תיבות = שבש
+סופי תיבות = וגח
+
+For ראשי תיבות display:
+highlight:
+ש + ב + ש
+
+For סופי תיבות display:
+highlight:
+ו + ג + ח
+
+Verify the two mappings are independent and correct.
+
+==================================================
+18. MORE TESTS
+==================================================
+
+Test phrases containing:
+
+- final ם
+- final ן
+- final ך
+- final ף
+- final ץ
+- punctuation
+- niqqud
+- repeated spaces
+- one-word phrase
+- duplicate words
+
+Verify:
+
+- derived string
+- gematria
+- persistence
+- match detection
+- badge reason
+- exact character highlighting
+- reload persistence
+
+==================================================
+19. PRODUCTION SAFETY
+==================================================
+
+This is a live client app.
+
+Before any persistence/schema work:
+
+- inspect existing storage architecture
+- prefer additive changes
+- record relevant saved-data counts
+
+Afterward confirm:
+
+existing saved entries deleted = 0
+existing saved words deleted = 0
+existing client text modified = 0
+
+Never:
+
+DROP
+TRUNCATE
+RESET
+RESEED
+recreate production
+copy development DB into production
+
+==================================================
+20. ACCEPTANCE CRITERIA
+==================================================
+
+Complete only when:
+
+1. סופי תיבות is calculated correctly.
+2. Its standard gematria is calculated using the existing engine.
+3. It participates in saving like ראשי תיבות.
+4. Existing entries can participate safely.
+5. It participates in saved matching using the same semantics as ראשי תיבות.
+6. Sidebar has clear סופי תיבות / גימטריית סופי תיבות reason badges.
+7. Exact contributing FINAL letters are highlighted gold.
+8. ראשי תיבות continues to highlight exact FIRST letters.
+9. Same saved item is deduplicated across multiple match reasons.
+10. Hebrew punctuation/niqqud/final letters are handled correctly.
+11. Main calculator does not become visually cluttered.
+12. No existing production data is lost.
+13. Existing ראשי תיבות behavior remains working.
+
+At the end report:
+
+- how סופי תיבות is derived
+- how its gematria is calculated
+- how it is persisted/indexed
+- which matching paths were added
+- how first-vs-last-letter highlighting works
+- production data counts before/after if persistence changed
+- tests added
+- build/test results

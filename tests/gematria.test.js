@@ -16,6 +16,7 @@ import {
 import { useLiveMatching } from '../src/composables/useLiveMatching.js';
 import { useTanachGematriaMatches } from '../src/composables/useTanachGematriaMatches.js';
 import { getMatchTypeMeta } from '../src/utils/matchTypes.js';
+import { mapInitialsToOriginalText } from '../src/utils/initialsHighlight.js';
 import {
   MILUI_BASE_LETTERS,
   MILUI_DEFAULT_MAPPING,
@@ -265,6 +266,21 @@ test('match type identifiers map to explicit Hebrew badge labels', () => {
   assert.equal(getMatchTypeMeta('initials_gematria').label, 'גימטריית ר״ת');
   assert.equal(getMatchTypeMeta('saved_word').label, 'התאמה בתיבה');
   assert.equal(getMatchTypeMeta('milui_gematria').label, 'התאמה במילוי');
+});
+
+test('initials highlighting maps exact source graphemes without changing original text', () => {
+  const original = '  (שְׁקנו),   בּג  שֽח. ';
+  const parts = mapInitialsToOriginalText(original, 'שבש');
+  assert.ok(parts);
+  assert.equal(parts.map(part => part.text).join(''), original);
+  const highlighted = parts.flatMap(part => part.segments || [])
+    .filter(segment => segment.initialsHighlighted);
+  assert.deepEqual(highlighted.map(segment => normalize(segment.text)), ['ש', 'ב', 'ש']);
+  assert.equal(highlighted.length, 3);
+});
+
+test('initials highlighting fails safely when source letters do not match metadata', () => {
+  assert.equal(mapInitialsToOriginalText('שקנו בג שח', 'שטו'), null);
 });
 
 test('live matching clears old reasons and ignores stale A → B → A responses', async () => {

@@ -23,14 +23,20 @@
         >
           <div class="match-item__main">
             <div class="match-text">
-              <template v-if="match.matched_words?.length">
+              <template v-for="(part, index) in phraseParts(match)" :key="`${match.id}-part-${index}`">
                 <span
-                  v-for="(part, index) in highlightParts(match)"
-                  :key="`${match.id}-part-${index}`"
-                  :class="{ 'match-text__word': part.highlighted }"
-                >{{ part.text }}</span>
+                  :class="{ 'match-text__word': part.wordHighlighted }"
+                >
+                  <template v-if="part.segments">
+                    <span
+                      v-for="(segment, segmentIndex) in part.segments"
+                      :key="`${match.id}-part-${index}-segment-${segmentIndex}`"
+                      :class="{ 'match-text__initial': segment.initialsHighlighted }"
+                    >{{ segment.text }}</span>
+                  </template>
+                  <template v-else>{{ part.text }}</template>
+                </span>
               </template>
-              <template v-else>{{ match.original_text }}</template>
             </div>
             <div v-if="gematria" class="match-value" dir="ltr">{{ gematria }}</div>
           </div>
@@ -78,6 +84,7 @@
 import { ref, computed, watch } from 'vue';
 import { getMatchTypeMeta } from '@/utils/matchTypes.js';
 import { normalize, toHebrewNumber } from '@/composables/useGematria.js';
+import { mapInitialsToOriginalText } from '@/utils/initialsHighlight.js';
 
 const props = defineProps({
   matches: { type: Array, default: () => [] },
@@ -101,13 +108,22 @@ function hasMatchType(match, type) {
   return match.matchTypes?.includes(type);
 }
 
-function highlightParts(match) {
+function phraseParts(match) {
   const matchingWords = new Set(
     (match.matched_words || []).map(word => normalize(String(word.word || ''))).filter(Boolean)
   );
-  return String(match.original_text || '').split(/(\s+)/).map(text => ({
-    text,
-    highlighted: !/^\s+$/.test(text) && matchingWords.has(normalize(text)),
+  const shouldHighlightInitials = hasMatchType(match, 'initials_text')
+    || hasMatchType(match, 'initials_gematria');
+  const mappedInitials = shouldHighlightInitials
+    ? mapInitialsToOriginalText(match.original_text, match.initials)
+    : null;
+  const parts = mappedInitials || String(match.original_text || '')
+    .split(/(\s+)/)
+    .map(text => ({ text, segments: null }));
+  return parts.map(part => ({
+    ...part,
+    wordHighlighted: !/^\s+$/.test(part.text)
+      && matchingWords.has(normalize(part.text)),
   }));
 }
 
@@ -326,6 +342,11 @@ function matchedMiluiSummary(match) {
   border-radius: 4px;
   background: #f5e8c5;
   color: #624a13;
+}
+
+.match-text__initial {
+  color: #b58a2e;
+  font-weight: 800;
 }
 
 .show-more {
