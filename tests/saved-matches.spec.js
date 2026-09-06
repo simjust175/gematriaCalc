@@ -87,10 +87,24 @@ test('ראשי תיבות match highlights only the exact contributing source le
     await expect(savedCard.locator('.match-text')).toHaveText(savedText);
     const initialsHighlightStyle = await savedCard.locator('.match-text__initial').first().evaluate(element => {
       const style = getComputedStyle(element);
-      return { color: style.color, backgroundColor: style.backgroundColor };
+      const parentStyle = getComputedStyle(element.parentElement);
+      return {
+        color: style.color,
+        backgroundColor: style.backgroundColor,
+        padding: style.padding,
+        margin: style.margin,
+        lineHeight: style.lineHeight,
+        parentLineHeight: parentStyle.lineHeight,
+        fontWeight: style.fontWeight,
+        parentFontWeight: parentStyle.fontWeight,
+      };
     });
     expect(initialsHighlightStyle.color).toBe('rgb(25, 40, 68)');
-    expect(initialsHighlightStyle.backgroundColor).toBe('rgb(243, 230, 189)');
+    expect(initialsHighlightStyle.backgroundColor).toBe('rgba(213, 173, 79, 0.25)');
+    expect(initialsHighlightStyle.padding).toBe('0px');
+    expect(initialsHighlightStyle.margin).toBe('0px');
+    expect(initialsHighlightStyle.lineHeight).toBe(initialsHighlightStyle.parentLineHeight);
+    expect(initialsHighlightStyle.fontWeight).toBe(initialsHighlightStyle.parentFontWeight);
 
     await page.locator('.heb-input').fill('וגח');
     await expect(savedCard).toHaveCount(1);

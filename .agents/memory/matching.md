@@ -15,7 +15,7 @@ Each saved entry appears at most once. Its reasons include full, ראשי תיב
 
 **Text rule:** Canonical current text plus generated first and final letters are compared with the corresponding saved derived values. Punctuation, גרש/גרשיים, ניקוד, and whitespace normalize before comparison.
 
-**Highlight rule:** Exact contributing graphemes keep the normal dark navy text color and use only a restrained, compact gold background marker. Never render the matched letters themselves in gold.
+**Highlight rule:** Exact contributing graphemes keep the surrounding text’s navy color, weight, width, baseline, and line-height. Use only a pale gold background with zero padding/margin; never make letters gold or badge-like.
 
 **Why:** Explicit Hebrew badges explain every reason without duplicate cards or misleading derived values as full gematria. Versioning prevents mixed מילוי data. Request IDs and abort handling prevent stale A→B→A responses.
 

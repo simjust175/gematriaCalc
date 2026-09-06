@@ -1,0 +1,71 @@
+CORRECT THE INLINE ראשי תיבות / סופי תיבות HIGHLIGHT STYLE
+
+The current implementation is NOT visually correct.
+
+The selected letters currently look like separate little gold pills/tiles, which breaks the Hebrew words apart visually.
+
+I do NOT want the highlighted characters to look like badges.
+
+The phrase itself must continue to look like completely normal continuous Hebrew text.
+
+For example:
+
+שמח בוים שטרבוך
+
+must still visually read exactly like a normal phrase with normal spacing.
+
+Only the exact contributing letters should have a subtle gold marker-style background directly behind the glyph.
+
+IMPORTANT STYLE RULES:
+
+- NO horizontal padding around the highlighted character
+- NO margin around the highlighted character
+- NO pill/capsule shape
+- NO obvious standalone box
+- NO increased spacing between letters
+- NO increased spacing between words
+- NO change in line-height
+- NO baseline shift
+- NO larger character container
+
+The highlight should behave like an inline text highlight, not a UI component.
+
+Desired effect:
+
+normal dark navy Hebrew character
++
+soft translucent/pale gold background directly behind that character
+
+Use either:
+- almost zero border radius
+or
+- a very small 2–3px radius
+
+The gold should be subtle and warm, consistent with the app palette.
+
+The character itself remains dark navy.
+
+ראשי תיבות:
+highlight only the relevant FIRST letters.
+
+סופי תיבות:
+highlight only the relevant LAST letters.
+
+CRITICAL:
+The complete phrase must remain visually continuous and natural.
+
+A highlighted letter should occupy exactly the same typographic width and position as it would without highlighting.
+
+Do not use inline-flex, badge styles, padding, chip components, or anything that changes the Hebrew text flow.
+
+Think:
+"highlighter marker behind a printed letter"
+
+NOT:
+"gold badge containing a letter."
+
+Keep the current badges underneath the phrase unchanged.
+
+Do not change matching logic, database, APIs, or saved data.
+
+This task is ONLY to correct the visual rendering of the highlighted characters.
