@@ -19,7 +19,7 @@
             autocorrect="off"
             spellcheck="false"
             @input="resizeTextarea"
-            @keydown="onCalculatorKeydown"
+            @keydown="onHebrewKeydown"
           ></textarea>
           <label
             class="keyboard-toggle"
@@ -233,10 +233,7 @@ import { useLiveMatching } from '@/composables/useLiveMatching.js';
 import BaseWordsDisclosure from './BaseWordsDisclosure.vue';
 import SaveSplitButton from './SaveSplitButton.vue';
 import { useBaseWords } from '@/composables/useBaseWords.js';
-import {
-  getMappedHebrewCharacter,
-  insertAtSelection,
-} from '@/utils/hebrewKeyboard.js';
+import { useAutomaticHebrewKeyboard } from '@/composables/useAutomaticHebrewKeyboard.js';
 import MatchPanel from './MatchPanel.vue';
 import TanachGematriaMatches from './TanachGematriaMatches.vue';
 import MiluiPanel from './MiluiPanel.vue';
@@ -252,20 +249,9 @@ import {
 
 const emit = defineEmits(['openTanach']);
 
-const AUTOMATIC_HEBREW_KEYBOARD_PREFERENCE = 'gimatria.automatic-hebrew-keyboard';
-
-function readAutomaticHebrewKeyboardPreference() {
-  if (typeof window === 'undefined') return true;
-  try {
-    return window.localStorage.getItem(AUTOMATIC_HEBREW_KEYBOARD_PREFERENCE) !== 'false';
-  } catch {
-    return true;
-  }
-}
-
 const inputText   = ref('');
 const textareaRef = ref(null);
-const automaticHebrewKeyboard = ref(readAutomaticHebrewKeyboardPreference());
+const { automaticHebrewKeyboard, onHebrewKeydown } = useAutomaticHebrewKeyboard();
 const expandedWords = ref({});
 const saveStatus  = ref('idle');   // idle | loading | saved
 const saveError   = ref('');
@@ -385,73 +371,12 @@ async function saveMiluiMapping(mapping) {
   }
 }
 
-watch(automaticHebrewKeyboard, (enabled) => {
-  try {
-    window.localStorage.setItem(AUTOMATIC_HEBREW_KEYBOARD_PREFERENCE, String(enabled));
-  } catch {
-    // The calculator remains usable when browser storage is unavailable.
-  }
-});
-
 // Auto-resize textarea to fit content, starting at the compact input height
 function resizeTextarea() {
   const el = textareaRef.value;
   if (!el) return;
   el.style.height = 'auto';
   el.style.height = Math.max(84, el.scrollHeight) + 'px';
-}
-
-function restoreCaretAfterMappedInput(textarea, selectionStart, selectionEnd) {
-  nextTick(() => {
-    textarea.focus();
-    textarea.setSelectionRange(selectionStart, selectionEnd);
-    resizeTextarea();
-  });
-}
-
-function onCalculatorKeydown(event) {
-  const mappedCharacter = getMappedHebrewCharacter(event, {
-    enabled: automaticHebrewKeyboard.value,
-  });
-  if (!mappedCharacter) return;
-
-  event.preventDefault();
-  const textarea = event.currentTarget;
-  const valueBeforeInsertion = textarea.value;
-  const selectionStartBeforeInsertion = textarea.selectionStart;
-  const selectionEndBeforeInsertion = textarea.selectionEnd;
-
-  // execCommand creates a native editable-text transaction, preserving the
-  // browser's undo/redo stack and letting Vue's normal v-model input flow run.
-  const nativeInsertionAccepted = typeof document !== 'undefined'
-    && typeof document.execCommand === 'function'
-    && document.execCommand('insertText', false, mappedCharacter);
-
-  // Some embedded browsers report success from execCommand without changing a
-  // textarea. Only trust it after observing the text or caret actually move.
-  const insertedNatively = nativeInsertionAccepted && (
-    textarea.value !== valueBeforeInsertion
-    || textarea.selectionStart !== selectionStartBeforeInsertion
-    || textarea.selectionEnd !== selectionEndBeforeInsertion
-  );
-
-  if (insertedNatively) {
-    nextTick(() => {
-      if (inputText.value !== textarea.value) inputText.value = textarea.value;
-      resizeTextarea();
-    });
-    return;
-  }
-
-  const replacement = insertAtSelection(
-    textarea.value,
-    textarea.selectionStart,
-    textarea.selectionEnd,
-    mappedCharacter
-  );
-  textarea.value = replacement.value;
-  inputText.value = replacement.value;
-  restoreCaretAfterMappedInput(textarea, replacement.selectionStart, replacement.selectionEnd);
 }
 
 // ── Toggle word letter breakdown ─────────────────────────────────────────────

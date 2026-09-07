@@ -34,6 +34,7 @@
               dir="rtl"
               autocomplete="off"
               spellcheck="false"
+              @keydown="onHebrewKeydown"
               :aria-invalid="fieldError?.letter === letter ? 'true' : 'false'"
               :aria-describedby="fieldError?.letter === letter ? `milui-error-${letter}` : undefined"
             />
@@ -71,6 +72,7 @@ import {
   isDefaultMiluiMapping,
   normalizeMiluiMapping,
 } from '@/utils/milui.js';
+import { useAutomaticHebrewKeyboard } from '@/composables/useAutomaticHebrewKeyboard.js';
 
 const props = defineProps({
   mapping: { type: Object, required: true },
@@ -80,6 +82,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['close', 'save']);
+const { onHebrewKeydown } = useAutomaticHebrewKeyboard();
 const draft = ref(cloneMiluiMapping(props.mapping));
 const formError = ref('');
 const fieldError = ref(null);

@@ -17,7 +17,7 @@
       <section ref="editDialogRef" class="modal" role="dialog" aria-modal="true" aria-labelledby="base-word-title" @keydown.tab="trapFocus($event, editDialogRef)">
         <h2 id="base-word-title">{{ editing ? 'עריכת מילת יסוד' : 'מילת יסוד חדשה' }}</h2>
         <label for="base-word-input">מילה או ביטוי</label>
-        <input id="base-word-input" ref="inputRef" v-model="draft" @keydown.enter="submit" />
+        <input id="base-word-input" ref="inputRef" v-model="draft" @keydown="onHebrewKeydown" @keydown.enter="submit" />
         <p class="preview">גימטריה: <b>{{ preview }}</b></p><p v-if="feedback" class="feedback">{{ feedback }}</p>
         <footer><button class="gold-button" :disabled="busy || !draft.trim()" @click="submit">{{ editing ? 'שמור' : 'הוסף' }}</button><button class="text-button" @click="closeModal">ביטול</button></footer>
       </section>
@@ -34,7 +34,9 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, ref } from 'vue';
 import { useBaseWords } from '@/composables/useBaseWords.js';
+import { useAutomaticHebrewKeyboard } from '@/composables/useAutomaticHebrewKeyboard.js';
 const { items, loading, error, load, save, update, remove, preview: calculate } = useBaseWords();
+const { onHebrewKeydown } = useAutomaticHebrewKeyboard();
 const modal = ref(false), editing = ref(null), deleting = ref(null), draft = ref(''), feedback = ref(''), busy = ref(false);
 const inputRef = ref(null), editDialogRef = ref(null), deleteDialogRef = ref(null), deleteConfirmRef = ref(null);
 let previouslyFocused = null;

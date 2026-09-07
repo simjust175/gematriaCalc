@@ -1,0 +1,394 @@
+# SYSTEM-WIDE AUTOMATIC HEBREW TYPING
+
+The app already has an "automatic Hebrew keyboard/text" feature.
+
+I now want this behavior to be SYSTEM-WIDE.
+
+The user should not have to discover that automatic Hebrew typing works in one text box but not another.
+
+Any text field anywhere in the application whose purpose is entering Hebrew text must use the SAME existing automatic-Hebrew typing logic.
+
+IMPORTANT:
+Do NOT create a second transliteration/mapping system.
+Find the existing automatic Hebrew implementation and centralize/reuse it.
+
+==================================================
+1. CORE REQUIREMENT
+==================================================
+
+When automatic Hebrew typing is enabled, it must work in EVERY Hebrew text-entry field throughout the app.
+
+Examples include, but are not limited to:
+
+- main Gematria calculator input
+- saved-entry search
+- saved-entry creation/editing
+- מילות יסוד manual add
+- מילות יסוד edit
+- Tanach search fields
+- Tanach-related Hebrew text inputs
+- מילוי configuration/edit fields
+- phrase/title Hebrew inputs
+- Hebrew filters/search boxes
+- modal inputs
+- drawer inputs
+- textarea fields
+- any future Hebrew text-entry components
+
+Audit the entire application.
+
+Do not only patch the fields mentioned above.
+
+==================================================
+2. ONE SHARED IMPLEMENTATION
+==================================================
+
+This should become shared application infrastructure.
+
+Preferred architecture:
+
+- one reusable hook / utility / input behavior
+or
+- shared HebrewInput / HebrewTextarea primitives
+
+depending on the existing component architecture.
+
+Do NOT duplicate keyboard-conversion logic across individual screens.
+
+There should be ONE canonical implementation of:
+
+Automatic Hebrew typing.
+
+==================================================
+3. EXISTING MAPPING MUST REMAIN
+==================================================
+
+Reuse the exact existing key mapping and behavior.
+
+Do NOT invent a new Hebrew keyboard map.
+
+Whatever currently makes automatic Hebrew typing work correctly in the main calculator should become the canonical behavior for all Hebrew inputs.
+
+The main calculator must continue behaving exactly as it does now.
+
+==================================================
+4. GLOBAL PREFERENCE
+==================================================
+
+The existing:
+
+מקלדת עברית אוטומטית
+
+setting/toggle should control the behavior globally.
+
+If it is ON:
+
+all Hebrew-capable text inputs use automatic Hebrew typing.
+
+If it is OFF:
+
+all fields behave as normal browser text inputs.
+
+Do NOT create a separate toggle for every field.
+
+One user preference should control the entire application.
+
+==================================================
+5. PERSIST THE SETTING
+==================================================
+
+Preserve the existing preference persistence.
+
+If the user enables automatic Hebrew typing:
+
+- navigating to another page must not turn it off
+- opening a modal must not turn it off
+- entering מילות יסוד must not require enabling it again
+- using Tanach search must not require enabling it again
+
+The setting is application-wide.
+
+Do not change the current persistence model unless necessary.
+
+==================================================
+6. FIELDS THAT SHOULD USE IT
+==================================================
+
+Apply automatic Hebrew behavior to text fields whose semantic content is Hebrew.
+
+Examples:
+
+input phrase
+search saved Hebrew text
+add מילת יסוד
+edit מילת יסוד
+Tanach phrase/search text
+מילוי spellings
+Hebrew names/titles if present
+
+Also include:
+
+<textarea>
+standard text <input>
+custom text components
+dialog/modal text inputs
+
+and contenteditable fields if the application actually uses them.
+
+==================================================
+7. DO NOT APPLY IT TO NON-HEBREW FIELDS
+==================================================
+
+Do NOT automatically convert typing inside fields intended for:
+
+- passwords
+- email addresses
+- URLs
+- numeric values
+- database IDs
+- technical configuration values
+- authentication fields
+- file names where Latin text is expected
+- other clearly non-Hebrew technical input
+
+Use semantic intent, not simply:
+
+input[type="text"] = Hebrew.
+
+==================================================
+8. SEARCH FIELDS
+==================================================
+
+For Hebrew-content search boxes such as:
+
+- שמורים search
+- מילות יסוד search
+- Tanach Hebrew search
+
+automatic Hebrew typing SHOULD work.
+
+This is important.
+
+The user should be able to type using the English keyboard layout and have Hebrew appear exactly as in the calculator.
+
+==================================================
+9. PASTE BEHAVIOR
+==================================================
+
+Do NOT unnecessarily transform pasted text.
+
+If the user pastes:
+
+שלום
+
+it should remain:
+
+שלום
+
+If the user pastes Latin text, do not automatically reinterpret the entire pasted string unless the current approved automatic-Hebrew behavior already does so.
+
+The feature primarily concerns KEYBOARD TYPING.
+
+Preserve sensible paste behavior.
+
+==================================================
+10. KEYBOARD OPERATIONS MUST STILL WORK
+==================================================
+
+Automatic Hebrew typing must not break:
+
+- Backspace
+- Delete
+- Arrow keys
+- Home / End
+- Shift selection
+- Ctrl+A
+- Ctrl+C
+- Ctrl+V
+- Ctrl+X
+- Ctrl+Z
+- Ctrl+Y
+- Cmd equivalents on macOS
+- Tab
+- Enter where appropriate
+- Escape
+- selection replacement
+
+Modifier-key shortcuts must never be converted into Hebrew characters.
+
+==================================================
+11. CURSOR / SELECTION BEHAVIOR
+==================================================
+
+Typing in the middle of existing text must work correctly.
+
+Example:
+
+אבגד
+
+Place cursor between:
+
+אב|גד
+
+Type another mapped character.
+
+It must insert at the current caret:
+
+אבXגד
+
+with X being the appropriate Hebrew character.
+
+Do NOT force typing to the end.
+
+Do NOT lose selection/cursor position.
+
+==================================================
+12. REPLACING SELECTED TEXT
+==================================================
+
+If text is selected and the user types a key:
+
+replace that selection normally with the mapped Hebrew character.
+
+This must behave like a native text field.
+
+==================================================
+13. RTL
+==================================================
+
+Hebrew-content inputs should retain appropriate RTL behavior.
+
+But do NOT alter global layout direction as part of this task.
+
+Only ensure the automatic keyboard behavior works cleanly in existing RTL fields.
+
+==================================================
+14. COMPONENT AUDIT
+==================================================
+
+Before coding, search the frontend for all:
+
+- <input>
+- <textarea>
+- contenteditable
+- custom Input components
+- custom Textarea components
+- search components
+- modal form controls
+
+Classify each as:
+
+A. Hebrew-content input
+B. non-Hebrew/technical input
+
+Apply the shared behavior to category A.
+
+Do not miss less obvious fields inside dialogs or management pages.
+
+==================================================
+15. FUTURE-PROOFING
+==================================================
+
+After this change, developers should not need to manually reimplement automatic Hebrew typing every time a new Hebrew input is created.
+
+Provide a clean reusable mechanism.
+
+Ideally a new Hebrew text field should opt into a shared primitive/prop such as the existing design system naturally supports.
+
+Do not create excessive architectural complexity.
+
+==================================================
+16. DO NOT CHANGE BUSINESS LOGIC
+==================================================
+
+Do not modify:
+
+- Gematria calculations
+- ראשי תיבות
+- סופי תיבות
+- מילוי
+- מילות יסוד matching
+- Tanach matching
+- Tanach tokenizer
+- saved matching
+- database
+- APIs
+
+This task concerns TEXT ENTRY behavior only.
+
+==================================================
+17. NO DATABASE MIGRATION
+==================================================
+
+No database/schema change should be required.
+
+Do NOT:
+
+- migrate schema
+- rewrite saved records
+- touch Tanach data
+- reset databases
+- alter production data
+
+==================================================
+18. REGRESSION TESTS
+==================================================
+
+Add/update tests proving the shared behavior works.
+
+At minimum test:
+
+1. Main calculator still converts typing correctly.
+2. מילות יסוד add input converts correctly.
+3. מילות יסוד edit input converts correctly.
+4. Saved-search Hebrew field converts correctly.
+5. Tanach Hebrew search converts correctly if such an editable field exists.
+6. מילוי Hebrew configuration input converts correctly.
+7. Turning global automatic Hebrew OFF disables conversion everywhere.
+8. Turning it ON enables conversion everywhere.
+9. Password/non-Hebrew fields remain untouched.
+10. Ctrl/Cmd shortcuts are not converted.
+11. Paste behaves correctly.
+12. Cursor insertion works.
+13. selected text replacement works.
+
+==================================================
+19. IMPORTANT UX PRINCIPLE
+==================================================
+
+The user should experience this as:
+
+"I turned on automatic Hebrew typing once, so Hebrew typing simply works everywhere in this Hebrew application."
+
+They should never need to think:
+
+"Why does it work in the calculator but not here?"
+
+==================================================
+20. FINAL ACCEPTANCE
+==================================================
+
+Complete only when:
+
+- existing automatic Hebrew logic has one canonical/shared implementation
+- all Hebrew-entry text fields across the app use it
+- one existing global toggle controls all of them
+- non-Hebrew technical fields are excluded
+- navigation/modals do not change the preference
+- keyboard shortcuts still work
+- cursor and selection behavior remain native
+- no DB/API/business-logic changes occurred
+- desktop and mobile behavior is verified
+- tests/build pass
+
+After completion, report:
+
+1. Where the original automatic-Hebrew logic lived.
+2. How it was centralized/reused.
+3. Every screen/component audited.
+4. Which fields were deliberately excluded and why.
+5. Confirmation the global toggle controls all Hebrew inputs.
+6. Confirmation no DB/API/schema changes occurred.
+7. Test and build results.
+
+Do not perform unrelated refactors.

@@ -93,3 +93,58 @@ export function insertAtSelection(value, selectionStart, selectionEnd, text) {
   const caret = start + text.length;
   return { value: nextValue, selectionStart: caret, selectionEnd: caret };
 }
+
+/**
+ * Applies one mapped character to a native text input/textarea.
+ * Native insertion is preferred so browser undo and framework input handling
+ * remain intact. Returns true only when this handler consumed the key.
+ */
+export function applyAutomaticHebrewInput(event, { enabled = true } = {}) {
+  const mappedCharacter = getMappedHebrewCharacter(event, { enabled });
+  const input = event.currentTarget;
+  if (
+    !mappedCharacter
+    || typeof input?.value !== 'string'
+    || typeof input?.setSelectionRange !== 'function'
+  ) {
+    return false;
+  }
+
+  event.preventDefault();
+  const valueBeforeInsertion = input.value;
+  const selectionStartBeforeInsertion = input.selectionStart;
+  const selectionEndBeforeInsertion = input.selectionEnd;
+  const nativeInsertionAccepted = typeof document !== 'undefined'
+    && typeof document.execCommand === 'function'
+    && document.execCommand('insertText', false, mappedCharacter);
+  const insertedNatively = nativeInsertionAccepted && (
+    input.value !== valueBeforeInsertion
+    || input.selectionStart !== selectionStartBeforeInsertion
+    || input.selectionEnd !== selectionEndBeforeInsertion
+  );
+  if (insertedNatively) return true;
+
+  const replacement = insertAtSelection(
+    input.value,
+    input.selectionStart,
+    input.selectionEnd,
+    mappedCharacter
+  );
+  if (typeof input.setRangeText === 'function') {
+    input.setRangeText(
+      mappedCharacter,
+      input.selectionStart,
+      input.selectionEnd,
+      'end'
+    );
+  } else {
+    input.value = replacement.value;
+  }
+  input.setSelectionRange(replacement.selectionStart, replacement.selectionEnd);
+  input.dispatchEvent(new InputEvent('input', {
+    bubbles: true,
+    inputType: 'insertText',
+    data: mappedCharacter,
+  }));
+  return true;
+}

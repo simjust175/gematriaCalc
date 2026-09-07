@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   ISRAELI_HEBREW_KEYBOARD,
+  applyAutomaticHebrewInput,
   getMappedHebrewCharacter,
   insertAtSelection,
 } from '../src/utils/hebrewKeyboard.js';
@@ -68,4 +69,53 @@ test('mapped input inserts at a caret and replaces the selected range', () => {
   assert.deepEqual(insertAtSelection('שלום', 1, 3, 'א'), {
     value: 'שאם', selectionStart: 2, selectionEnd: 2,
   });
+});
+
+test('shared DOM fallback replaces selection, restores caret, and emits one input event', () => {
+  const previousDocument = globalThis.document;
+  const previousInputEvent = globalThis.InputEvent;
+  let prevented = false;
+  let emitted = null;
+  const input = {
+    value: 'שלום',
+    selectionStart: 1,
+    selectionEnd: 3,
+    setRangeText(text, start, end) {
+      this.value = `${this.value.slice(0, start)}${text}${this.value.slice(end)}`;
+    },
+    setSelectionRange(start, end) {
+      this.selectionStart = start;
+      this.selectionEnd = end;
+    },
+    dispatchEvent(event) {
+      emitted = event;
+    },
+  };
+
+  try {
+    globalThis.document = { execCommand: () => false };
+    globalThis.InputEvent = class {
+      constructor(type, init) {
+        this.type = type;
+        Object.assign(this, init);
+      }
+    };
+    const consumed = applyAutomaticHebrewInput({
+      ...keyboardEvent({ code: 'KeyT', key: 't' }),
+      currentTarget: input,
+      preventDefault() { prevented = true; },
+    });
+
+    assert.equal(consumed, true);
+    assert.equal(prevented, true);
+    assert.equal(input.value, 'שאם');
+    assert.deepEqual([input.selectionStart, input.selectionEnd], [2, 2]);
+    assert.equal(emitted.type, 'input');
+    assert.equal(emitted.inputType, 'insertText');
+    assert.equal(emitted.data, 'א');
+    assert.equal(emitted.bubbles, true);
+  } finally {
+    globalThis.document = previousDocument;
+    globalThis.InputEvent = previousInputEvent;
+  }
 });

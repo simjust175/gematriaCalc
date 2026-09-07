@@ -26,6 +26,7 @@
             placeholder="חפש ספר, פרשה או טקסט..."
             aria-label="חיפוש בתנ״ך"
             @input="scheduleSearch"
+            @keydown="onHebrewKeydown"
           />
         </div>
 
@@ -299,6 +300,7 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { computeAll, toHebrewNumber } from '@/composables/useGematria.js';
 import { createTanachCursor, normalizeTanachSelection } from '@/composables/useTanachCursor.js';
 import { useLiveMatching } from '@/composables/useLiveMatching.js';
+import { useAutomaticHebrewKeyboard } from '@/composables/useAutomaticHebrewKeyboard.js';
 import MatchPanel from './MatchPanel.vue';
 import TanachScopeSelect from './TanachScopeSelect.vue';
 import SaveSplitButton from './SaveSplitButton.vue';
@@ -317,6 +319,7 @@ const props = defineProps({
   openReference: { type: Object, default: null },
 });
 const emit = defineEmits(['referenceConsumed']);
+const { onHebrewKeydown } = useAutomaticHebrewKeyboard();
 
 const canonicalBooks = ref([]);
 const books = ref([]);

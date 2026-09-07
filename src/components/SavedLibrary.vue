@@ -16,6 +16,7 @@
         placeholder="חפש לפי טקסט, מספר גימטריה או ראשי תיבות..."
         dir="rtl"
         @input="onSearch"
+        @keydown="onHebrewKeydown"
       />
       <button
         v-if="searchQuery"
@@ -217,6 +218,7 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import { useAutomaticHebrewKeyboard } from '@/composables/useAutomaticHebrewKeyboard.js';
 import SavedEntryCard from '@/components/SavedEntryCard.vue';
 import SavedEntryDetail from '@/components/SavedEntryDetail.vue';
 import { normalizeMiluiMapping } from '@/utils/milui.js';
@@ -231,6 +233,7 @@ const stats = ref({ saved: 0, distinctValues: 0, sharedValues: 0 });
 const loading = ref(false);
 const error = ref('');
 const searchQuery = ref('');
+const { onHebrewKeydown } = useAutomaticHebrewKeyboard();
 const sort = ref('recent');
 const viewMode = ref('grid');
 const groupByGematria = ref(false);
