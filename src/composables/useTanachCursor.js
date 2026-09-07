@@ -1,4 +1,4 @@
-import { LETTER_VALUES } from './useGematria.js';
+import { isHebrewWordBoundary, LETTER_VALUES } from './useGematria.js';
 
 const HEBREW_LETTER = /[\u05D0-\u05EA]/;
 const HEBREW_MARK = /[\u0591-\u05BD\u05BF-\u05C2\u05C4\u05C5\u05C7]/;
@@ -31,7 +31,7 @@ export function createTanachCursor(displayText = '') {
       inWord = true;
     } else if (HEBREW_MARK.test(character) && tokens.at(-1)?.letterIndex != null) {
       tokens[tokens.length - 1].text += character;
-    } else if (inWord && /\s/.test(character)) {
+    } else if (inWord && isHebrewWordBoundary(character)) {
       tokens.push({ text: character, letterIndex: null });
       wordIndex += 1;
       inWord = false;

@@ -1823,11 +1823,11 @@ test('qere representation is identical across discovery, exact opening data, and
     ['Kings_2:18:27', null],
     ['Isaiah:36:12', null],
   ]);
-  // These qere strings are internal ranges within larger verse words, so this
-  // representation-focused test requests the explicit partial classification.
+  // Maqaf is a canonical word boundary, so both pointed qere occurrences are
+  // complete words under the shared tokenizer.
   for (const scope of [
     { chapter_book: 'Kings_2', chapter: 18, verse: 27, type: 'whole_word' },
-    { chapter_book: 'Isaiah', chapter: 36, verse: 12, type: 'partial' },
+    { chapter_book: 'Isaiah', chapter: 36, verse: 12, type: 'whole_word' },
   ]) {
     const response = await agent.get('/api/tanach/gematria-matches').query({
       value: target,

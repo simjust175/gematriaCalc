@@ -16,6 +16,8 @@ test('calculator discovery filters and opens the exact canonical Tanach range', 
 
   const discovery = page.locator('.gematria-discovery');
   await expect(discovery.getByRole('heading')).toContainText('913');
+  await expect(discovery.locator('.discovery-header .method-selector')).toBeVisible();
+  await expect(discovery.locator('.controls > .method-selector')).toHaveCount(0);
   await expect(discovery.getByRole('button', { name: /הכול/ })).toBeVisible();
   await expect(discovery.getByRole('button', { name: /חלקי? מילים|חלק ממילה/ })).toHaveCount(0);
   await expect(discovery.locator('.match-card:not(.skeleton-card)').first()).toBeVisible();
@@ -131,5 +133,6 @@ test('Tanach listbox selectors do not overflow on mobile', async ({ page }, test
   await page.locator('.heb-input').fill('יהוה');
   const discovery = page.locator('.gematria-discovery');
   await expect(discovery.getByRole('combobox', { name: 'ספר', exact: true })).toBeEnabled();
+  await expect(discovery.locator('.discovery-header .method-selector')).toBeVisible();
   expect(await discovery.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
 });

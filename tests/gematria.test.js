@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { ref } from 'vue';
 import {
   normalize,
+  isHebrewWordBoundary,
   calcGematria,
   toHebrewNumber,
   getInitials,
@@ -186,6 +187,29 @@ test('normalize collapses multiple spaces', () => {
   assert.equal(normalize('שמע   ישראל'), 'שמע ישראל');
 });
 
+test('canonical Hebrew separators become word boundaries without changing gematria', () => {
+  const separators = [' ', '־', '-', '‑', '–'];
+  for (const separator of separators) {
+    const text = `בית${separator}אל`;
+    const result = computeAll(text);
+    assert.equal(isHebrewWordBoundary(separator), true);
+    assert.equal(normalize(text), 'בית אל');
+    assert.equal(result.fullGematria, 443);
+    assert.equal(result.words.length, 2);
+    assert.deepEqual(result.words.map(word => word.word), ['בית', 'אל']);
+    assert.equal(result.initials, 'בא');
+    assert.equal(result.finals, 'תל');
+  }
+});
+
+test('multiple maqaf-separated terms retain every word boundary', () => {
+  const result = computeAll('אב־גד־הו');
+  assert.equal(result.normalizedText, 'אב גד הו');
+  assert.deepEqual(result.words.map(word => word.word), ['אב', 'גד', 'הו']);
+  assert.equal(result.initials, 'אגה');
+  assert.equal(result.finals, 'בדו');
+});
+
 // ── מילוי ─────────────────────────────────────────────────────────────────────
 test('default מילוי table contains the exact 22-letter מילוי רגיל preset', () => {
   assert.equal(MILUI_BASE_LETTERS.length, 22);
@@ -311,6 +335,30 @@ test('finals highlighting maps exact final graphemes and ignores trailing punctu
     .filter(segment => segment.derivedHighlighted);
   assert.deepEqual(highlighted.map(segment => normalize(segment.text)), ['ו', 'ג', 'ח']);
   assert.equal(highlighted[2].text, 'ח');
+});
+
+test('initials and finals highlighting share canonical maqaf and hyphen word boundaries', () => {
+  for (const separator of ['־', '-', '‑', '–']) {
+    const original = `בּית${separator}אֵל`;
+    const initials = mapInitialsToOriginalText(original, 'בא');
+    const finals = mapFinalsToOriginalText(original, 'תל');
+    assert.ok(initials);
+    assert.ok(finals);
+    assert.equal(initials.map(part => part.text).join(''), original);
+    assert.equal(finals.map(part => part.text).join(''), original);
+    assert.deepEqual(
+      initials.flatMap(part => part.segments || [])
+        .filter(segment => segment.derivedHighlighted)
+        .map(segment => normalize(segment.text)),
+      ['ב', 'א']
+    );
+    assert.deepEqual(
+      finals.flatMap(part => part.segments || [])
+        .filter(segment => segment.derivedHighlighted)
+        .map(segment => normalize(segment.text)),
+      ['ת', 'ל']
+    );
+  }
 });
 
 test('live matching clears old reasons and ignores stale A → B → A responses', async () => {

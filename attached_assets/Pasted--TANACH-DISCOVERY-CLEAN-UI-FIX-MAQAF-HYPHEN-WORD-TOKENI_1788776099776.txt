@@ -1,0 +1,467 @@
+# TANACH DISCOVERY — CLEAN UI + FIX MAQAF/HYPHEN WORD TOKENIZATION
+
+The new Tanach ראשי תיבות / סופי תיבות functionality works conceptually, but two things need correction:
+
+1. The Tanach search controls now look cluttered/messy.
+2. Words joined by a Hebrew maqaf/hyphen are incorrectly being treated as one word.
+
+This task must fix BOTH issues.
+
+Do not make unrelated changes.
+
+==================================================
+PART A — CRITICAL TOKENIZATION FIX
+==================================================
+
+For ALL Tanach logic that depends on WORDS / WORD COUNT:
+
+A Hebrew maqaf or hyphen between Hebrew words MUST count as a WORD SEPARATOR.
+
+Example:
+
+בית־אל
+
+must tokenize as:
+
+בית
+אל
+
+WORD COUNT = 2
+
+NOT:
+
+בית־אל
+WORD COUNT = 1
+
+This is the required product behavior even if the source Tanach text visually uses a maqaf.
+
+==================================================
+1. SEPARATORS TO SUPPORT
+==================================================
+
+Treat these as word separators when they occur between Hebrew text:
+
+Hebrew maqaf:
+־
+U+05BE
+
+regular hyphen:
+-
+
+non-breaking hyphen:
+-
+
+en dash if encountered:
+–
+
+Do this safely and consistently.
+
+Do NOT require visible spaces around them.
+
+Examples:
+
+בית־אל
+בית-אל
+בית-אל
+
+all become two logical words:
+
+בית
+אל
+
+==================================================
+2. PRESERVE ORIGINAL DISPLAY TEXT
+==================================================
+
+IMPORTANT:
+
+Only the INTERNAL TOKENIZATION changes.
+
+Do NOT rewrite the Tanach display text.
+
+If the verse originally says:
+
+בית־אל
+
+the result card should still DISPLAY:
+
+בית־אל
+
+with its original maqaf.
+
+Internally, however, search logic must understand it as two words.
+
+==================================================
+3. APPLY THIS CONSISTENTLY
+==================================================
+
+Use the SAME tokenizer for:
+
+- calculator input word count
+- ראשי תיבות derivation
+- סופי תיבות derivation
+- Tanach candidate word windows
+- whole-word / multi-word Tanach classification where word boundaries matter
+
+Do not have one tokenizer for input and another for Tanach.
+
+Centralize/reuse the existing Hebrew tokenizer if possible.
+
+==================================================
+4. ראשי תיבות EXAMPLE
+==================================================
+
+Text:
+
+בית־אל הגדול
+
+Logical words:
+
+בית
+אל
+הגדול
+
+ראשי תיבות:
+
+באה
+
+NOT:
+
+בה
+
+==================================================
+5. סופי תיבות EXAMPLE
+==================================================
+
+Text:
+
+בית־אל
+
+Logical words:
+
+בית
+אל
+
+סופי תיבות:
+
+תל
+
+NOT one final letter from the entire hyphenated unit.
+
+==================================================
+6. GEMATRIA MUST NOT CHANGE
+==================================================
+
+Do NOT change the normal numeric gematria result.
+
+Maqaf/hyphen remains ignored for gematria itself.
+
+This task only changes WORD BOUNDARY interpretation.
+
+==================================================
+7. TEST THE TANACH CORPUS
+==================================================
+
+Add regression tests using actual-style Tanach strings containing maqaf.
+
+Verify:
+
+- א־ב = 2 words
+- בית־אל = 2 words
+- multi-maqaf phrase creates correct number of logical words
+- ראשי תיבות uses each logical word
+- סופי תיבות uses each logical word
+- search-window size uses logical word count
+- result display preserves the original maqaf
+
+==================================================
+PART B — CLEAN UP THE TANACH SEARCH UI
+==================================================
+
+The current UI is visually too busy.
+
+At the moment we have:
+
+- section title
+- huge result count
+- גימטריה / ראשי תיבות / סופי תיבות control
+- Tanach scope selector
+- פרשת השבוע button
+- another row of result-type filters
+
+All of these appear as separate controls competing for attention.
+
+Simplify this significantly.
+
+==================================================
+8. SEARCH METHOD CONTROL
+==================================================
+
+Keep these three methods:
+
+גימטריה
+ראשי תיבות
+סופי תיבות
+
+But make them ONE small, clean segmented control.
+
+Do not make it look like three large buttons.
+
+Preferred style:
+
+גימטריה | ראשי תיבות | סופי תיבות
+
+- compact
+- single shared outer container
+- subtle selected state using existing gold
+- no heavy shadow
+- no large padding
+
+==================================================
+9. POSITIONING
+==================================================
+
+Move this method selector directly into the Tanach discovery header area.
+
+It should feel like part of:
+
+"איפה עוד מופיע..."
+
+rather than a separate toolbar floating above everything.
+
+Preferred hierarchy:
+
+[small eyebrow]
+מחקר תנ״כי
+
+[main title]
+איפה עוד מופיע הערך 1,112?
+
+[compact method selector]
+גימטריה | ראשי תיבות | סופי תיבות
+
+Then the existing Tanach source/scope selector underneath.
+
+==================================================
+10. DYNAMIC TITLE
+==================================================
+
+When method = גימטריה:
+
+איפה עוד מופיע הערך 1,112?
+
+When method = ראשי תיבות:
+
+איפה מופיעים ראשי התיבות תש...?
+
+Use the actual calculated initials.
+
+When method = סופי תיבות:
+
+איפה מופיעים סופי התיבות ...?
+
+Use the actual calculated final-letter sequence.
+
+Do not keep a gematria-specific title when another search method is selected.
+
+==================================================
+11. RESULT COUNT
+==================================================
+
+The large standalone number on the left, such as:
+
+672
+
+currently creates visual clutter.
+
+Make the result count much quieter.
+
+Prefer something like:
+
+672 התאמות
+
+small and close to the title/subtitle.
+
+It should NOT visually compete with the search heading.
+
+==================================================
+12. FILTER ROW
+==================================================
+
+For גימטריה:
+
+keep the useful existing filters:
+
+הכל
+מילה שלמה
+מילים שלמות
+
+with the important rule already approved:
+
+"הכל" excludes partial-word matches.
+
+For ראשי תיבות and סופי תיבות:
+
+DO NOT show these filters because they do not make sense.
+
+Those searches already operate on exact contiguous complete-word sequences.
+
+So when ראשי תיבות or סופי תיבות is active:
+
+hide:
+
+הכל
+מילה שלמה
+מילים שלמות
+
+This will substantially reduce clutter.
+
+==================================================
+13. TANACH SCOPE
+==================================================
+
+Keep:
+
+כל התנ״ך
+
+and existing scope/parsha functionality.
+
+But visually make the scope selector the secondary control.
+
+Priority should be:
+
+1. Search question
+2. Search method
+3. Scope
+4. Results
+
+Not all controls at equal visual weight.
+
+==================================================
+14. פרשת השבוע
+==================================================
+
+Keep פרשת השבוע.
+
+Do not remove functionality.
+
+But keep it visually subordinate to the main search.
+
+It should not compete with the method selector.
+
+==================================================
+15. RESULT CARDS
+==================================================
+
+Do not redesign the Tanach cards in this task.
+
+Keep the current card layout unless a tiny alignment adjustment is required.
+
+Focus this pass on:
+
+- header
+- selector hierarchy
+- filters
+- tokenization correctness
+
+==================================================
+16. MOBILE
+==================================================
+
+On mobile:
+
+the three search methods should remain compact.
+
+Preferred:
+
+גימטריה | ר״ת | ס״ת
+
+It is acceptable to use:
+
+ראשי תיבות / סופי תיבות
+
+on desktop and abbreviated:
+
+ר״ת / ס״ת
+
+on narrow screens if necessary.
+
+Do not allow horizontal overflow.
+
+==================================================
+17. NO DATABASE CHANGE
+==================================================
+
+This should not require schema changes.
+
+Do NOT:
+
+- migrate DB
+- rewrite Tanach corpus
+- modify stored verses
+- delete anything
+- reseed anything
+- touch saved client data
+
+Tokenization must happen in the search/parser layer.
+
+==================================================
+18. IMPORTANT IMPLEMENTATION PRINCIPLE
+==================================================
+
+Do NOT solve the maqaf problem using:
+
+text.replace("־", " ")
+
+in one isolated feature while leaving other word-based logic unchanged.
+
+There should be ONE canonical Hebrew word-tokenization behavior.
+
+If an existing tokenizer exists, improve it centrally.
+
+Then reuse it everywhere word boundaries matter.
+
+==================================================
+19. ACCEPTANCE TESTS
+==================================================
+
+The task is complete only when:
+
+A. TOKENIZATION
+
+1. בית־אל counts as 2 logical words.
+2. בית-אל counts as 2 logical words.
+3. Display still shows the original בית־אל.
+4. ראשי תיבות derives one letter per logical word.
+5. סופי תיבות derives one letter per logical word.
+6. Tanach search window length uses these logical words.
+7. No cross-verse matches occur.
+8. Partial words remain excluded.
+
+B. UI
+
+9. גימטריה / ראשי תיבות / סופי תיבות looks like one compact selector.
+10. It is integrated into the Tanach search header.
+11. The giant detached result count is removed/reduced.
+12. Gematria-only result filters disappear under ראשי תיבות and סופי תיבות.
+13. כל התנ״ך remains available.
+14. פרשת השבוע remains available.
+15. RTL is correct.
+16. Mobile is clean.
+17. No unrelated feature changed.
+
+==================================================
+20. FINAL REPORT
+==================================================
+
+After implementation report:
+
+- exact tokenizer change
+- which separator characters are recognized
+- confirmation בית־אל = 2 words
+- confirmation display text stays unchanged
+- how ראשי תיבות / סופי תיבות now use that tokenizer
+- UI components simplified
+- which filters are hidden for ראשי/סופי תיבות
+- confirmation no DB/schema/data change occurred
+- tests/build results

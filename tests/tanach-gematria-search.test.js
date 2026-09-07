@@ -418,8 +418,33 @@ test('findWordEdgeRanges never skips words or accepts a partial/single-word requ
   assert.deepEqual(findWordEdgeRanges('אב גד הו', 'אג', 'initials', 3), []);
 });
 
-test('findWordEdgeRanges follows canonical whitespace words while ignoring punctuation and deduplicates', () => {
-  const matches = findWordEdgeRanges('אב־גד הו אב־גד הו', 'אה', 'initials', 2);
-  assert.deepEqual(matches.map(match => [match.start, match.end]), [[0, 5], [6, 11]]);
+test('findWordEdgeRanges follows canonical maqaf words while ignoring punctuation and deduplicates', () => {
+  const matches = findWordEdgeRanges('אב־גד הו אב־גד הו', 'אג', 'initials', 2);
+  assert.deepEqual(matches.map(match => [match.start, match.end]), [[0, 3], [6, 9]]);
   assert.equal(new Set(matches.map(match => `${match.start}:${match.end}`)).size, matches.length);
+});
+
+test('maqaf terms form a two-word window and preserve their original display separator', () => {
+  const text = 'בית־אל';
+  const edgeMatches = findWordEdgeRanges(text, 'בא', 'initials', 2);
+  assert.equal(edgeMatches.length, 1);
+  assert.equal(edgeMatches[0].text, text);
+  assert.deepEqual([edgeMatches[0].start, edgeMatches[0].end], [0, 4]);
+
+  const gematriaMatches = findGematriaRanges(text, 443);
+  assert.equal(gematriaMatches.length, 1);
+  assert.equal(gematriaMatches[0].classification, 'whole_phrase');
+  assert.equal(gematriaMatches[0].text, text);
+});
+
+test('word windows and whole-phrase classification recognize every canonical separator', () => {
+  for (const separator of [' ', '־', '-', '‑', '–']) {
+    const text = `אב${separator}גד`;
+    const edges = findWordEdgeRanges(text, 'אג', 'initials', 2);
+    assert.equal(edges.length, 1, `expected a two-word window for ${separator}`);
+    assert.equal(edges[0].text, text);
+    const match = findGematriaRanges(text, 10)[0];
+    assert.equal(match.classification, 'whole_phrase');
+    assert.equal(match.text, text);
+  }
 });

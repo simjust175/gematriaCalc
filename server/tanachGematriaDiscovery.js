@@ -272,7 +272,7 @@ function searchKey(value = '') {
     .normalize('NFD')
     // Keep word boundaries stable for both pasted UXLC text and user queries.
     // Maqaf and sof pasuq must delimit terms rather than silently joining them.
-    .replace(/[״׳"'־\u05BE\u05C3:.,/\\-]/g, ' ')
+    .replace(/[״׳"'\u05BE\u05C3:.,/\\\u002D\u2011\u2013]/g, ' ')
     .replace(/[\u0591-\u05BD\u05BF-\u05C2\u05C4\u05C5\u05C7]/g, '')
     .replace(/\s+/g, ' ')
     .trim()

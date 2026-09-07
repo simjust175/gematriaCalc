@@ -2,25 +2,31 @@
   <section class="gematria-discovery" dir="rtl" aria-labelledby="matches-title">
     <header class="discovery-header">
       <div class="heading-block">
-          <span class="section-kicker">מחקר תנ״כי</span>
+        <span class="section-kicker">מחקר תנ״כי</span>
+        <div class="title-line">
           <h2 id="matches-title">{{ discoveryHeading }}</h2>
+          <div class="method-selector" role="group" aria-label="חיפוש לפי">
+            <button v-for="item in methodOptions" :key="item.value" type="button"
+              :class="{ active: method === item.value }" :aria-pressed="method === item.value"
+              :aria-label="item.label"
+              :disabled="item.value !== 'gematria' && !hasSequence" @click="method = item.value">
+              <span class="method-label-full">{{ item.label }}</span>
+              <span class="method-label-short" aria-hidden="true">{{ item.value === 'initials' ? 'ר״ת' : item.value === 'finals' ? 'ס״ת' : 'גימ׳' }}</span>
+              <small v-if="item.value !== 'gematria' && !hasSequence">נדרשות לפחות שתי מילים</small>
+            </button>
+          </div>
+        </div>
+        <div class="header-meta">
           <p>{{ discoveryDescription }}</p>
-      </div>
-      <div class="total-mark" aria-live="polite">
-        <strong>{{ allTotal.toLocaleString('he-IL') }}</strong>
-        <span>התאמות</span>
+          <p class="total-mark" aria-live="polite">
+            <strong>{{ allTotal.toLocaleString('he-IL') }}</strong>
+            <span>התאמות</span>
+          </p>
+        </div>
       </div>
     </header>
 
     <div class="controls" role="toolbar" aria-label="סינון התאמות">
-      <div class="method-selector" role="group" aria-label="חיפוש לפי">
-        <button v-for="item in methodOptions" :key="item.value" type="button"
-          :class="{ active: method === item.value }" :aria-pressed="method === item.value"
-          :disabled="item.value !== 'gematria' && !hasSequence" @click="method = item.value">
-          <span>{{ item.label }}</span>
-          <small v-if="item.value !== 'gematria' && !hasSequence">נדרשות לפחות שתי מילים</small>
-        </button>
-      </div>
       <div class="controls-primary-row">
         <div class="manual-range">
           <TanachScopeSelect
@@ -365,20 +371,25 @@ async function saveResult(item, key) {
 
 <style scoped>
 .gematria-discovery { margin-top: 24px; color: var(--navy, #1a2744); }
-.discovery-header { display: flex; justify-content: space-between; gap: 20px; align-items: end; padding: 20px 2px 15px; border-top: 1px solid var(--border, #e8e1d5); }
+.discovery-header { display: flex; justify-content: space-between; gap: 18px; align-items: end; padding: 20px 2px 13px; border-top: 1px solid var(--border, #e8e1d5); }
 .section-kicker { color: #96732b; font-size: .7rem; font-weight: 800; letter-spacing: .12em; }
 h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750; }
+.heading-block { min-width: 0; flex: 1 1 auto; }
 .heading-block p { margin: 0; color: var(--text-secondary, #74716a); font-size: .83rem; }
-.total-mark { min-width: 86px; text-align: left; }
-.total-mark strong { display: block; font-size: 1.65rem; font-variant-numeric: tabular-nums; color: #96732b; }
-.total-mark span { color: var(--text-secondary, #74716a); font-size: .7rem; }
-.controls { display: grid; gap: 13px; margin-bottom: 9px; padding: 14px; border: 1px solid rgba(211,193,151,.55); border-radius: 13px; background: rgba(255,253,249,.72); box-shadow: 0 8px 22px rgba(26,39,68,.035); }
-.method-selector { display: inline-flex; justify-self: start; max-width: 100%; padding: 3px; gap: 2px; border: 1px solid #e2d5ba; border-radius: 9px; background: #f5efe4; }
+.header-meta { display: flex; align-items: baseline; flex-wrap: wrap; gap: 5px 12px; margin-top: 4px; }
+.title-line { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.title-line h2 { min-width: 0; }
+.total-mark { display: flex; align-items: baseline; gap: 4px; flex: 0 0 auto; color: var(--text-secondary, #74716a); white-space: nowrap; }
+.total-mark strong { font-size: .84rem; font-variant-numeric: tabular-nums; color: #96732b; }
+.total-mark span { font-size: .7rem; }
+.controls { display: grid; gap: 11px; margin-bottom: 9px; padding: 11px 13px; border: 1px solid rgba(211,193,151,.55); border-radius: 11px; background: rgba(255,253,249,.72); }
+.method-selector { display: inline-flex; flex: 0 0 auto; max-width: 100%; padding: 3px; gap: 2px; border: 1px solid #e2d5ba; border-radius: 9px; background: #f5efe4; }
 .method-selector button { display: grid; gap: 1px; min-height: 34px; padding: 5px 11px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: #657084; font: inherit; font-size: .72rem; font-weight: 750; text-align: right; cursor: pointer; transition: background .16s ease, color .16s ease, border-color .16s ease; }
 .method-selector button:hover:not(:disabled) { color: #725619; }
 .method-selector button.active { border-color: #d6bd7a; background: #fffdf8; color: #765812; box-shadow: 0 1px 3px rgba(60,46,17,.08); }
 .method-selector button:disabled { color: #aaa396; cursor: not-allowed; }
 .method-selector small { font-size: .57rem; font-weight: 600; color: #9a8d7b; white-space: nowrap; }
+.method-label-short { display: none; }
 .controls-primary-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(172px, 218px); gap: 12px; align-items: stretch; }
 .manual-range { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; min-width: 0; align-items: start; }
 .parshah-filter { display: flex; align-items: center; justify-content: flex-start; gap: 10px; min-height: 48px; padding: 8px 12px; border: 1px solid #dbc17c; border-radius: 10px; background: #fbf4e6; color: var(--navy, #1a2744); font: inherit; text-align: right; cursor: pointer; transition: border-color .18s ease, background .18s ease, box-shadow .18s ease; }
@@ -429,5 +440,5 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .load-more { display: flex; align-items: center; gap: 7px; margin: 16px auto 0; padding-inline: 16px; }
 @keyframes breathe { from { opacity: .45; } to { opacity: 1; } }
 @media (max-width: 820px) { .match-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 560px) { .discovery-header { align-items: flex-start; }.match-grid { grid-template-columns: 1fr; }.total-mark { min-width: 60px; }.total-mark strong { font-size: 1.25rem; }.controls { gap: 11px; padding: 11px; }.method-selector { width: 100%; }.method-selector button { flex: 1; padding-inline: 7px; }.method-selector small { font-size: .52rem; }.controls-primary-row { grid-template-columns: 1fr; gap: 9px; }.manual-range { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }.manual-range > :first-child { grid-column: 1 / -1; }.parshah-filter { min-height: 46px; }.filter-list { gap: 6px; padding-top: 10px; } }
+@media (max-width: 560px) { .discovery-header { align-items: flex-start; gap: 8px; }.title-line { align-items: flex-start; gap: 7px; }.title-line h2 { flex: 1 1 auto; }.match-grid { grid-template-columns: 1fr; }.total-mark strong { font-size: .78rem; }.controls { gap: 11px; padding: 11px; }.title-line .method-selector { margin-top: -2px; }.title-line .method-selector button { min-width: 34px; padding-inline: 7px; }.title-line .method-label-full { display: none; }.title-line .method-label-short { display: inline; }.title-line .method-selector small { display: none; }.controls-primary-row { grid-template-columns: 1fr; gap: 9px; }.manual-range { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }.manual-range > :first-child { grid-column: 1 / -1; }.parshah-filter { min-height: 46px; }.filter-list { gap: 6px; padding-top: 10px; } }
 </style>

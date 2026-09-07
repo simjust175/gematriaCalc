@@ -10,6 +10,15 @@ export const LETTER_VALUES = {
   ק: 100, ר: 200, ש: 300, ת: 400,
 };
 
+/**
+ * Canonical Hebrew word separators. Keep this predicate shared with the
+ * Tanach cursor so derived-word calculations and corpus word ranges agree.
+ */
+export function isHebrewWordBoundary(character) {
+  return typeof character === 'string'
+    && (/^\s$/u.test(character) || /^[\u05BE\u002D\u2011\u2013]$/u.test(character));
+}
+
 // Values from 20 upward are composed greedily; 15 and 16 are handled only
 // when they are the final remainder so they cannot become reusable chunks.
 const HEBREW_NUMBER_MAP = [
@@ -26,8 +35,10 @@ const HEBREW_NUMBER_MAP = [
  */
 export function normalize(text) {
   return text
-    .replace(/[\u0591-\u05C7]/g, '')       // niqqud + cantillation
-    .replace(/[^\u05D0-\u05EA\s]/g, '')    // keep Hebrew letters + spaces
+    .replace(/[\u0591-\u05BD\u05BF-\u05C2\u05C4\u05C5\u05C7]/g, '') // niqqud + cantillation
+    .replace(/[^\u05D0-\u05EA]/gu, character => (
+      isHebrewWordBoundary(character) ? ' ' : ''
+    ))
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -64,7 +75,7 @@ export function toHebrewNumber(n) {
   return result;
 }
 
-/** First Hebrew letter of each whitespace-separated word. */
+/** First Hebrew letter of each canonically separated word. */
 export function getInitials(text) {
   const norm = normalize(text);
   return norm
@@ -74,7 +85,7 @@ export function getInitials(text) {
     .join('');
 }
 
-/** Last Hebrew letter of each whitespace-separated word. */
+/** Last Hebrew letter of each canonically separated word. */
 export function getFinals(text) {
   const norm = normalize(text);
   return norm

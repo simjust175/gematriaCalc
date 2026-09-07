@@ -34,6 +34,17 @@ test('cursor navigation indices skip punctuation, whitespace, niqqud, and cantil
   assert.equal(tanachRangeText('בְּ רֵ֖א־שִׁית׃', 1, 3).replace(/[\u0591-\u05C7]/g, ''), 'רֵא־ש'.replace(/[\u0591-\u05C7]/g, ''));
 });
 
+test('cursor assigns canonical separator-delimited terms distinct word indexes while preserving display text', () => {
+  const separators = [' ', '־', '-', '‑', '–'];
+  for (const separator of separators) {
+    const text = `בית${separator}אל`;
+    const cursor = createTanachCursor(text);
+    assert.equal(cursor.displayText, text);
+    assert.deepEqual(cursor.letters.map(letter => letter.wordIndex), [0, 0, 0, 1, 1]);
+    assert.equal(cursor.range(0, 4).text, text);
+  }
+});
+
 test('range order is normalized and indices are clamped', () => {
   const cursor = createTanachCursor('אבג');
   assert.equal(cursor.range(2, 0).text, 'אבג');

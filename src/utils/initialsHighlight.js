@@ -1,4 +1,4 @@
-import { normalize } from '../composables/useGematria.js';
+import { isHebrewWordBoundary, normalize } from '../composables/useGematria.js';
 
 const HEBREW_LETTER = /^[\u05D0-\u05EA]$/;
 const HEBREW_MARK = /^[\u0591-\u05C7]$/;
@@ -19,13 +19,37 @@ function firstHebrewLetter(cluster) {
   return [...cluster].find(character => HEBREW_LETTER.test(character)) || '';
 }
 
+function splitAtHebrewWordBoundaries(text) {
+  const parts = [];
+  let word = '';
+  let boundaries = '';
+  for (const character of String(text || '')) {
+    if (isHebrewWordBoundary(character)) {
+      if (word) {
+        parts.push(word);
+        word = '';
+      }
+      boundaries += character;
+    } else {
+      if (boundaries) {
+        parts.push(boundaries);
+        boundaries = '';
+      }
+      word += character;
+    }
+  }
+  if (word) parts.push(word);
+  if (boundaries) parts.push(boundaries);
+  return parts;
+}
+
 function mapDerivedLettersToOriginalText(originalText, expectedLetters, edge) {
-  const parts = String(originalText || '').split(/(\s+)/);
+  const parts = splitAtHebrewWordBoundaries(originalText);
   const tokenMappings = [];
   const reconstructedInitials = [];
 
   for (const [partIndex, text] of parts.entries()) {
-    if (/^\s+$/.test(text) || !text) continue;
+    if ([...text].every(isHebrewWordBoundary) || !text) continue;
     const clusters = splitGraphemeLikeClusters(text);
     const hebrewIndexes = clusters
       .map((cluster, index) => (firstHebrewLetter(cluster) ? index : -1))
