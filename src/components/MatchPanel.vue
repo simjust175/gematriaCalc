@@ -370,17 +370,30 @@ function matchedMiluiSummary(match) {
 }
 
 .match-text__initial {
-  display: inline-block;
+  position: relative;
+  z-index: 0;
+  display: inline;
   width: auto;
   min-width: 0;
-  margin-inline: .02em;
-  padding: .03em .14em;
-  border-radius: 4px;
-  background: rgba(213, 173, 79, 0.25);
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
   color: #192844;
-  line-height: 1.08;
+  line-height: inherit;
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
+}
+
+.match-text__initial::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset-block: .04em;
+  inset-inline: -.07em;
+  border-radius: 4px;
+  background: rgba(213, 173, 79, 0.25);
+  pointer-events: none;
 }
 
 .show-more {

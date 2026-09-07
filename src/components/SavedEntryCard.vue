@@ -168,17 +168,10 @@ function formatTanachReference(entry) {
 }
 
 .entry-text mark {
-  display: inline-block;
-  width: auto;
-  min-width: 0;
-  margin-inline: .02em;
   background: var(--gold-light);
-  border-radius: 4px;
+  border-radius: 3px;
   color: inherit;
-  padding: .03em .14em;
-  line-height: 1.08;
-  box-decoration-break: clone;
-  -webkit-box-decoration-break: clone;
+  padding: 0 2px;
 }
 
 .tanach-reference {

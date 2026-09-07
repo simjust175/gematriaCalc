@@ -130,7 +130,7 @@
             <template v-for="(part, partIndex) in highlightedParts(result.text)" :key="partIndex">
               <template v-if="part.segments">
                 <template v-for="(segment, segmentIndex) in part.segments" :key="segmentIndex">
-                  <mark v-if="segment.derivedHighlighted">{{ segment.text }}</mark>
+                  <mark v-if="segment.derivedHighlighted" class="edge-highlight">{{ segment.text }}</mark>
                   <span v-else>{{ segment.text }}</span>
                 </template>
               </template>
@@ -435,16 +435,30 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .citation strong { font-size: .94rem; }
 .citation span { color: var(--text-secondary, #74716a); font-size: .68rem; }
 .context-text { margin: 12px 0 16px; color: #5b5a56; font-family: "Noto Serif Hebrew", "Times New Roman", serif; font-size: 1.08rem; line-height: 1.9; }
-.context-text mark {
-  display: inline-block;
+.context-text mark { padding: 2px 4px; border-radius: 3px; background: #f2e4bd; color: #4e3b13; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.context-text .edge-highlight {
+  position: relative;
+  z-index: 0;
+  display: inline;
   width: auto;
   min-width: 0;
-  margin-inline: .02em;
-  padding: .03em .14em;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  line-height: inherit;
+}
+.context-text .edge-highlight::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset-block: .04em;
+  inset-inline: -.07em;
   border-radius: 4px;
   background: #f2e4bd;
-  color: #4e3b13;
-  line-height: 1.08;
+  pointer-events: none;
+}
+.context-text .edge-highlight {
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
 }

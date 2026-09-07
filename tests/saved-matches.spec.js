@@ -87,23 +87,30 @@ test('ראשי תיבות match highlights only the exact contributing source le
     await expect(savedCard.locator('.match-text')).toHaveText(savedText);
     const initialsHighlightStyle = await savedCard.locator('.match-text__initial').first().evaluate(element => {
       const style = getComputedStyle(element);
+      const backdropStyle = getComputedStyle(element, '::before');
       const parentStyle = getComputedStyle(element.parentElement);
       return {
+        display: style.display,
         color: style.color,
         backgroundColor: style.backgroundColor,
         padding: style.padding,
         margin: style.margin,
         lineHeight: style.lineHeight,
+        backdropPosition: backdropStyle.position,
+        backdropColor: backdropStyle.backgroundColor,
         parentLineHeight: parentStyle.lineHeight,
         fontWeight: style.fontWeight,
         parentFontWeight: parentStyle.fontWeight,
       };
     });
+    expect(initialsHighlightStyle.display).toBe('inline');
     expect(initialsHighlightStyle.color).toBe('rgb(25, 40, 68)');
-    expect(initialsHighlightStyle.backgroundColor).toBe('rgba(213, 173, 79, 0.25)');
+    expect(initialsHighlightStyle.backgroundColor).toBe('rgba(0, 0, 0, 0)');
     expect(initialsHighlightStyle.padding).toBe('0px');
     expect(initialsHighlightStyle.margin).toBe('0px');
     expect(initialsHighlightStyle.lineHeight).toBe(initialsHighlightStyle.parentLineHeight);
+    expect(initialsHighlightStyle.backdropPosition).toBe('absolute');
+    expect(initialsHighlightStyle.backdropColor).toBe('rgba(213, 173, 79, 0.25)');
     expect(initialsHighlightStyle.fontWeight).toBe(initialsHighlightStyle.parentFontWeight);
 
     await page.locator('.heb-input').fill('וגח');
