@@ -64,11 +64,11 @@ test('מילוי stays optional, updates live, persists edits, and resets safely
   const additional = page.locator('.milui-additional');
   await expect(additional.getByRole('heading', { name: 'אופנים נוספים' })).toBeVisible();
   await expect(additional.locator('.milui-additional__row')).toHaveCount(3);
-  await expect(additional).toContainText('מילוי יודי״ן');
+  await expect(additional).toContainText('יודי״ן');
   await expect(additional).toContainText('72');
-  await expect(additional).toContainText('מילוי יודי״ן־אל״ף');
+  await expect(additional).toContainText('יודי״ן־אל״ף');
   await expect(additional).toContainText('63');
-  await expect(additional).toContainText('מילוי ההי״ן');
+  await expect(additional).toContainText('ההי״ן');
   await expect(additional).toContainText('52');
   await page.getByRole('button', { name: 'שנה מילוי' }).click();
   const canonical = page.locator('.havayah-milui');

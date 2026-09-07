@@ -1,9 +1,7 @@
 <template>
   <section class="milui-panel" dir="rtl" aria-labelledby="milui-result-title">
     <div class="milui-panel__header">
-      <div>
-        <div id="milui-result-title" class="milui-panel__title">שם האות במילואה</div>
-      </div>
+      <div id="milui-result-title" class="milui-panel__title">מילוי רגיל</div>
       <button
         class="milui-settings-link"
         type="button"
@@ -17,60 +15,63 @@
       </button>
     </div>
 
-    <div class="milui-expanded-text">{{ calculation.expandedText }}</div>
+    <div class="milui-primary-result">
+      <div class="milui-expanded-text">{{ calculation.expandedText }}</div>
 
-    <div class="milui-total-row">
-      <div>
-        <div class="milui-label">גימטריית המילוי המלא</div>
-        <div class="milui-value">
-          <span>{{ calculation.fullGematria }}</span>
-          <span class="milui-dot">·</span>
-          <span class="milui-hebrew-number">{{ calculation.fullHebrewNumber }}</span>
+      <div class="milui-total-row">
+        <div class="milui-total-block milui-total-block--primary">
+          <div class="milui-label">גימטריה מלאה</div>
+          <div class="milui-value">
+            <span>{{ calculation.fullGematria }}</span>
+            <span class="milui-dot">·</span>
+            <span class="milui-hebrew-number">{{ calculation.fullHebrewNumber }}</span>
+          </div>
+        </div>
+        <div class="milui-total-block milui-secondary-total">
+          <div class="milui-label">מילוי בלבד</div>
+          <div class="milui-secondary-value">
+            {{ calculation.fillingOnlyGematria }}
+            <span class="milui-dot">·</span>
+            {{ calculation.fillingOnlyHebrewNumber }}
+          </div>
         </div>
       </div>
-      <div class="milui-secondary-total">
-        <div class="milui-label">מילוי בלבד</div>
-        <div class="milui-secondary-value">
-          {{ calculation.fillingOnlyGematria }}
-          <span class="milui-dot">·</span>
-          {{ calculation.fillingOnlyHebrewNumber }}
-        </div>
-      </div>
-    </div>
 
-    <div class="milui-save-actions">
-      <button
-        class="milui-save-primary"
-        type="button"
-        :disabled="primarySaveDisabled"
-        @click="emit('save-primary')"
-      >
-        {{ primarySaveLabel }}
-      </button>
-      <button
-        class="milui-save-all"
-        type="button"
-        :disabled="saveAllDisabled"
-        @click="emit('save-all')"
-      >
-        {{ saveAllLabel }}
-      </button>
+      <div class="milui-save-actions">
+        <button
+          class="milui-save-primary"
+          type="button"
+          :disabled="primarySaveDisabled"
+          @click="emit('save-primary')"
+        >
+          {{ primarySaveLabel }}
+        </button>
+        <button
+          class="milui-save-all"
+          type="button"
+          :disabled="saveAllDisabled"
+          @click="emit('save-all')"
+        >
+          {{ saveAllLabel }}
+        </button>
+      </div>
     </div>
 
     <section v-if="variantOccurrences.length" class="milui-additional" aria-labelledby="milui-additional-title">
       <h3 id="milui-additional-title">אופנים נוספים</h3>
       <div class="milui-additional__list">
         <div v-for="form in additionalForms" :key="form.id" class="milui-additional__row">
-          <div class="milui-additional__heading">
-            <span>{{ form.label }}</span>
-            <span class="milui-additional__total">
-              {{ form.calculation.fullGematria }} · {{ form.calculation.fullHebrewNumber }}
-            </span>
-          </div>
+          <div class="milui-additional__name">{{ compactMiluiLabel(form.label) }}</div>
           <div class="milui-additional__spelling">{{ form.calculation.expandedText }}</div>
-          <div class="milui-additional__filling">
-            מילוי בלבד: {{ form.calculation.fillingOnlyGematria }} ·
-            {{ form.calculation.fillingOnlyHebrewNumber }}
+          <div class="milui-additional__values">
+            <div class="milui-additional__metric">
+              <span>סה״כ</span>
+              <strong>{{ form.calculation.fullGematria }} · {{ form.calculation.fullHebrewNumber }}</strong>
+            </div>
+            <div class="milui-additional__metric">
+              <span>מילוי בלבד</span>
+              <strong>{{ form.calculation.fillingOnlyGematria }} · {{ form.calculation.fillingOnlyHebrewNumber }}</strong>
+            </div>
           </div>
         </div>
       </div>
@@ -167,7 +168,7 @@
           :class="{ 'havayah-option--active': activeCanonicalId === preset.id }"
           @click="toggleCanonical(preset.id)"
         >
-          <span>{{ preset.label }}</span>
+          <span>{{ compactMiluiLabel(preset.label) }}</span>
           <span class="havayah-option__dot">·</span>
           <span>{{ preset.value }}</span>
         </button>
@@ -313,6 +314,10 @@ function selectedSpelling(sourceIndex) {
     ?.selectedSpelling;
 }
 
+function compactMiluiLabel(label) {
+  return String(label || '').replace(/^מילוי\s+/, '');
+}
+
 function clearSaveFeedback() {
   clearTimeout(feedbackTimer);
   saveState.value = 'idle';
@@ -437,7 +442,7 @@ onBeforeUnmount(() => clearTimeout(feedbackTimer));
 
 <style scoped>
 .milui-panel {
-  background: #fff;
+  background: #fffdf8;
   border: 0;
   border-radius: 0;
   overflow: hidden;
@@ -448,21 +453,21 @@ onBeforeUnmount(() => clearTimeout(feedbackTimer));
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  padding: 14px 18px 9px;
+  padding: 12px 18px 7px;
 }
 
 .milui-label {
   color: var(--text-secondary);
-  font-size: .71rem;
+  font-size: .68rem;
   font-weight: 600;
-  letter-spacing: .06em;
+  letter-spacing: .04em;
 }
 
 .milui-panel__title {
-  color: var(--navy);
-  font-size: .88rem;
-  font-weight: 600;
-  margin-top: 2px;
+  color: #8d6d29;
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .08em;
 }
 
 .milui-settings-link {
@@ -474,8 +479,8 @@ onBeforeUnmount(() => clearTimeout(feedbackTimer));
   color: var(--text-secondary);
   cursor: pointer;
   font: inherit;
-  font-size: .78rem;
-  padding: 5px;
+  font-size: .72rem;
+  padding: 3px 0;
 }
 
 .milui-settings-link:hover,
@@ -488,32 +493,44 @@ onBeforeUnmount(() => clearTimeout(feedbackTimer));
   opacity: .5;
 }
 
+.milui-primary-result {
+  padding: 0 18px 14px;
+}
+
 .milui-expanded-text {
   color: var(--navy);
   font-family: "Noto Serif Hebrew", "Times New Roman", serif;
-  font-size: clamp(1.2rem, 2.2vw, 1.65rem);
-  line-height: 1.8;
-  padding: 2px 18px 13px;
+  font-size: clamp(1.35rem, 2.5vw, 1.8rem);
+  font-weight: 600;
+  line-height: 1.65;
+  padding: 1px 0 11px;
   overflow-wrap: anywhere;
 }
 
 .milui-total-row {
-  align-items: end;
-  border-top: 1px solid var(--border);
+  align-items: stretch;
   display: flex;
-  gap: 28px;
+  gap: 0;
   justify-content: flex-start;
-  padding: 13px 18px 14px;
+}
+
+.milui-total-block {
+  min-width: 132px;
+  padding-block: 4px;
+}
+
+.milui-total-block--primary {
+  padding-inline-end: 26px;
 }
 
 .milui-value {
   align-items: baseline;
   color: var(--navy);
   display: flex;
-  font-size: 1.45rem;
+  font-size: 1.5rem;
   font-weight: 700;
   gap: 6px;
-  margin-top: 3px;
+  margin-top: 1px;
 }
 
 .milui-hebrew-number {
@@ -527,35 +544,34 @@ onBeforeUnmount(() => clearTimeout(feedbackTimer));
 }
 
 .milui-secondary-total {
-  border-inline-start: 1px solid var(--border);
-  padding-inline-start: 28px;
+  border-inline-start: 1px solid #e7decc;
+  padding-inline-start: 26px;
 }
 
 .milui-secondary-value {
   color: var(--text-secondary);
-  font-size: .95rem;
+  font-size: .9rem;
   font-weight: 600;
-  margin-top: 6px;
+  margin-top: 5px;
 }
 
 .milui-save-actions {
   align-items: center;
-  border-top: 1px solid var(--border);
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  padding: 11px 18px;
+  gap: 7px;
+  margin-top: 12px;
 }
 
 .milui-save-primary,
 .milui-save-all {
-  border-radius: 8px;
+  border-radius: 7px;
   cursor: pointer;
   font: inherit;
   font-size: .78rem;
   font-weight: 700;
-  min-height: 36px;
-  padding: 6px 14px;
+  min-height: 32px;
+  padding: 4px 13px;
 }
 
 .milui-save-primary {
@@ -565,9 +581,9 @@ onBeforeUnmount(() => clearTimeout(feedbackTimer));
 }
 
 .milui-save-all {
-  background: #fff;
-  border: 1px solid #c9b57f;
-  color: #806221;
+  background: transparent;
+  border: 1px solid #d9cba9;
+  color: #74591f;
 }
 
 .milui-save-primary:hover:not(:disabled) {
@@ -592,15 +608,15 @@ onBeforeUnmount(() => clearTimeout(feedbackTimer));
 }
 
 .milui-additional {
-  border-top: 1px solid var(--border);
-  padding: 12px 18px 14px;
+  border-top: 1px solid #e9e1d2;
+  padding: 10px 18px 9px;
 }
 
 .milui-additional h3 {
   color: var(--navy);
-  font-size: .79rem;
+  font-size: .73rem;
   font-weight: 650;
-  margin: 0 0 7px;
+  margin: 0 0 3px;
 }
 
 .milui-additional__list {
@@ -609,44 +625,59 @@ onBeforeUnmount(() => clearTimeout(feedbackTimer));
 }
 
 .milui-additional__row {
-  border-top: 1px solid #f0ebdf;
-  padding: 8px 0;
+  align-items: center;
+  border-top: 1px solid #eee7da;
+  display: grid;
+  gap: 8px 14px;
+  grid-template-columns: minmax(84px, .65fr) minmax(150px, 1.8fr) minmax(170px, 1fr);
+  padding: 9px 0;
 }
 
 .milui-additional__row:first-child {
   border-top: 0;
-  padding-top: 3px;
+  padding-top: 6px;
 }
 
-.milui-additional__heading {
-  align-items: baseline;
+.milui-additional__name {
   color: var(--navy);
-  display: flex;
-  font-size: .78rem;
-  font-weight: 650;
-  gap: 10px;
-  justify-content: space-between;
-}
-
-.milui-additional__total {
-  color: #8d6d29;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+  font-size: .76rem;
+  font-weight: 700;
 }
 
 .milui-additional__spelling {
-  color: var(--text-secondary);
+  color: var(--navy-light);
   font-family: "Noto Serif Hebrew", "Times New Roman", serif;
-  font-size: .81rem;
-  line-height: 1.55;
-  margin-top: 2px;
+  font-size: .84rem;
+  line-height: 1.45;
   overflow-wrap: anywhere;
 }
 
-.milui-additional__filling {
+.milui-additional__values {
+  align-items: center;
+  display: flex;
+  gap: 15px;
+  justify-content: flex-end;
+}
+
+.milui-additional__metric {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 66px;
+}
+
+.milui-additional__metric span {
   color: var(--text-secondary);
-  font-size: .68rem;
-  margin-top: 2px;
+  font-size: .61rem;
+  white-space: nowrap;
+}
+
+.milui-additional__metric strong {
+  color: #806221;
+  font-size: .72rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  white-space: nowrap;
 }
 
 .milui-variants {
@@ -1049,13 +1080,34 @@ onBeforeUnmount(() => clearTimeout(feedbackTimer));
   }
 
   .milui-total-row {
-    align-items: flex-start;
-    gap: 16px;
-    justify-content: space-between;
+    justify-content: flex-start;
+  }
+
+  .milui-total-block {
+    min-width: 0;
+  }
+
+  .milui-total-block--primary {
+    padding-inline-end: 18px;
   }
 
   .milui-secondary-total {
-    padding-inline-start: 16px;
+    padding-inline-start: 18px;
+  }
+
+  .milui-additional__row {
+    gap: 4px 10px;
+    grid-template-columns: minmax(82px, auto) 1fr;
+  }
+
+  .milui-additional__spelling {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .milui-additional__values {
+    gap: 10px;
+    justify-content: flex-start;
   }
 
   .havayah-options {
