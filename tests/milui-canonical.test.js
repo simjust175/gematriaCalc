@@ -21,10 +21,10 @@ test('canonical מילויי הוי״ה spellings have their fixed traditional v
       calculated: calcGematria(spelling),
     })),
     [
-      { label: 'ע״ב', value: 72, calculated: 72 },
-      { label: 'ס״ג', value: 63, calculated: 63 },
-      { label: 'מ״ה', value: 45, calculated: 45 },
-      { label: 'ב״ן', value: 52, calculated: 52 },
+      { label: 'מילוי יודי״ן', value: 72, calculated: 72 },
+      { label: 'מילוי יודי״ן־אל״ף', value: 63, calculated: 63 },
+      { label: 'מילוי אלפי״ן', value: 45, calculated: 45 },
+      { label: 'מילוי ההי״ן', value: 52, calculated: 52 },
     ]
   );
 });

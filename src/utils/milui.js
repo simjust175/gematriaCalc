@@ -10,25 +10,25 @@ export const MILUI_PRESET_NAME = 'מילוי רגיל';
 export const CANONICAL_HAVAYAH_MILUI = Object.freeze([
   Object.freeze({
     id: 'av',
-    label: 'ע״ב',
+    label: 'מילוי יודי״ן',
     value: 72,
     spelling: 'יו״ד ה״י וי״ו ה״י',
   }),
   Object.freeze({
     id: 'sag',
-    label: 'ס״ג',
+    label: 'מילוי יודי״ן־אל״ף',
     value: 63,
     spelling: 'יו״ד ה״י וא״ו ה״י',
   }),
   Object.freeze({
     id: 'mah',
-    label: 'מ״ה',
+    label: 'מילוי אלפי״ן',
     value: 45,
     spelling: 'יו״ד ה״א וא״ו ה״א',
   }),
   Object.freeze({
     id: 'ban',
-    label: 'ב״ן',
+    label: 'מילוי ההי״ן',
     value: 52,
     spelling: 'יו״ד ה״ה ו״ו ה״ה',
   }),
@@ -92,9 +92,9 @@ export const MILUI_VARIANT_REGISTRY = Object.freeze({
 
 export const MILUI_COMMON_FORMS = Object.freeze([
   Object.freeze({ id: 'primary', label: 'מילוי רגיל', primary: true }),
-  Object.freeze({ id: 'av', label: 'מילוי ע״ב', spellings: Object.freeze({ ה: 'הי', ו: 'ויו' }) }),
-  Object.freeze({ id: 'sag', label: 'מילוי ס״ג', spellings: Object.freeze({ ה: 'הי', ו: 'ואו' }) }),
-  Object.freeze({ id: 'ban', label: 'מילוי ב״ן', spellings: Object.freeze({ ה: 'הה', ו: 'וו' }) }),
+  Object.freeze({ id: 'av', label: 'מילוי יודי״ן', spellings: Object.freeze({ ה: 'הי', ו: 'ויו' }) }),
+  Object.freeze({ id: 'sag', label: 'מילוי יודי״ן־אל״ף', spellings: Object.freeze({ ה: 'הי', ו: 'ואו' }) }),
+  Object.freeze({ id: 'ban', label: 'מילוי ההי״ן', spellings: Object.freeze({ ה: 'הה', ו: 'וו' }) }),
 ]);
 
 function baseLetter(letter) {
