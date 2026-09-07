@@ -1,4 +1,4 @@
-import { findGematriaRanges } from './tanachGematriaSearch.js';
+import { findGematriaRanges, findWordEdgeRanges } from './tanachGematriaSearch.js';
 import { createTanachCursor } from '../src/composables/useTanachCursor.js';
 import { toHebrewNumber } from '../src/composables/useGematria.js';
 import { getCurrentWeeklyParshah } from './tanachWeeklyParsha.js';
@@ -8,6 +8,7 @@ export const MAX_GEMATRIA_TARGET = 100000;
 export const MAX_GEMATRIA_PAGE_SIZE = 50;
 
 const VALID_TYPES = new Set(['all', 'whole_word', 'whole_phrase', 'partial']);
+const VALID_METHODS = new Set(['gematria', 'initials', 'finals']);
 const MAX_CACHED_TARGETS = 6;
 const MAX_CACHED_MATCH_REFERENCES = 200000;
 const MAX_GEMATRIA_SEARCH_LENGTH = 160;
@@ -21,9 +22,9 @@ const PARSHAH_BY_ID = new Map(TANACH_PARSHIOT.map(parshah => [parshah.id, parsha
 let corpusCache = null;
 const targetCache = new Map();
 
-function touchTarget(value, entry) {
-  targetCache.delete(value);
-  targetCache.set(value, entry);
+function touchTarget(key, entry) {
+  targetCache.delete(key);
+  targetCache.set(key, entry);
   const referenceCount = () => [...targetCache.values()]
     .reduce((sum, item) => sum + item.matches.length, 0);
   while (
@@ -128,7 +129,11 @@ function serializeMatch(verse, compactMatch) {
 }
 
 export function parseGematriaSearchQuery(query) {
-  const value = Number(query.value);
+  const isScalar = value => typeof value === 'string' || typeof value === 'number';
+  const method = typeof query.method === 'string' ? query.method : 'gematria';
+  const value = query.value == null ? 0 : Number(query.value);
+  const sequence = typeof query.sequence === 'string' ? query.sequence : '';
+  const wordCount = query.word_count == null ? 0 : Number(query.word_count);
   const type = typeof query.type === 'string' ? query.type : 'all';
   const page = query.page == null ? 1 : Number(query.page);
   const requestedLimit = query.limit == null ? 12 : Number(query.limit);
@@ -143,30 +148,56 @@ export function parseGematriaSearchQuery(query) {
   const chapter = query.chapter == null ? 0 : Number(query.chapter);
   const verseNumber = query.verse == null ? 0 : Number(query.verse);
 
-  if (!Number.isSafeInteger(value) || value < 1 || value > MAX_GEMATRIA_TARGET) {
-    return { error: 'invalid_gematria_value' };
+  if (query.method != null && typeof query.method !== 'string') return { error: 'invalid_match_method' };
+  if (!VALID_METHODS.has(method)) return { error: 'invalid_match_method' };
+  if (method === 'gematria') {
+    if (!isScalar(query.value) || !Number.isSafeInteger(value) || value < 1 || value > MAX_GEMATRIA_TARGET) {
+      return { error: 'invalid_gematria_value' };
+    }
+    if (query.sequence != null || query.word_count != null) return { error: 'invalid_match_query' };
+  } else {
+    if (query.value != null) return { error: 'invalid_match_query' };
+    if (
+      typeof query.sequence !== 'string'
+      || !isScalar(query.word_count)
+      || !/^[\u05D0-\u05EA]+$/.test(sequence)
+      || !Number.isSafeInteger(wordCount)
+      || wordCount < 2
+      || wordCount > MAX_GEMATRIA_SEARCH_LENGTH
+      || [...sequence].length !== wordCount
+    ) {
+      return { error: 'invalid_match_sequence' };
+    }
+    if (type !== 'all' && type !== 'whole_phrase') return { error: 'invalid_match_type' };
   }
+  if (query.type != null && typeof query.type !== 'string') return { error: 'invalid_match_type' };
   if (!VALID_TYPES.has(type)) return { error: 'invalid_match_type' };
+  if (query.page != null && !isScalar(query.page)) return { error: 'invalid_page' };
   if (!Number.isSafeInteger(page) || page < 1 || page > 1000000) {
     return { error: 'invalid_page' };
   }
+  if (query.limit != null && !isScalar(query.limit)) return { error: 'invalid_limit' };
   if (!Number.isSafeInteger(requestedLimit) || requestedLimit < 1) {
     return { error: 'invalid_limit' };
   }
+  if (query.search != null && typeof query.search !== 'string') return { error: 'invalid_search' };
   if (search.length > MAX_GEMATRIA_SEARCH_LENGTH) return { error: 'invalid_search' };
   if (query.parsha != null && !currentParshah) return { error: 'invalid_parsha_filter' };
   if (query.chumash != null && typeof query.chumash !== 'string') return { error: 'invalid_chumash_filter' };
   if (chumash && !TORAH_BOOK_ORDER.has(chumash)) return { error: 'invalid_chumash_filter' };
-  if (query.book_order != null && (!Number.isSafeInteger(bookOrder) || bookOrder < 1 || bookOrder > 24)) {
+  if (query.book_order != null && (!isScalar(query.book_order)
+    || !Number.isSafeInteger(bookOrder) || bookOrder < 1 || bookOrder > 24)) {
     return { error: 'invalid_book_filter' };
   }
   if (query.chapter_book != null && (typeof query.chapter_book !== 'string' || !chapterBook)) {
     return { error: 'invalid_chapter_filter' };
   }
-  if (query.chapter != null && (!Number.isSafeInteger(chapter) || chapter < 1)) {
+  if (query.chapter != null && (!isScalar(query.chapter)
+    || !Number.isSafeInteger(chapter) || chapter < 1)) {
     return { error: 'invalid_chapter_filter' };
   }
-  if (query.verse != null && (!Number.isSafeInteger(verseNumber) || verseNumber < 1)) {
+  if (query.verse != null && (!isScalar(query.verse)
+    || !Number.isSafeInteger(verseNumber) || verseNumber < 1)) {
     return { error: 'invalid_verse_filter' };
   }
   if ((chapterBook && !chapter) || (chapter && !chapterBook) || (verseNumber && !chapter)) {
@@ -184,7 +215,10 @@ export function parseGematriaSearchQuery(query) {
   }
 
   return {
+    method,
     value,
+    sequence,
+    wordCount,
     type,
     page,
     limit: Math.min(requestedLimit, MAX_GEMATRIA_PAGE_SIZE),
@@ -277,7 +311,10 @@ export function isVerseInParshah(verse, weeklyParshah) {
 
 export async function searchTanachGematria(db, options, mayRetry = true) {
   const {
+    method = 'gematria',
     value,
+    sequence = '',
+    wordCount = 0,
     type,
     page,
     limit,
@@ -291,12 +328,17 @@ export async function searchTanachGematria(db, options, mayRetry = true) {
     verse: verseNumber = 0,
   } = options;
   const { corpus, revision } = await loadCorpus(db);
-  let entry = targetCache.get(value);
+  const cacheKey = method === 'gematria'
+    ? `gematria:${value}`
+    : `${method}:${sequence}:${wordCount}`;
+  let entry = targetCache.get(cacheKey);
   if (!entry) {
     const counts = { all: 0, whole_word: 0, whole_phrase: 0, partial: 0 };
     const matches = [];
     for (let verseIndex = 0; verseIndex < corpus.length; verseIndex += 1) {
-      const verseMatches = findGematriaRanges(corpus[verseIndex].display_text, value);
+      const verseMatches = method === 'gematria'
+        ? findGematriaRanges(corpus[verseIndex].display_text, value)
+        : findWordEdgeRanges(corpus[verseIndex].display_text, sequence, method, wordCount);
       for (const match of verseMatches) {
         counts.all += 1;
         counts[match.classification] += 1;
@@ -310,7 +352,7 @@ export async function searchTanachGematria(db, options, mayRetry = true) {
     }
     entry = { counts, matches };
   }
-  touchTarget(value, entry);
+  touchTarget(cacheKey, entry);
 
   const normalizedSearch = searchKey(search);
   const weeklyParshah = getCurrentWeeklyParshah();
@@ -343,7 +385,10 @@ export async function searchTanachGematria(db, options, mayRetry = true) {
 
   const total = type === 'all' ? counts.all : counts[type];
   const response = {
-    target: value,
+    method,
+    ...(method === 'gematria'
+      ? { target: value }
+      : { sequence, wordCount }),
     results,
     counts,
     total,

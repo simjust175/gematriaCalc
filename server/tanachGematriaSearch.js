@@ -23,6 +23,80 @@
 
 import { createTanachCursor } from '../src/composables/useTanachCursor.js';
 
+const FINAL_FORM_MAP = Object.freeze({
+  ך: 'כ',
+  ם: 'מ',
+  ן: 'נ',
+  ף: 'פ',
+  ץ: 'צ',
+});
+export function normalizeTanachMatchLetter(letter) {
+  return FINAL_FORM_MAP[letter] || letter;
+}
+
+function cursorWords(cursor) {
+  const words = [];
+  for (let index = 0; index < cursor.letters.length; index += 1) {
+    const letter = cursor.letters[index];
+    const current = words.at(-1);
+    if (!current || current.wordIndex !== letter.wordIndex) {
+      words.push({
+        wordIndex: letter.wordIndex,
+        start: index,
+        end: index,
+        first: letter.character,
+        last: letter.character,
+      });
+    } else {
+      current.end = index;
+      current.last = letter.character;
+    }
+  }
+  return words;
+}
+
+/**
+ * Find exact initials/finals matches across a fixed-size, contiguous window of
+ * complete words in one verse. Returned text and indexes always come from the
+ * canonical pointed cursor; normalization is used for comparison only.
+ */
+export function findWordEdgeRanges(displayText, sequence, method, wordCount) {
+  if (
+    !displayText
+    || (method !== 'initials' && method !== 'finals')
+    || !Number.isSafeInteger(wordCount)
+    || wordCount < 2
+    || typeof sequence !== 'string'
+  ) return [];
+
+  const normalizedSequence = [...sequence].map(normalizeTanachMatchLetter).join('');
+  if (normalizedSequence.length !== wordCount || !/^[\u05D0-\u05EA]+$/.test(sequence)) return [];
+
+  const cursor = createTanachCursor(displayText);
+  const words = cursorWords(cursor);
+  const results = [];
+  for (let startWord = 0; startWord + wordCount <= words.length; startWord += 1) {
+    const window = words.slice(startWord, startWord + wordCount);
+    const candidate = window.map(word => (
+      method === 'initials' ? word.first : word.last
+    )).map(normalizeTanachMatchLetter).join('');
+    if (candidate !== normalizedSequence) continue;
+
+    const start = window[0].start;
+    const end = window.at(-1).end;
+    const rangeResult = cursor.range(start, end);
+    results.push({
+      start,
+      end,
+      text: rangeResult.text,
+      gematria: rangeResult.gematria,
+      classification: 'whole_phrase',
+      letters: rangeResult.letters,
+    });
+  }
+  return results;
+}
+
 /**
  * Determine the word-boundary alignment classification of a letter range.
  *

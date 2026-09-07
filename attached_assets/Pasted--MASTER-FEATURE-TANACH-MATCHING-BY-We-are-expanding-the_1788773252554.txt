@@ -1,0 +1,745 @@
+# MASTER FEATURE — TANACH MATCHING BY ראשי תיבות + סופי תיבות
+
+We are expanding the existing Tanach discovery section on the Calculator.
+
+The current Tanach feature already finds where the CURRENT FULL GEMATRIA appears in Tanach.
+
+Keep that functionality exactly intact.
+
+Now add TWO additional Tanach discovery methods:
+
+1. ראשי תיבות
+2. סופי תיבות
+
+This is a substantial search feature. Inspect the existing Tanach search architecture carefully before changing anything.
+
+IMPORTANT:
+- production app is actively used
+- preserve all existing data
+- do not rewrite Tanach corpus
+- do not reset/reseed database
+- do not weaken existing whole-word matching rules
+- partial-word matches must remain excluded from "הכל"
+
+==================================================
+1. CORE CONCEPT
+==================================================
+
+For the COMPLETE current calculator input:
+
+derive:
+
+A. ראשי תיבות
+= first Hebrew letter of every word
+
+B. סופי תיבות
+= last Hebrew letter of every word
+
+Example:
+
+Input:
+שמע ישראל
+
+ראשי תיבות:
+שי
+
+סופי תיבות:
+על
+
+Then search the Tanach for contiguous COMPLETE-WORD sequences whose:
+
+- ראשי תיבות exactly equal שי
+OR
+- סופי תיבות exactly equal על
+
+These are separate match types.
+
+==================================================
+2. THIS IS EXACT LETTER MATCHING
+==================================================
+
+This feature is NOT:
+
+- gematria-of-roshai-teivos numeric matching
+- approximate matching
+- partial-letter matching
+- substring matching
+- unordered matching
+
+It is exact ראשי/סופי תיבות sequence matching.
+
+Example:
+
+Current ראשי תיבות:
+שי
+
+Valid candidate:
+
+שמע ישראל
+→ ש + י
+→ שי
+
+Another Tanach phrase of two complete words beginning:
+
+ש... י...
+
+is also a valid ראשי תיבות match.
+
+But:
+
+י... ש...
+
+is NOT valid.
+
+Order must match exactly.
+
+==================================================
+3. WORD COUNT MUST MATCH
+==================================================
+
+Every word contributes exactly one letter.
+
+Therefore the candidate Tanach span must contain the same number of words as the current input.
+
+Example:
+
+Input:
+שמע ישראל
+
+2 words.
+
+Search only contiguous 2-word Tanach spans for:
+
+ראשי תיבות שי
+
+and:
+
+סופי תיבות על
+
+Do not match a 3-word phrase merely because some letters happen to fit.
+
+==================================================
+4. CONTIGUOUS COMPLETE WORDS ONLY
+==================================================
+
+Use complete Hebrew words only.
+
+Candidate words must:
+
+- occur contiguously
+- remain in canonical Tanach order
+- belong to one verse
+- never cross verse boundaries
+
+Never use:
+
+- partial words
+- characters inside words
+- suffix substrings
+- prefix substrings
+- skipped words
+- reordered words
+
+This must follow the same strict whole-word philosophy we just established for the existing Tanach search.
+
+==================================================
+5. NORMALIZATION
+==================================================
+
+Reuse the app's existing Hebrew normalization utilities wherever possible.
+
+For deriving ראשי/סופי תיבות:
+
+ignore:
+
+- niqqud
+- cantillation
+- punctuation
+- maqaf/punctuation separators according to the existing tokenizer
+- non-Hebrew characters
+
+Use actual Hebrew letters.
+
+For comparison of final forms, normalize consistently so:
+
+ך / כ
+ם / מ
+ן / נ
+ף / פ
+ץ / צ
+
+do not cause false mismatches merely because of typing/canonical representation.
+
+However:
+
+preserve the correct original Tanach spelling for DISPLAY.
+
+Do not visually replace final letters in the verse text.
+
+==================================================
+6. MINIMUM INPUT
+==================================================
+
+ראשי תיבות and סופי תיבות Tanach discovery should normally require at least TWO words.
+
+For a one-word calculator input, do NOT search every Tanach word beginning or ending in one letter because that creates enormous low-value result sets.
+
+If the current input contains fewer than 2 valid Hebrew words:
+
+ראשי תיבות / סופי תיבות results should be unavailable or show a quiet message such as:
+
+נדרשות לפחות שתי מילים
+
+The normal full-gematria Tanach search must continue to work normally.
+
+==================================================
+7. EXISTING GEMATRIA SEARCH REMAINS
+==================================================
+
+The current search:
+
+איפה עוד מופיע הערך 18?
+
+etc.
+
+must remain intact.
+
+Existing categories such as:
+
+- מילה שלמה
+- מילים שלמות / צירוף מילים
+- הכל
+
+should retain their current behavior.
+
+IMPORTANT:
+
+"הכל" in normal gematria search must still EXCLUDE partial-word matches.
+
+Do not reintroduce חלקי מילים anywhere.
+
+==================================================
+8. UI — ADD A SEARCH METHOD LAYER
+==================================================
+
+The Tanach discovery area now has three search methods:
+
+גימטריה
+ראשי תיבות
+סופי תיבות
+
+Do NOT create three huge separate sections one after another.
+
+Use one clean method selector near the top of the existing Tanach section.
+
+Suggested:
+
+חיפוש לפי
+
+[ גימטריה ] [ ראשי תיבות ] [ סופי תיבות ]
+
+Or an equivalent compact premium segmented control.
+
+Keep the existing cream/navy/gold design.
+
+==================================================
+9. SHOW COUNTS ON THE METHODS
+==================================================
+
+If practical, show result counts subtly:
+
+גימטריה 517
+ראשי תיבות 23
+סופי תיבות 11
+
+This lets the client immediately see that additional discoveries exist.
+
+Do not make these large badges.
+
+==================================================
+10. DEFAULT TAB
+==================================================
+
+Default remains:
+
+גימטריה
+
+because this is the existing core behavior.
+
+Do not unexpectedly switch the user's current workflow.
+
+==================================================
+11. ראשי תיבות TAB
+==================================================
+
+When selected, make it immediately clear what is being searched.
+
+Example:
+
+ראשי תיבות בתנ״ך
+
+שי
+
+23 התאמות
+
+Then show matching Tanach result cards using the existing result-grid language.
+
+Do not add unnecessary explanation to every card.
+
+==================================================
+12. סופי תיבות TAB
+==================================================
+
+Equivalent behavior:
+
+סופי תיבות בתנ״ך
+
+על
+
+11 התאמות
+
+Then show matching Tanach passages.
+
+==================================================
+13. RESULT CARD DESIGN
+==================================================
+
+Reuse the existing Tanach cards as much as possible.
+
+For a ראשי תיבות result:
+
+show the relevant complete words in context.
+
+Highlight the matched words.
+
+Add only a small match-type indication:
+
+ראשי תיבות
+
+For סופי תיבות:
+
+סופי תיבות
+
+Do not clutter cards with:
+
+- equations
+- individual letter arithmetic
+- gematria tables
+- badges for every letter
+
+==================================================
+14. OPTIONAL LETTER EMPHASIS
+==================================================
+
+If it can be done elegantly:
+
+within highlighted matched words, subtly emphasize the actual first letters for ראשי תיבות or final letters for סופי תיבות.
+
+Example concept:
+
+שמע ישראל
+
+ראשי תיבות:
+ש ... י ...
+
+But this must remain visually restrained.
+
+If emphasizing individual letters makes the card messy, highlight the complete matched words only.
+
+Clarity is more important.
+
+==================================================
+15. CARD CONTEXT
+==================================================
+
+Preserve existing behavior:
+
+- book
+- chapter
+- verse reference
+- surrounding verse context
+- open in reader
+- save range where applicable
+
+Do not create a separate Tanach navigation system for this feature.
+
+==================================================
+16. ALL RESULTS ARE WHOLE-WORD RESULTS
+==================================================
+
+For ראשי תיבות and סופי תיבות there is NO "partial word" category.
+
+Every result is built from complete contiguous words.
+
+Do not expose:
+
+חלק ממילה
+
+anywhere.
+
+==================================================
+17. EXISTING SHAPE FILTERS
+==================================================
+
+Be careful with the current:
+
+הכל
+מילה שלמה
+מילים שלמות
+
+filters.
+
+For ראשי תיבות / סופי תיבות searches with 2+ input words, every valid result will naturally be a multi-word contiguous span.
+
+Therefore do NOT show irrelevant filters if they do not make semantic sense.
+
+Recommended behavior:
+
+When search method = גימטריה:
+keep the existing shape filters.
+
+When search method = ראשי תיבות or סופי תיבות:
+hide the unnecessary מילה שלמה / מילים שלמות filter row and simply show exact phrase matches.
+
+Avoid redundant controls.
+
+==================================================
+18. QUERY EXAMPLE
+==================================================
+
+Current input:
+
+שמע ישראל
+
+Derived:
+
+ראשי תיבות:
+שי
+
+סופי תיבות:
+על
+
+Tanach ראשי תיבות search:
+
+scan every contiguous 2-word window within each verse.
+
+For each pair:
+
+first Hebrew letter word 1
++
+first Hebrew letter word 2
+
+If normalized result == שי:
+
+MATCH.
+
+Tanach סופי תיבות search:
+
+last Hebrew letter word 1
++
+last Hebrew letter word 2
+
+If normalized result == על:
+
+MATCH.
+
+==================================================
+19. ANOTHER EXAMPLE
+==================================================
+
+Current input:
+
+בראשית ברא אלהים
+
+3 words.
+
+ראשי תיבות:
+
+בבא
+
+סופי תיבות:
+
+תאם
+
+Search only contiguous 3-word Tanach windows.
+
+Never 2 words.
+Never 4 words.
+Never across two pesukim.
+
+==================================================
+20. DEDUPLICATION
+==================================================
+
+A Tanach span should not appear twice within the SAME match method.
+
+If the same range happens to qualify for both:
+
+ראשי תיבות
+and
+סופי תיבות
+
+that is legitimate.
+
+It can appear under both method tabs.
+
+If later an "all methods" view is added, represent one passage once with both match reasons rather than duplicate cards.
+
+==================================================
+21. PAGINATION
+==================================================
+
+Reuse the existing server-backed pagination approach.
+
+Counts must reflect the actual filtered method.
+
+Example:
+
+ראשי תיבות 43
+
+must mean 43 real exact ראשי תיבות ranges.
+
+Do not calculate counts only from the current loaded page.
+
+==================================================
+22. CANONICAL ORDER
+==================================================
+
+Results must remain in canonical Tanach order using the existing ordering logic.
+
+Do not rank random matches ahead of canonical order unless the existing Tanach system already has another explicitly approved ranking.
+
+==================================================
+23. PERFORMANCE
+==================================================
+
+There are ~23,213 Tanach verses.
+
+Do not create an obviously expensive brute-force request that repeatedly performs unnecessary transformations.
+
+First inspect how Tanach text is currently tokenized/searchable.
+
+For an N-word query:
+
+each verse can be evaluated using contiguous N-word windows.
+
+Derive word initials/finals efficiently.
+
+Reuse normalized/tokenized data when possible.
+
+Avoid repeated parsing for every UI render.
+
+==================================================
+24. DO NOT CREATE A RISKY MIGRATION JUST FOR SPEED
+==================================================
+
+First attempt to implement this cleanly using the existing Tanach corpus and server search architecture.
+
+If performance is already good enough, NO schema changes are needed.
+
+Do not modify the Tanach corpus.
+
+Do not rewrite 23,213 verses.
+
+Only if performance genuinely requires persisted derived search data may you propose an ADDITIVE index/table.
+
+Do not perform that migration silently.
+
+==================================================
+25. DATABASE SAFETY
+==================================================
+
+Production safety is critical.
+
+Do NOT:
+
+- DROP
+- TRUNCATE
+- reseed
+- reset
+- recreate database
+- replace production DB
+- copy development DB over production
+- rewrite saved_entries
+- rewrite saved_words
+- modify Tanach verse text
+- delete Tanach data
+
+Any database work must be additive only.
+
+Prefer no schema change for this feature if reasonably possible.
+
+==================================================
+26. DO NOT CHANGE OTHER FEATURES
+==================================================
+
+Do not alter:
+
+- main gematria engine
+- מילוי
+- מילות יסוד
+- saved-entry matching
+- regular שמור
+- שמור כל האופנים
+- Tanach reader
+- parsha navigation
+- Hebrew keyboard
+- authentication
+
+unless technically required for this exact feature.
+
+==================================================
+27. TESTS — DERIVATION
+==================================================
+
+Add unit tests for:
+
+ראשי תיבות derivation.
+
+Example:
+
+שמע ישראל
+→ שי
+
+בראשית ברא אלהים
+→ בבא
+
+And סופי תיבות:
+
+שמע ישראל
+→ על
+
+Verify:
+
+- punctuation ignored
+- niqqud ignored
+- cantillation ignored
+- whitespace normalized
+- final letters handled consistently
+
+==================================================
+28. TESTS — TANACH MATCHING
+==================================================
+
+Add regression tests proving:
+
+1. exact ראשי תיבות sequence matches.
+2. reversed initials do not match.
+3. exact סופי תיבות sequence matches.
+4. reversed finals do not match.
+5. candidate word count must equal query word count.
+6. no skipped-word matches.
+7. no cross-verse matches.
+8. no partial-word matches.
+9. punctuation/niqqud do not break matching.
+10. duplicate ranges are not returned twice.
+
+==================================================
+29. EXISTING TANACH REGRESSION TESTS
+==================================================
+
+Verify existing behavior remains correct:
+
+- full gematria whole-word results
+- full gematria multi-word results
+- "הכל" excludes partial-word results
+- counts
+- pagination
+- canonical ordering
+- open-in-reader behavior
+
+==================================================
+30. MOBILE / RTL
+==================================================
+
+Method selector and result presentation must work cleanly in RTL.
+
+Desktop:
+compact horizontal selector is appropriate.
+
+Mobile:
+allow the method selector to fit/wrap cleanly without horizontal overflow.
+
+Hebrew strings such as:
+
+ר״ת
+ס״ת
+
+must render properly.
+
+==================================================
+31. UX TARGET
+==================================================
+
+The Tanach section should now answer three distinct questions:
+
+גימטריה:
+"איפה עוד מופיע הערך הזה בתנ״ך?"
+
+ראשי תיבות:
+"איפה מופיע אותו רצף של ראשי תיבות?"
+
+סופי תיבות:
+"איפה מופיע אותו רצף של סופי תיבות?"
+
+The user should understand this immediately.
+
+Do not expose the algorithm.
+
+==================================================
+32. ACCEPTANCE CRITERIA
+==================================================
+
+Complete only when:
+
+1. Existing gematria Tanach discovery still works.
+2. ראשי תיבות is derived from the complete current input.
+3. סופי תיבות is derived from the complete current input.
+4. Tanach can find exact contiguous whole-word ראשי תיבות matches.
+5. Tanach can find exact contiguous whole-word סופי תיבות matches.
+6. Candidate span length equals query word count.
+7. Searches never cross verse boundaries.
+8. Partial words are never used.
+9. Clear method switching exists.
+10. Counts/pagination are accurate.
+11. Results remain in canonical Tanach order.
+12. Mobile RTL works.
+13. Existing Tanach corpus is untouched.
+14. Existing production saved data is untouched.
+15. Tests and production build pass.
+
+==================================================
+33. BEFORE IMPLEMENTATION
+==================================================
+
+Before coding, inspect:
+
+- current Tanach search service
+- tokenizer / Hebrew normalization utilities
+- pagination/count implementation
+- result-type model
+- frontend Tanach discovery component
+- tests
+
+Reuse existing architecture.
+
+Do not build a parallel second Tanach search system unnecessarily.
+
+==================================================
+34. FINAL REPORT
+==================================================
+
+After implementation report:
+
+- files changed
+- how ראשי תיבות are derived
+- how סופי תיבות are derived
+- exact range/window matching logic
+- how final letters are normalized
+- how UI method switching works
+- count/pagination approach
+- performance impact
+- whether any schema change was required
+- confirmation existing Tanach data was untouched
+- confirmation saved user data was untouched
+- test/build results

@@ -1546,6 +1546,85 @@ test('Tanach gematria discovery validates, paginates, filters, and preserves can
   )));
 });
 
+test('Tanach initials/finals discovery uses exact complete-word windows and validates its contract', async () => {
+  const agent = request.agent(app);
+  await agent.post('/api/auth/login').send({ password: 'correct-test-password-12345' });
+
+  for (const query of [
+    { method: 'initials', sequence: 'ב', word_count: 1 },
+    { method: 'initials', sequence: 'בב', word_count: 3 },
+    { method: 'finals', sequence: 'ת!', word_count: 2 },
+    { method: 'initials', sequence: 'בב', word_count: 2, value: 4 },
+    { method: 'gematria', value: 4, sequence: 'בב', word_count: 2 },
+    { method: 'unknown', sequence: 'בב', word_count: 2 },
+  ]) {
+    const invalid = await agent.get('/api/tanach/gematria-matches').query(query);
+    assert.equal(invalid.status, 400);
+  }
+
+  const initials = await agent.get('/api/tanach/gematria-matches').query({
+    method: 'initials',
+    sequence: 'בב',
+    word_count: 2,
+    chapter_book: 'Genesis',
+    chapter: 1,
+    verse: 1,
+    limit: 10,
+  });
+  assert.equal(initials.status, 200);
+  assert.equal(initials.body.method, 'initials');
+  assert.equal(initials.body.total, 1);
+  assert.equal(initials.body.counts.all, 1);
+  assert.equal(initials.body.counts.whole_phrase, 1);
+  assert.deepEqual(
+    initials.body.results.map(item => [item.start, item.end, normalize(item.text)]),
+    [[0, 8, 'בראשית ברא']]
+  );
+
+  const finals = await agent.get('/api/tanach/gematria-matches').query({
+    method: 'finals',
+    sequence: 'תא',
+    word_count: 2,
+    chapter_book: 'Genesis',
+    chapter: 1,
+    verse: 1,
+    limit: 10,
+  });
+  assert.equal(finals.status, 200);
+  assert.deepEqual(
+    finals.body.results.map(item => [item.start, item.end, normalize(item.text)]),
+    [[0, 8, 'בראשית ברא']]
+  );
+
+  const firstPage = await agent.get('/api/tanach/gematria-matches').query({
+    method: 'initials',
+    sequence: 'בב',
+    word_count: 2,
+    page: 1,
+    limit: 1,
+  });
+  const secondPage = await agent.get('/api/tanach/gematria-matches').query({
+    method: 'initials',
+    sequence: 'בב',
+    word_count: 2,
+    page: 2,
+    limit: 1,
+  });
+  assert.equal(firstPage.status, 200);
+  assert.equal(secondPage.status, 200);
+  assert.equal(firstPage.body.results.length, 1);
+  assert.equal(secondPage.body.results.length, 1);
+  assert.ok(firstPage.body.total > 1);
+  assert.equal(secondPage.body.total, firstPage.body.total);
+  assert.equal(firstPage.body.counts.all, firstPage.body.total);
+  assert.equal(firstPage.body.counts.whole_phrase, firstPage.body.total);
+  assert.equal(firstPage.body.hasMore, true);
+  assert.notDeepEqual(
+    firstPage.body.results.map(item => [item.bookSlug, item.chapter, item.verse, item.start, item.end]),
+    secondPage.body.results.map(item => [item.bookSlug, item.chapter, item.verse, item.start, item.end])
+  );
+});
+
 test('Tanach gematria discovery searches only matching cards by normalized text, reference, and weekly filter', async () => {
   const agent = request.agent(app);
   await agent.post('/api/auth/login').send({ password: 'correct-test-password-12345' });

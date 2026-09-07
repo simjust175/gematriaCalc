@@ -138,6 +138,9 @@
 
             <TanachGematriaMatches
               :target="result.fullGematria"
+              :initials="result.initials"
+              :finals="result.finals"
+              :word-count="result.words.length"
               @open="emit('openTanach', $event)"
             />
 

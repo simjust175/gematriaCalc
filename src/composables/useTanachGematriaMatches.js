@@ -4,6 +4,9 @@ const FILTERS = ['all', 'whole_word', 'whole_phrase', 'partial'];
 
 export function useTanachGematriaMatches(targetRef, options = {}) {
   const fetchImpl = options.fetchImpl || globalThis.fetch;
+  const methodRef = options.methodRef;
+  const sequenceRef = options.sequenceRef;
+  const wordCountRef = options.wordCountRef;
   const debounceMs = options.debounceMs ?? 350;
   const limit = options.limit ?? 12;
   const results = ref([]);
@@ -32,6 +35,22 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
     const value = Number(raw);
     return Number.isInteger(value) && value > 0 ? value : null;
   }
+  function valueOf(refOrValue) {
+    return typeof refOrValue === 'function' ? refOrValue() : refOrValue?.value ?? refOrValue;
+  }
+  function currentMethod() {
+    const method = valueOf(methodRef);
+    return ['initials', 'finals'].includes(method) ? method : 'gematria';
+  }
+  function currentSequence() {
+    return String(valueOf(sequenceRef) ?? '').trim();
+  }
+  function currentWordCount() {
+    return Number(valueOf(wordCountRef)) || 0;
+  }
+  function canRequest() {
+    return currentMethod() === 'gematria' ? !!valueOfTarget() : currentWordCount() >= 2 && !!currentSequence();
+  }
 
   function cancel() {
     clearTimeout(timer);
@@ -42,7 +61,8 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
 
   async function request(nextPage, append = false) {
     const target = valueOfTarget();
-    if (!target) return;
+    const method = currentMethod();
+    if (!canRequest()) return;
     const currentId = ++requestId;
     controller?.abort();
     const requestController = new AbortController();
@@ -52,11 +72,17 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
 
     try {
       const params = new URLSearchParams({
-        value: String(target),
-        type: filter.value,
+        method,
         page: String(nextPage),
         limit: String(limit),
       });
+      if (method === 'gematria') {
+        params.set('value', String(target));
+        params.set('type', filter.value);
+      } else {
+        params.set('sequence', currentSequence());
+        params.set('word_count', String(currentWordCount()));
+      }
       if (search.value.trim()) params.set('search', search.value.trim());
        if (bookOrder.value) params.set('book_order', String(bookOrder.value));
        if (parshaId.value) params.set('parsha_id', parshaId.value);
@@ -99,7 +125,7 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
     hasMore.value = false;
     weeklyParshah.value = null;
     error.value = '';
-    if (!valueOfTarget()) {
+    if (!canRequest()) {
       loading.value = false;
       return;
     }
@@ -184,7 +210,7 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
   }
 
   const stop = watch(
-    () => valueOfTarget(),
+    () => [valueOfTarget(), currentMethod(), currentSequence(), currentWordCount()],
     schedule,
     { immediate: true, flush: 'sync' },
   );

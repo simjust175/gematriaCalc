@@ -2,9 +2,9 @@
   <section class="gematria-discovery" dir="rtl" aria-labelledby="matches-title">
     <header class="discovery-header">
       <div class="heading-block">
-        <span class="section-kicker">הדים מספריים בתנ״ך</span>
-        <h2 id="matches-title">איפה עוד מופיע הערך {{ formattedTarget }}?</h2>
-        <p>למצוא תיבות וצירופים בפסוקי התנ״ך העולים בגימטריא למספר המבוקש.</p>
+          <span class="section-kicker">מחקר תנ״כי</span>
+          <h2 id="matches-title">{{ discoveryHeading }}</h2>
+          <p>{{ discoveryDescription }}</p>
       </div>
       <div class="total-mark" aria-live="polite">
         <strong>{{ allTotal.toLocaleString('he-IL') }}</strong>
@@ -13,6 +13,14 @@
     </header>
 
     <div class="controls" role="toolbar" aria-label="סינון התאמות">
+      <div class="method-selector" role="group" aria-label="חיפוש לפי">
+        <button v-for="item in methodOptions" :key="item.value" type="button"
+          :class="{ active: method === item.value }" :aria-pressed="method === item.value"
+          :disabled="item.value !== 'gematria' && !hasSequence" @click="method = item.value">
+          <span>{{ item.label }}</span>
+          <small v-if="item.value !== 'gematria' && !hasSequence">נדרשות לפחות שתי מילים</small>
+        </button>
+      </div>
       <div class="controls-primary-row">
         <div class="manual-range">
           <TanachScopeSelect
@@ -65,7 +73,7 @@
           </span>
         </button>
       </div>
-      <div class="filter-list" role="group" aria-label="סוג התאמה">
+       <div v-if="method === 'gematria'" class="filter-list" role="group" aria-label="סוג התאמה">
         <button
           v-for="item in filterOptions"
           :key="item.value"
@@ -144,12 +152,17 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useTanachGematriaMatches } from '@/composables/useTanachGematriaMatches.js';
 import { toHebrewNumber } from '@/composables/useGematria.js';
 import TanachScopeSelect from './TanachScopeSelect.vue';
 
-const props = defineProps({ target: { type: Number, required: true } });
+const props = defineProps({
+  target: { type: Number, required: true },
+  initials: { type: String, default: '' },
+  finals: { type: String, default: '' },
+  wordCount: { type: Number, default: 0 },
+});
 const emit = defineEmits(['open', 'saved']);
 const savedKeys = ref(new Set());
 const saveErrors = ref(new Set());
@@ -166,14 +179,37 @@ const filterOptions = [
   { value: 'whole_word', label: 'מילה שלמה' },
   { value: 'whole_phrase', label: 'מילים שלימות' },
 ];
+const method = ref('gematria');
+const methodOptions = [
+  { value: 'gematria', label: 'גימטריה' },
+  { value: 'initials', label: 'ראשי תיבות' },
+  { value: 'finals', label: 'סופי תיבות' },
+];
 const {
   results, counts, total, loading, error, filter, bookOrder, parshaId, chapterBook, chapter, verse, currentParshah, weeklyParshah,
   hasMore, setFilter, setBookOrder, setParshaId, setChapter, setVerse, toggleCurrentParshah, loadMore, refresh,
 } =
-  useTanachGematriaMatches(computed(() => props.target));
+  useTanachGematriaMatches(computed(() => props.target), {
+    methodRef: method,
+    sequenceRef: computed(() => method.value === 'initials' ? props.initials : props.finals),
+    wordCountRef: computed(() => props.wordCount),
+  });
 
 const formattedTarget = computed(() => Number(props.target || 0).toLocaleString('he-IL'));
 const allTotal = computed(() => Number(counts.value.all ?? total.value) || 0);
+const hasSequence = computed(() => props.wordCount >= 2);
+const activeSequence = computed(() => method.value === 'initials' ? props.initials : props.finals);
+const discoveryHeading = computed(() => {
+  if (method.value === 'initials') return `איפה מופיע רצף ראשי התיבות ${activeSequence.value}?`;
+  if (method.value === 'finals') return `איפה מופיע רצף סופי התיבות ${activeSequence.value}?`;
+  return `איפה עוד מופיע הערך ${formattedTarget.value}?`;
+});
+const discoveryDescription = computed(() => method.value === 'gematria'
+  ? 'למצוא תיבות וצירופים בפסוקי התנ״ך העולים בגימטריא למספר המבוקש.'
+  : `חיפוש רצף אותיות מדויק מתוך ${props.wordCount} המילים שהוזנו.`);
+watch(hasSequence, (valid) => {
+  if (!valid && method.value !== 'gematria') method.value = 'gematria';
+});
 const selectedBook = computed(() => (
   rangeMetadata.value.canonicalBooks?.find(book => Number(book.order) === Number(bookOrder.value)) || null
 ));
@@ -280,6 +316,8 @@ async function selectChapter(value) {
 }
 
 function typeLabel(type) {
+  if (method.value === 'initials') return 'ראשי תיבות';
+  if (method.value === 'finals') return 'סופי תיבות';
   return { whole_word: 'מילה אחת', whole_phrase: 'מילים שלימות', partial: 'חלק ממילה' }[type] || 'התאמה';
 }
 function citation(item) {
@@ -335,6 +373,12 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .total-mark strong { display: block; font-size: 1.65rem; font-variant-numeric: tabular-nums; color: #96732b; }
 .total-mark span { color: var(--text-secondary, #74716a); font-size: .7rem; }
 .controls { display: grid; gap: 13px; margin-bottom: 9px; padding: 14px; border: 1px solid rgba(211,193,151,.55); border-radius: 13px; background: rgba(255,253,249,.72); box-shadow: 0 8px 22px rgba(26,39,68,.035); }
+.method-selector { display: inline-flex; justify-self: start; max-width: 100%; padding: 3px; gap: 2px; border: 1px solid #e2d5ba; border-radius: 9px; background: #f5efe4; }
+.method-selector button { display: grid; gap: 1px; min-height: 34px; padding: 5px 11px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: #657084; font: inherit; font-size: .72rem; font-weight: 750; text-align: right; cursor: pointer; transition: background .16s ease, color .16s ease, border-color .16s ease; }
+.method-selector button:hover:not(:disabled) { color: #725619; }
+.method-selector button.active { border-color: #d6bd7a; background: #fffdf8; color: #765812; box-shadow: 0 1px 3px rgba(60,46,17,.08); }
+.method-selector button:disabled { color: #aaa396; cursor: not-allowed; }
+.method-selector small { font-size: .57rem; font-weight: 600; color: #9a8d7b; white-space: nowrap; }
 .controls-primary-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(172px, 218px); gap: 12px; align-items: stretch; }
 .manual-range { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; min-width: 0; align-items: start; }
 .parshah-filter { display: flex; align-items: center; justify-content: flex-start; gap: 10px; min-height: 48px; padding: 8px 12px; border: 1px solid #dbc17c; border-radius: 10px; background: #fbf4e6; color: var(--navy, #1a2744); font: inherit; text-align: right; cursor: pointer; transition: border-color .18s ease, background .18s ease, box-shadow .18s ease; }
@@ -385,5 +429,5 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .load-more { display: flex; align-items: center; gap: 7px; margin: 16px auto 0; padding-inline: 16px; }
 @keyframes breathe { from { opacity: .45; } to { opacity: 1; } }
 @media (max-width: 820px) { .match-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 560px) { .discovery-header { align-items: flex-start; }.match-grid { grid-template-columns: 1fr; }.total-mark { min-width: 60px; }.total-mark strong { font-size: 1.25rem; }.controls { gap: 11px; padding: 11px; }.controls-primary-row { grid-template-columns: 1fr; gap: 9px; }.manual-range { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }.manual-range > :first-child { grid-column: 1 / -1; }.parshah-filter { min-height: 46px; }.filter-list { gap: 6px; padding-top: 10px; } }
+@media (max-width: 560px) { .discovery-header { align-items: flex-start; }.match-grid { grid-template-columns: 1fr; }.total-mark { min-width: 60px; }.total-mark strong { font-size: 1.25rem; }.controls { gap: 11px; padding: 11px; }.method-selector { width: 100%; }.method-selector button { flex: 1; padding-inline: 7px; }.method-selector small { font-size: .52rem; }.controls-primary-row { grid-template-columns: 1fr; gap: 9px; }.manual-range { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }.manual-range > :first-child { grid-column: 1 / -1; }.parshah-filter { min-height: 46px; }.filter-list { gap: 6px; padding-top: 10px; } }
 </style>

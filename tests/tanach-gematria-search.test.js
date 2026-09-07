@@ -12,6 +12,7 @@ import assert from 'node:assert/strict';
 
 import {
   findGematriaRanges,
+  findWordEdgeRanges,
   classifyRange,
   findRangesByClassification,
 } from '../server/tanachGematriaSearch.js';
@@ -386,4 +387,39 @@ test('Genesis 1:1 first two words (בראשית ברא=1116) found as whole_phra
   assert.equal(match.classification, 'whole_phrase');
   assert.equal(match.gematria, 1116);
   assert.equal(strip(match.text), 'בראשית ברא');
+});
+
+// ─── Initials/finals complete-word windows ───────────────────────────────────
+
+test('findWordEdgeRanges finds exact contiguous pointed initials windows', () => {
+  const verse = 'בְּרֵאשִׁ֖ית בָּרָ֣א אֱלֹהִ֑ים';
+  const matches = findWordEdgeRanges(verse, 'בב', 'initials', 2);
+  assert.equal(matches.length, 1);
+  assert.deepEqual([matches[0].start, matches[0].end], [0, 8]);
+  assert.equal(matches[0].text, 'בְּרֵאשִׁ֖ית בָּרָ֣א');
+  assert.equal(matches[0].classification, 'whole_phrase');
+});
+
+test('findWordEdgeRanges finds finals and normalizes final forms only for comparison', () => {
+  const pointed = 'מֶלֶךְ אָמֵן';
+  const normalized = findWordEdgeRanges(pointed, 'כנ', 'finals', 2);
+  const finalForms = findWordEdgeRanges(pointed, 'ךן', 'finals', 2);
+  assert.equal(normalized.length, 1);
+  assert.deepEqual(finalForms, normalized);
+  assert.equal(normalized[0].text, pointed);
+  assert.deepEqual([normalized[0].start, normalized[0].end], [0, 5]);
+});
+
+test('findWordEdgeRanges never skips words or accepts a partial/single-word request', () => {
+  assert.deepEqual(findWordEdgeRanges('אב גד הו', 'אה', 'initials', 2), []);
+  assert.deepEqual(findWordEdgeRanges('אב גד', 'גא', 'initials', 2), []);
+  assert.deepEqual(findWordEdgeRanges('אב גד', 'דב', 'finals', 2), []);
+  assert.deepEqual(findWordEdgeRanges('אב גד הו', 'א', 'initials', 1), []);
+  assert.deepEqual(findWordEdgeRanges('אב גד הו', 'אג', 'initials', 3), []);
+});
+
+test('findWordEdgeRanges follows canonical whitespace words while ignoring punctuation and deduplicates', () => {
+  const matches = findWordEdgeRanges('אב־גד הו אב־גד הו', 'אה', 'initials', 2);
+  assert.deepEqual(matches.map(match => [match.start, match.end]), [[0, 5], [6, 11]]);
+  assert.equal(new Set(matches.map(match => `${match.start}:${match.end}`)).size, matches.length);
 });
