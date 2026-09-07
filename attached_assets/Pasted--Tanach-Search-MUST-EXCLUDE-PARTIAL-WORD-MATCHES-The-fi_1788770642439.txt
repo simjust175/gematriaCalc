@@ -1,0 +1,129 @@
+# Tanach Search — "הכל" MUST EXCLUDE PARTIAL-WORD MATCHES
+
+The חלקי מילים filter option was successfully removed from the UI.
+
+There is one remaining behavior to correct:
+
+Currently, when the user selects:
+
+הכל
+
+the results can still include matches that occur only as PART OF A WORD.
+
+This must stop.
+
+==================================================
+REQUIRED BEHAVIOR
+==================================================
+
+"הכל" must NOT mean "every internal match type".
+
+From now on, "הכל" should include ONLY valid complete-text matches:
+
+1. מילה שלמה
+2. צירוף מילים / רצף מילים שלמות
+
+It must EXCLUDE:
+
+- חלק ממילה
+- substring matches inside a larger Hebrew word
+- prefix-only matches
+- suffix-only matches
+- internal-letter-sequence matches
+
+==================================================
+EXAMPLE
+==================================================
+
+If the searched gematria/text matches:
+
+שבת
+
+then:
+
+שבת
+
+is valid.
+
+A phrase containing the complete word שבת is valid.
+
+But a larger word where the matching letters occur only inside that word must NOT appear merely because the internal substring matches.
+
+==================================================
+IMPORTANT
+==================================================
+
+Do not just hide the "חלקי מילים" badge or label.
+
+The actual results returned/displayed under "הכל" must exclude partial-word matches.
+
+If the backend/search engine still calculates partial-word matches internally for another reason, that is okay, but they must NOT be included in the result set used by "הכל".
+
+==================================================
+FILTER SEMANTICS
+==================================================
+
+After this change:
+
+הכל
+=
+מילה שלמה
++
+צירוף מילים / complete contiguous word sequences
+
+NOT:
+
+מילה שלמה
++
+צירוף מילים
++
+חלק ממילה
+
+==================================================
+DO NOT CHANGE
+==================================================
+
+Do not change:
+
+- gematria calculation
+- Tanach corpus
+- database
+- saved entries
+- מילוי
+- מילות יסוד
+- pagination unless required for correct filtering
+- result card design
+- exact-match behavior for whole words
+
+No schema migration should be needed.
+
+Do not perform unrelated refactors.
+
+==================================================
+TESTS
+==================================================
+
+Add/update regression tests proving:
+
+1. A whole-word match appears under "הכל".
+2. A valid multi-word contiguous match appears under "הכל".
+3. A match occurring only inside a larger word does NOT appear under "הכל".
+4. The removed חלקי מילים filter does not reappear in the UI.
+5. Pagination/counts reflect the filtered result set correctly.
+6. Existing whole-word and phrase searches still work.
+
+==================================================
+FINAL CHECK
+==================================================
+
+The user should be able to understand "הכל" as:
+
+"all legitimate whole-word / whole-phrase matches"
+
+and never receive a result simply because the gematria occurs inside part of a word.
+
+After implementing, report:
+- where the filtering was changed
+- confirmation that partial-word matches are excluded from הכל
+- tests/build result
+- confirmation that no DB/schema changes were made

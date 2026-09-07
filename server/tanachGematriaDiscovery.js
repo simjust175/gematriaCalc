@@ -330,6 +330,11 @@ export async function searchTanachGematria(db, options, mayRetry = true) {
     if (currentParshah && !isVerseInParshah(verse, weeklyParshah)) continue;
     counts.all += 1;
     counts[match.type] += 1;
+    // "all" means every complete textual match, not every internal range.
+    // Keep the explicit partial classification available to callers that
+    // request it, but never let partial-word ranges affect all-result counts,
+    // pagination, or hasMore.
+    if (type === 'all' && match.type === 'partial') continue;
     if (type !== 'all' && match.type !== type) continue;
     if (counts[type] - 1 >= offset && results.length < limit) {
       results.push(serializeMatch(verse, match));

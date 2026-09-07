@@ -1499,6 +1499,51 @@ test('Tanach gematria discovery validates, paginates, filters, and preserves can
       `${item.bookSlug}:${item.chapter}:${item.verse}:${item.start}:${item.end}`
     )));
   }
+
+  const allWholeWordOrPhrase = await agent.get('/api/tanach/gematria-matches').query({
+    value: 913,
+    type: 'all',
+    page: 1,
+    limit: 2,
+  });
+  assert.equal(allWholeWordOrPhrase.status, 200);
+  assert.ok(allWholeWordOrPhrase.body.results.length > 0);
+  assert.ok(allWholeWordOrPhrase.body.results.every(item => (
+    item.type === 'whole_word' || item.type === 'whole_phrase'
+  )));
+  assert.equal(
+    allWholeWordOrPhrase.body.counts.all,
+    allWholeWordOrPhrase.body.counts.whole_word + allWholeWordOrPhrase.body.counts.whole_phrase,
+  );
+  assert.equal(
+    allWholeWordOrPhrase.body.total,
+    allWholeWordOrPhrase.body.counts.all,
+  );
+
+  const phrase = await agent.get('/api/tanach/gematria-matches').query({
+    value: 1116,
+    type: 'all',
+    limit: 10,
+  });
+  assert.equal(phrase.status, 200);
+  assert.ok(phrase.body.results.some(item => (
+    item.type === 'whole_phrase'
+      && item.bookSlug === 'Genesis'
+      && item.chapter === 1
+      && item.verse === 1
+      && normalize(item.text) === 'בראשית ברא'
+  )));
+
+  const pagedAll = await agent.get('/api/tanach/gematria-matches').query({
+    value: 913,
+    type: 'all',
+    page: 2,
+    limit: 2,
+  });
+  assert.equal(pagedAll.status, 200);
+  assert.ok(pagedAll.body.results.every(item => (
+    item.type === 'whole_word' || item.type === 'whole_phrase'
+  )));
 });
 
 test('Tanach gematria discovery searches only matching cards by normalized text, reference, and weekly filter', async () => {
