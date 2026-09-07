@@ -1,0 +1,292 @@
+# TANACH DISCOVERY — MOVE SEARCH METHOD SELECTOR INTO CONTROL PANEL
+
+The current Tanach discovery section works, but the top area still feels visually cluttered.
+
+I want to MOVE the existing:
+
+גימטריה
+ראשי תיבות
+סופי תיבות
+
+selector from the heading area INTO the main Tanach control panel, in the empty lower-left area indicated in the screenshot.
+
+This is a UI/layout refinement only.
+
+Do NOT change:
+- search logic
+- result counts
+- pagination
+- Tanach corpus
+- filters
+- database
+- APIs
+- saved data
+
+==================================================
+1. REMOVE SELECTOR FROM HEADER AREA
+==================================================
+
+Currently the search method selector sits near the title:
+
+איפה עוד מופיע הערך...
+
+This makes the top area too busy.
+
+Remove the selector from that position.
+
+The heading area should become simpler:
+
+מחקר תנ״כי
+
+איפה עוד מופיע הערך 12?
+
+1,668 התאמות
+
+No large controls should sit directly beside/under the heading.
+
+==================================================
+2. MOVE SELECTOR INTO MAIN CONTROL PANEL
+==================================================
+
+Move:
+
+גימטריה
+ראשי תיבות
+סופי תיבות
+
+into the large Tanach control panel below.
+
+Place it in the lower-left area of that panel, where there is currently unused horizontal space.
+
+Preferred desktop structure:
+
+TOP ROW:
+[ פרשת השבוע ]                     [ כל התנ״ך ]
+
+BOTTOM ROW:
+[ סופי תיבות | ראשי תיבות | גימטריה ]      [ הכל | מילה שלמה | מילים שלמות ]
+
+Because the app is RTL, align everything naturally.
+
+The search method selector should feel like part of the same toolbar/control surface.
+
+==================================================
+3. COMPACT METHOD SELECTOR
+==================================================
+
+Keep it as ONE compact segmented control.
+
+Do NOT create three separate large buttons.
+
+Use:
+
+גימטריה | ראשי תיבות | סופי תיבות
+
+or the existing order if that matches RTL better.
+
+Requirements:
+- one shared outer container
+- subtle internal separators
+- compact height
+- restrained gold selected state
+- no subtitles inside buttons
+- no large padding
+- no heavy shadow
+
+It should visually match the existing filter controls.
+
+==================================================
+4. VISUAL BALANCE
+==================================================
+
+The lower row should use the available width intelligently.
+
+The method selector should sit on the opposite side from the gematria result filters.
+
+This should visually balance:
+
+left side:
+search method
+
+right side:
+result type filters
+
+Do not center both groups.
+
+Do not leave one side empty.
+
+==================================================
+5. FILTER VISIBILITY
+==================================================
+
+Preserve existing semantics:
+
+When search method = גימטריה:
+show:
+- הכל
+- מילה שלמה
+- מילים שלמות
+
+When search method = ראשי תיבות:
+hide those gematria-only filters.
+
+When search method = סופי תיבות:
+hide those gematria-only filters.
+
+Do NOT show irrelevant controls.
+
+When the filters are hidden, allow the method selector to remain neatly positioned without awkward empty containers.
+
+==================================================
+6. TOP ROW
+==================================================
+
+Keep:
+
+כל התנ״ך
+
+as the main scope selector.
+
+Keep:
+
+פרשת השבוע
+
+as the secondary scope shortcut.
+
+Do not alter their functionality.
+
+The top row should remain calm and clean.
+
+==================================================
+7. HEADER SIMPLIFICATION
+==================================================
+
+After moving the selector, the title area should contain only:
+
+- small section eyebrow
+- main dynamic title
+- small result count / supporting sentence
+
+Example:
+
+מחקר תנ״כי
+
+איפה עוד מופיע הערך 12?
+
+1,668 התאמות
+
+Do not add more buttons there.
+
+==================================================
+8. DYNAMIC TITLES REMAIN
+==================================================
+
+Keep the existing dynamic heading behavior:
+
+גימטריה:
+איפה עוד מופיע הערך 12?
+
+ראשי תיבות:
+איפה מופיעים ראשי התיבות שבמ?
+
+סופי תיבות:
+איפה מופיעים סופי התיבות שבמ?
+
+Only the control location changes.
+
+==================================================
+9. RESULT COUNT
+==================================================
+
+Keep the result count small and secondary.
+
+Do not make it a large detached metric.
+
+Use something like:
+
+1,668 התאמות
+
+near the heading/subtitle.
+
+==================================================
+10. RESPONSIVE DESIGN
+==================================================
+
+Large desktop:
+
+Control panel:
+top row = scope controls
+bottom row = method selector + result filters
+
+Medium width:
+allow bottom controls to stack cleanly if necessary.
+
+Mobile:
+stack into a simple vertical order:
+
+scope
+method
+filters (only if applicable)
+
+No horizontal overflow.
+
+Do not force the desktop left/right layout on narrow screens.
+
+==================================================
+11. PRESERVE DESIGN LANGUAGE
+==================================================
+
+Keep:
+- cream/off-white
+- navy
+- restrained gold
+- existing borders
+- existing radius
+- RTL
+- typography
+
+Do not add:
+- gradients
+- stronger shadows
+- decorative icons
+- extra cards
+
+==================================================
+12. DO NOT CHANGE CARD GRID
+==================================================
+
+Do not modify Tanach result cards in this task.
+
+Do not change:
+- highlighting
+- spacing
+- card dimensions
+- result order
+
+Only the search/control header area is being refined.
+
+==================================================
+13. ACCEPTANCE CRITERIA
+==================================================
+
+Complete when:
+
+1. גימטריה / ראשי תיבות / סופי תיבות no longer sits beside the title.
+2. It appears inside the main Tanach control panel.
+3. It uses the currently empty lower-left area.
+4. The method selector is compact.
+5. Gematria result filters remain on the opposite side.
+6. Filters disappear for ראשי/סופי תיבות.
+7. Header looks substantially cleaner.
+8. Scope controls remain unchanged.
+9. Mobile remains clean.
+10. No search logic/API/database changes occur.
+
+After completion report:
+- component/layout changed
+- new placement of method selector
+- responsive behavior
+- confirmation no search/business logic changed
+- build/test result
+
+Do not perform unrelated refactors.

@@ -5,15 +5,6 @@
         <span class="section-kicker">מחקר תנ״כי</span>
         <div class="title-line">
           <h2 id="matches-title">{{ discoveryHeading }}</h2>
-          <div class="method-selector" role="group" aria-label="חיפוש לפי">
-            <button v-for="item in methodOptions" :key="item.value" type="button"
-              :class="{ active: method === item.value }" :aria-pressed="method === item.value"
-              :aria-label="item.label"
-              :disabled="item.value !== 'gematria' && !hasPattern" @click="method = item.value">
-              <span class="method-label-full">{{ item.label }}</span>
-              <span class="method-label-short" aria-hidden="true">{{ item.value === 'initials' ? 'ר״ת' : item.value === 'finals' ? 'ס״ת' : 'גימ׳' }}</span>
-            </button>
-          </div>
         </div>
         <div class="header-meta">
           <p>{{ discoveryDescription }}</p>
@@ -78,18 +69,28 @@
           </span>
         </button>
       </div>
-       <div v-if="method === 'gematria'" class="filter-list" role="group" aria-label="סוג התאמה">
-        <button
-          v-for="item in filterOptions"
-          :key="item.value"
-          type="button"
-          :class="{ active: filter === item.value }"
-          :aria-pressed="filter === item.value"
-          @click="setFilter(item.value)"
-        >
-          {{ item.label }}
-          <span>{{ counts[item.value] || 0 }}</span>
-        </button>
+      <div class="controls-secondary-row">
+        <div v-if="method === 'gematria'" class="filter-list" role="group" aria-label="סוג התאמה">
+          <button
+            v-for="item in filterOptions"
+            :key="item.value"
+            type="button"
+            :class="{ active: filter === item.value }"
+            :aria-pressed="filter === item.value"
+            @click="setFilter(item.value)"
+          >
+            {{ item.label }}
+            <span>{{ counts[item.value] || 0 }}</span>
+          </button>
+        </div>
+        <div class="method-selector" role="group" aria-label="חיפוש לפי">
+          <button v-for="item in methodOptions" :key="item.value" type="button"
+            :class="{ active: method === item.value }" :aria-pressed="method === item.value"
+            :aria-label="item.label"
+            :disabled="item.value !== 'gematria' && !hasPattern" @click="method = item.value">
+            <span>{{ item.label }}</span>
+          </button>
+        </div>
       </div>
     </div>
     <p v-if="rangeMetadataError || chapterVersesError" class="range-filter-error" role="status">{{ rangeMetadataError || chapterVersesError }}</p>
@@ -404,7 +405,6 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .method-selector button:hover:not(:disabled) { color: #725619; }
 .method-selector button.active { border-color: #d6bd7a; background: #fffdf8; color: #765812; box-shadow: 0 1px 3px rgba(60,46,17,.08); }
 .method-selector button:disabled { color: #aaa396; cursor: not-allowed; }
-.method-label-short { display: none; }
 .controls-primary-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(172px, 218px); gap: 12px; align-items: stretch; }
 .manual-range { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; min-width: 0; align-items: start; }
 .parshah-filter { display: flex; align-items: center; justify-content: flex-start; gap: 10px; min-height: 48px; padding: 8px 12px; border: 1px solid #dbc17c; border-radius: 10px; background: #fbf4e6; color: var(--navy, #1a2744); font: inherit; text-align: right; cursor: pointer; transition: border-color .18s ease, background .18s ease, box-shadow .18s ease; }
@@ -415,7 +415,9 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .parshah-filter-label { font-size: .75rem; font-weight: 800; line-height: 1.1; }
 .parshah-filter-name { color: #98752a; font-size: .69rem; font-weight: 600; line-height: 1.15; }
 .parshah-filter.active .parshah-filter-name { color: #775a18; }
-.filter-list { display: flex; flex-wrap: wrap; gap: 7px; padding-top: 1px; border-top: 1px solid #efe7d9; }
+.controls-secondary-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding-top: 10px; border-top: 1px solid #efe7d9; }
+.controls-secondary-row > .method-selector:only-child { margin-inline-start: auto; }
+.filter-list { display: flex; flex-wrap: wrap; gap: 7px; }
 .filter-list button, .load-more, .card-actions button { border: 1px solid var(--border, #e8e1d5); background: #fff; color: var(--navy, #1a2744); border-radius: 7px; padding: 7px 10px; font: inherit; font-size: .74rem; cursor: pointer; transition: background .16s, color .16s, border-color .16s, transform .16s; }
 .filter-list button { border-color: #e5ded2; border-radius: 999px; padding: 6px 10px; background: transparent; color: #46536a; font-size: .69rem; }
 .filter-list button:hover, .card-actions button:hover:not(:disabled), .load-more:hover { transform: translateY(-1px); border-color: #c09840; }
@@ -481,5 +483,5 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .load-more { display: flex; align-items: center; gap: 7px; margin: 16px auto 0; padding-inline: 16px; }
 @keyframes breathe { from { opacity: .45; } to { opacity: 1; } }
 @media (max-width: 820px) { .match-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 560px) { .discovery-header { align-items: flex-start; gap: 8px; }.title-line { align-items: flex-start; gap: 7px; }.title-line h2 { flex: 1 1 auto; }.match-grid { grid-template-columns: 1fr; }.total-mark strong { font-size: .78rem; }.controls { gap: 11px; padding: 11px; }.title-line .method-selector { margin-top: -2px; }.title-line .method-selector button { min-width: 34px; padding-inline: 7px; }.title-line .method-label-full { display: none; }.title-line .method-label-short { display: inline; }.title-line .method-selector small { display: none; }.controls-primary-row { grid-template-columns: 1fr; gap: 9px; }.manual-range { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }.manual-range > :first-child { grid-column: 1 / -1; }.parshah-filter { min-height: 46px; }.filter-list { gap: 6px; padding-top: 10px; } }
+@media (max-width: 560px) { .discovery-header { align-items: flex-start; gap: 8px; }.title-line { align-items: flex-start; gap: 7px; }.title-line h2 { flex: 1 1 auto; }.match-grid { grid-template-columns: 1fr; }.total-mark strong { font-size: .78rem; }.controls { gap: 11px; padding: 11px; }.controls-primary-row { grid-template-columns: 1fr; gap: 9px; }.manual-range { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }.manual-range > :first-child { grid-column: 1 / -1; }.parshah-filter { min-height: 46px; }.controls-secondary-row { flex-direction: column; align-items: stretch; gap: 9px; }.controls-secondary-row .method-selector { align-self: flex-start; order: 1; margin-inline-start: 0; }.controls-secondary-row .filter-list { order: 2; gap: 6px; } }
 </style>
