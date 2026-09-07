@@ -60,7 +60,7 @@ test('changing target clears stale cards immediately and load more appends serve
 test('calculator discovery switches intentionally between gematria and letter sequences', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-chromium');
   await login(page);
-  await page.locator('.heb-input').fill('בראשית ברא');
+  await page.locator('.heb-input').fill('שב״מ');
 
   const discovery = page.locator('.gematria-discovery');
   const initials = discovery.getByRole('button', { name: 'ראשי תיבות' });
@@ -70,16 +70,19 @@ test('calculator discovery switches intentionally between gematria and letter se
 
   await initials.click();
   await expect(initials).toHaveAttribute('aria-pressed', 'true');
-  await expect(discovery.getByRole('heading')).toContainText('בב');
+  await expect(discovery.getByRole('heading')).toContainText('שבמ');
+  await expect(discovery.getByText('מילים רצופות הפותחות באותיות שבמ')).toBeVisible();
   await expect(discovery.getByRole('button', { name: /מילה שלמה/ })).toHaveCount(0);
 
   await finals.click();
   await expect(finals).toHaveAttribute('aria-pressed', 'true');
-  await expect(discovery.getByRole('heading')).toContainText('תא');
+  await expect(discovery.getByRole('heading')).toContainText('שבמ');
+  await expect(discovery.getByText('מילים רצופות המסתיימות באותיות שבמ')).toBeVisible();
 
-  await page.locator('.heb-input').fill('בראשית');
-  await expect(initials).toBeDisabled();
-  await expect(discovery.getByText('נדרשות לפחות שתי מילים').first()).toBeVisible();
+  await page.locator('.heb-input').fill('ב');
+  await expect(initials).toBeEnabled();
+  await initials.click();
+  await expect(discovery.getByRole('heading')).toContainText('ראשי התיבות ב');
 });
 
 test('calculator discovery navigates Tanach scopes with accessible listboxes while preserving the weekly shortcut', async ({ page }, testInfo) => {

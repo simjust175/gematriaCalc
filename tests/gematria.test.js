@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { ref } from 'vue';
 import {
   normalize,
+  getHebrewLetterPattern,
   isHebrewWordBoundary,
   calcGematria,
   toHebrewNumber,
@@ -92,6 +93,14 @@ test('niqqud is stripped', () => {
 test('גרש / גרשיים stripped', () => {
   const withGersh = 'ש״מע';
   assert.equal(calcGematria(normalize(withGersh)), calcGematria('שמע'));
+});
+
+test('Tanach edge pattern uses every entered Hebrew letter, ignoring formatting and separators', () => {
+  assert.equal(getHebrewLetterPattern('שב״מ'), 'שבמ');
+  assert.equal(getHebrewLetterPattern('ש ב מ'), 'שבמ');
+  assert.equal(getHebrewLetterPattern('שָׁ־ב-מ!'), 'שבמ');
+  assert.equal(computeAll('שבמ').letterPattern, 'שבמ');
+  assert.equal(computeAll('ש ב מ').letterPattern, 'שבמ');
 });
 
 test('empty string returns null', () => {
@@ -618,6 +627,47 @@ test('Tanach discovery composes book, parashah, chapter, and verse scopes with t
     assert.equal(live.verse.value, 0);
     assert.equal(params.get('parsha'), 'current');
     assert.equal(params.get('parsha_id'), null);
+  } finally {
+    live.stop();
+  }
+});
+
+test('Tanach edge discovery derives its slot count from the entered letter pattern', async () => {
+  const urls = [];
+  const fetchImpl = async url => {
+    urls.push(String(url));
+    return {
+      ok: true,
+      json: async () => ({
+        results: [],
+        counts: { all: 0, whole_word: 0, whole_phrase: 0, partial: 0 },
+        total: 0,
+        page: 1,
+        limit: 12,
+        hasMore: false,
+      }),
+    };
+  };
+  const method = ref('initials');
+  const sequence = ref('שבמ');
+  const live = useTanachGematriaMatches(ref(342), {
+    fetchImpl,
+    debounceMs: 0,
+    methodRef: method,
+    sequenceRef: sequence,
+  });
+  try {
+    await new Promise(resolve => setTimeout(resolve, 0));
+    let params = new URL(urls.at(-1), 'http://example.test').searchParams;
+    assert.equal(params.get('sequence'), 'שבמ');
+    assert.equal(params.get('word_count'), null);
+
+    sequence.value = 'מ';
+    method.value = 'finals';
+    await new Promise(resolve => setTimeout(resolve, 0));
+    params = new URL(urls.at(-1), 'http://example.test').searchParams;
+    assert.equal(params.get('method'), 'finals');
+    assert.equal(params.get('sequence'), 'מ');
   } finally {
     live.stop();
   }

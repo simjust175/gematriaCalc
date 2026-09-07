@@ -1551,12 +1551,12 @@ test('Tanach initials/finals discovery uses exact complete-word windows and vali
   await agent.post('/api/auth/login').send({ password: 'correct-test-password-12345' });
 
   for (const query of [
-    { method: 'initials', sequence: 'ב', word_count: 1 },
-    { method: 'initials', sequence: 'בב', word_count: 3 },
-    { method: 'finals', sequence: 'ת!', word_count: 2 },
-    { method: 'initials', sequence: 'בב', word_count: 2, value: 4 },
+    { method: 'initials', sequence: '' },
+    { method: 'initials', sequence: 'בב', word_count: 2 },
+    { method: 'finals', sequence: 'ת!' },
+    { method: 'initials', sequence: 'בב', value: 4 },
     { method: 'gematria', value: 4, sequence: 'בב', word_count: 2 },
-    { method: 'unknown', sequence: 'בב', word_count: 2 },
+    { method: 'unknown', sequence: 'בב' },
   ]) {
     const invalid = await agent.get('/api/tanach/gematria-matches').query(query);
     assert.equal(invalid.status, 400);
@@ -1565,7 +1565,6 @@ test('Tanach initials/finals discovery uses exact complete-word windows and vali
   const initials = await agent.get('/api/tanach/gematria-matches').query({
     method: 'initials',
     sequence: 'בב',
-    word_count: 2,
     chapter_book: 'Genesis',
     chapter: 1,
     verse: 1,
@@ -1584,7 +1583,6 @@ test('Tanach initials/finals discovery uses exact complete-word windows and vali
   const finals = await agent.get('/api/tanach/gematria-matches').query({
     method: 'finals',
     sequence: 'תא',
-    word_count: 2,
     chapter_book: 'Genesis',
     chapter: 1,
     verse: 1,
@@ -1599,14 +1597,12 @@ test('Tanach initials/finals discovery uses exact complete-word windows and vali
   const firstPage = await agent.get('/api/tanach/gematria-matches').query({
     method: 'initials',
     sequence: 'בב',
-    word_count: 2,
     page: 1,
     limit: 1,
   });
   const secondPage = await agent.get('/api/tanach/gematria-matches').query({
     method: 'initials',
     sequence: 'בב',
-    word_count: 2,
     page: 2,
     limit: 1,
   });
@@ -1622,6 +1618,20 @@ test('Tanach initials/finals discovery uses exact complete-word windows and vali
   assert.notDeepEqual(
     firstPage.body.results.map(item => [item.bookSlug, item.chapter, item.verse, item.start, item.end]),
     secondPage.body.results.map(item => [item.bookSlug, item.chapter, item.verse, item.start, item.end])
+  );
+
+  const oneLetter = await agent.get('/api/tanach/gematria-matches').query({
+    method: 'initials',
+    sequence: 'ב',
+    chapter_book: 'Genesis',
+    chapter: 1,
+    verse: 1,
+    limit: 10,
+  });
+  assert.equal(oneLetter.status, 200);
+  assert.deepEqual(
+    oneLetter.body.results.map(item => normalize(item.text)),
+    ['בראשית', 'ברא']
   );
 });
 

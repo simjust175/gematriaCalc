@@ -133,7 +133,7 @@ export function parseGematriaSearchQuery(query) {
   const method = typeof query.method === 'string' ? query.method : 'gematria';
   const value = query.value == null ? 0 : Number(query.value);
   const sequence = typeof query.sequence === 'string' ? query.sequence : '';
-  const wordCount = query.word_count == null ? 0 : Number(query.word_count);
+  const wordCount = [...sequence].length;
   const type = typeof query.type === 'string' ? query.type : 'all';
   const page = query.page == null ? 1 : Number(query.page);
   const requestedLimit = query.limit == null ? 12 : Number(query.limit);
@@ -156,15 +156,12 @@ export function parseGematriaSearchQuery(query) {
     }
     if (query.sequence != null || query.word_count != null) return { error: 'invalid_match_query' };
   } else {
-    if (query.value != null) return { error: 'invalid_match_query' };
+    if (query.value != null || query.word_count != null) return { error: 'invalid_match_query' };
     if (
       typeof query.sequence !== 'string'
-      || !isScalar(query.word_count)
       || !/^[\u05D0-\u05EA]+$/.test(sequence)
-      || !Number.isSafeInteger(wordCount)
-      || wordCount < 2
+      || wordCount < 1
       || wordCount > MAX_GEMATRIA_SEARCH_LENGTH
-      || [...sequence].length !== wordCount
     ) {
       return { error: 'invalid_match_sequence' };
     }

@@ -43,6 +43,11 @@ export function normalize(text) {
     .trim();
 }
 
+/** Hebrew letters entered by the user, in order, with all separators removed. */
+export function getHebrewLetterPattern(text) {
+  return normalize(text).replace(/\s+/g, '');
+}
+
 /** Sum gematria of a string; spaces and unknown chars contribute 0. */
 export function calcGematria(text) {
   let total = 0;
@@ -124,9 +129,11 @@ export function computeAll(text) {
   const finals = getFinals(norm);
   const finalsGematria = calcGematria(finals);
   const words = getWordBreakdown(norm);
+  const letterPattern = getHebrewLetterPattern(norm);
 
   return {
     normalizedText: norm,
+    letterPattern,
     fullGematria,
     fullHebrewNumber: toHebrewNumber(fullGematria),
     initials,

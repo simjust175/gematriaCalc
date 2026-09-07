@@ -1,0 +1,583 @@
+# TANACH ראשי תיבות / סופי תיבות — CORRECT SEARCH LOGIC + CLEAN UI
+
+The current implementation misunderstood the intended ראשי תיבות / סופי תיבות Tanach search.
+
+We need to correct the search model.
+
+IMPORTANT:
+The Hebrew letters ENTERED IN THE CALCULATOR are themselves the pattern.
+
+Do NOT derive a new ראשי תיבות string from the entered words for this Tanach feature.
+
+==================================================
+1. CORRECT ראשי תיבות LOGIC
+==================================================
+
+Example current calculator input:
+
+שבמ
+
+Normalize it to the Hebrew letter sequence:
+
+שבמ
+
+This contains 3 Hebrew letters.
+
+Therefore search Tanach for contiguous sequences of EXACTLY 3 logical words where:
+
+word 1 starts with ש
+word 2 starts with ב
+word 3 starts with מ
+
+Example valid result:
+
+שמע בני מוסר
+
+because:
+
+שמע → starts with ש
+בני → starts with ב
+מוסר → starts with מ
+
+Therefore:
+
+שמע בני מוסר
+
+is a valid ראשי תיבות match for:
+
+שבמ
+
+==================================================
+2. EVERY ENTERED LETTER = ONE WORD SLOT
+==================================================
+
+The number of normalized Hebrew letters in the current calculator input determines the number of words in the Tanach candidate.
+
+Examples:
+
+אב
+→ search 2 consecutive words
+→ first word begins א
+→ second word begins ב
+
+שבמ
+→ search 3 consecutive words
+→ initials must be ש ב מ
+
+אבגד
+→ search 4 consecutive words
+→ initials must be א ב ג ד
+
+This is the core rule.
+
+==================================================
+3. INPUT NORMALIZATION
+==================================================
+
+For this search mode, extract the actual Hebrew LETTERS from the current calculator text.
+
+Ignore:
+
+- spaces
+- punctuation
+- niqqud
+- cantillation
+- quotation marks
+- geresh/gershayim
+- maqaf/hyphen
+- other non-Hebrew characters
+
+Example:
+
+שב״מ
+
+should produce:
+
+שבמ
+
+Example:
+
+ש ב מ
+
+should also produce:
+
+שבמ
+
+Do NOT calculate gematria for determining this pattern.
+
+==================================================
+4. DO NOT USE INPUT WORD COUNT
+==================================================
+
+This is important.
+
+The previous implementation treated input words as the basis of ראשי תיבות matching.
+
+That is NOT what we want.
+
+For Tanach ראשי תיבות search:
+
+PATTERN LENGTH
+=
+number of Hebrew letters entered
+
+NOT:
+
+number of words entered.
+
+Example:
+
+שבמ
+
+is one typed word but produces a THREE-WORD Tanach search.
+
+==================================================
+5. סופי תיבות LOGIC
+==================================================
+
+Use the exact same pattern concept for סופי תיבות.
+
+Input:
+
+שבמ
+
+Search Tanach for exactly 3 consecutive logical words where:
+
+word 1 ENDS with ש
+word 2 ENDS with ב
+word 3 ENDS with מ
+
+The letters remain in exact order.
+
+No reordering.
+No skipping words.
+No approximate matching.
+
+==================================================
+6. FINAL LETTER NORMALIZATION
+==================================================
+
+For סופי תיבות matching, normalize final forms consistently:
+
+ך = כ
+ם = מ
+ן = נ
+ף = פ
+ץ = צ
+
+Example:
+
+pattern:
+מ
+
+may match a word ending:
+
+ם
+
+because internally both represent מ.
+
+Preserve original Tanach spelling for display.
+
+==================================================
+7. COMPLETE WORDS ONLY
+==================================================
+
+Both ראשי תיבות and סופי תיבות searches must use complete logical Tanach words.
+
+Never use:
+
+- partial words
+- substrings
+- middle letters
+- skipped words
+- non-contiguous words
+
+Each pattern letter corresponds to exactly one complete word.
+
+==================================================
+8. MAQAF / HYPHEN WORD BOUNDARIES
+==================================================
+
+Preserve the recently approved rule:
+
+בית־אל
+
+must count internally as TWO logical words:
+
+בית
+אל
+
+although it must continue to DISPLAY as:
+
+בית־אל
+
+The canonical Hebrew tokenizer must treat maqaf/hyphen as a word boundary for this search as well.
+
+Therefore a result may span logical words separated visually by maqaf.
+
+==================================================
+9. SAME VERSE ONLY
+==================================================
+
+A result must remain within one verse.
+
+Never continue a ראשי תיבות or סופי תיבות sequence into the next verse.
+
+==================================================
+10. EXACT ORDER
+==================================================
+
+Input:
+
+שבמ
+
+valid initials:
+
+ש → ב → מ
+
+Not:
+
+ש → מ → ב
+
+Not:
+
+ב → ש → מ
+
+Not any permutation.
+
+==================================================
+11. UI IS CURRENTLY TOO BUSY
+==================================================
+
+The current Tanach method selector looks cluttered.
+
+It currently behaves visually like a large control panel.
+
+Simplify it substantially.
+
+Do NOT show large boxes containing:
+
+גימטריה
+ראשי תיבות
+סופי תיבות
+
+with explanatory text inside each option.
+
+==================================================
+12. USE SIMPLE TABS
+==================================================
+
+Use a very small elegant tab/segmented selector:
+
+גימטריה   |   ר״ת   |   ס״ת
+
+Desktop may use:
+
+גימטריה
+ראשי תיבות
+סופי תיבות
+
+if there is enough room.
+
+But keep them to ONE LINE each.
+
+No explanatory subtitles inside the tabs.
+
+No giant buttons.
+
+No large vertical height.
+
+==================================================
+13. POSITION
+==================================================
+
+Place the selector naturally near the Tanach section heading.
+
+Suggested visual hierarchy:
+
+מחקר תנ״כי
+
+איפה עוד מופיע הערך 602?
+
+גימטריה   ראשי תיבות   סופי תיבות
+
+Then scope/results underneath.
+
+It should look like a normal search mode selector, not another card inside the card.
+
+==================================================
+14. DYNAMIC HEADING
+==================================================
+
+When גימטריה is active:
+
+איפה עוד מופיע הערך 602?
+
+When ראשי תיבות is active and input is שבמ:
+
+איפה מופיעים ראשי התיבות שבמ?
+
+Small supporting text can say:
+
+מילים רצופות הפותחות באותיות שבמ
+
+When סופי תיבות is active:
+
+איפה מופיעים סופי התיבות שבמ?
+
+Supporting text:
+
+מילים רצופות המסתיימות באותיות שבמ
+
+Keep the supporting text quiet and short.
+
+==================================================
+15. RESULT PRESENTATION
+==================================================
+
+Reuse the current Tanach result cards.
+
+For ראשי תיבות:
+
+highlight the matched complete phrase.
+
+Example:
+
+שמע בני מוסר
+
+Optionally make the actual initial letters subtly stronger:
+
+שמע בני מוסר
+↑   ↑   ↑
+ש   ב   מ
+
+But do NOT literally add arrows.
+
+The important thing is that the user can visually understand why it matched.
+
+A restrained highlight on each relevant first letter is ideal if feasible.
+
+==================================================
+16. סופי תיבות VISUAL MATCH
+==================================================
+
+For סופי תיבות:
+
+subtly emphasize the matching FINAL LETTER of each matched word.
+
+Do not add equations or explanatory badges to every card.
+
+==================================================
+17. REMOVE IRRELEVANT FILTERS
+==================================================
+
+When method = ראשי תיבות or סופי תיבות:
+
+hide the gematria shape filters:
+
+הכל
+מילה שלמה
+מילים שלמות
+
+They are irrelevant.
+
+For these methods, every result is inherently a contiguous sequence of complete words.
+
+When method = גימטריה:
+
+keep the existing filters.
+
+And preserve:
+
+"הכל" excludes partial-word matches.
+
+==================================================
+18. RESULT COUNT
+==================================================
+
+Do not show a giant detached number such as:
+
+672
+
+on the other side of the page.
+
+Use a small:
+
+672 התאמות
+
+near the title or results area.
+
+Keep it secondary.
+
+==================================================
+19. NO GEMATRIA REQUIREMENT FOR ראשי/סופי תיבות
+==================================================
+
+A ראשי תיבות result does NOT need to have the same gematria as the current calculator input.
+
+Example:
+
+input:
+
+שבמ
+
+may match:
+
+שמע בני מוסר
+
+because the INITIAL LETTERS match.
+
+That is enough.
+
+Similarly for סופי תיבות.
+
+These are independent discovery methods.
+
+==================================================
+20. TESTS
+==================================================
+
+Add regression tests proving:
+
+ראשי תיבות:
+
+Input שבמ
+candidate שמע בני מוסר
+→ MATCH
+
+Candidate שמע מוסר בני
+→ NO MATCH
+
+Candidate where only first 2 initials match
+→ NO MATCH
+
+Candidate containing 4 words
+→ only matching 3-word contiguous windows are considered
+
+Input אב
+→ exactly 2-word windows
+
+Input שב״מ
+→ normalizes to שבמ
+
+Input "ש ב מ"
+→ normalizes to שבמ
+
+==================================================
+21. סופי תיבות TESTS
+==================================================
+
+Verify:
+
+- one entered Hebrew letter = one ending-letter requirement
+- exact order
+- exact candidate length
+- final-form normalization
+- complete words only
+- no skipped words
+- no cross-verse matching
+- maqaf correctly splits logical words
+
+==================================================
+22. EXISTING GEMATRIA SEARCH
+==================================================
+
+Do NOT break or rewrite the existing gematria search.
+
+It remains a separate method.
+
+Do not change:
+
+- full gematria engine
+- whole-word result logic
+- multi-word gematria logic
+- pagination
+- Tanach reader
+- saved range behavior
+
+except where shared tokenizer correctness requires it.
+
+==================================================
+23. PERFORMANCE
+==================================================
+
+Implement efficiently.
+
+For a pattern of N letters:
+
+scan only contiguous N-word windows within each verse.
+
+For ראשי תיבות:
+compare the N normalized first letters.
+
+For סופי תיבות:
+compare the N normalized final letters.
+
+Do not calculate unnecessary gematria for these comparisons.
+
+Reuse the canonical normalized Tanach tokenizer.
+
+==================================================
+24. DATABASE SAFETY
+==================================================
+
+No schema change should be required.
+
+Do NOT:
+
+- rewrite Tanach verses
+- migrate corpus data
+- reset database
+- touch saved_entries
+- touch saved_words
+- delete client data
+- copy development DB to production
+
+This should be search-logic + UI only.
+
+==================================================
+25. FINAL ACCEPTANCE EXAMPLE
+==================================================
+
+Current calculator text:
+
+שבמ
+
+User selects:
+
+ראשי תיבות
+
+The system should be capable of returning:
+
+שמע בני מוסר
+
+because:
+
+שמע → ש
+בני → ב
+מוסר → מ
+
+That is EXACTLY the intended feature.
+
+The user should not need to enter three words in the calculator.
+
+The THREE LETTERS themselves specify THREE WORDS.
+
+==================================================
+26. FINAL REPORT
+==================================================
+
+After implementation report:
+
+- how the entered text is converted into the letter pattern
+- confirmation שבמ creates a 3-word search
+- ראשי תיבות matching algorithm
+- סופי תיבות matching algorithm
+- maqaf handling
+- final-letter normalization
+- UI simplification
+- filters hidden for ר״ת/ס״ת
+- confirmation no DB/schema changes
+- tests/build results
+
+Do not perform unrelated refactors.

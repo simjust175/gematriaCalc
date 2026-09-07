@@ -65,12 +65,15 @@ export function findWordEdgeRanges(displayText, sequence, method, wordCount) {
     !displayText
     || (method !== 'initials' && method !== 'finals')
     || !Number.isSafeInteger(wordCount)
-    || wordCount < 2
+    || wordCount < 1
     || typeof sequence !== 'string'
   ) return [];
 
-  const normalizedSequence = [...sequence].map(normalizeTanachMatchLetter).join('');
-  if (normalizedSequence.length !== wordCount || !/^[\u05D0-\u05EA]+$/.test(sequence)) return [];
+  const comparisonLetter = method === 'finals'
+    ? normalizeTanachMatchLetter
+    : character => character;
+  const normalizedSequence = [...sequence].map(comparisonLetter).join('');
+  if ([...normalizedSequence].length !== wordCount || !/^[\u05D0-\u05EA]+$/.test(sequence)) return [];
 
   const cursor = createTanachCursor(displayText);
   const words = cursorWords(cursor);
@@ -79,7 +82,7 @@ export function findWordEdgeRanges(displayText, sequence, method, wordCount) {
     const window = words.slice(startWord, startWord + wordCount);
     const candidate = window.map(word => (
       method === 'initials' ? word.first : word.last
-    )).map(normalizeTanachMatchLetter).join('');
+    )).map(comparisonLetter).join('');
     if (candidate !== normalizedSequence) continue;
 
     const start = window[0].start;

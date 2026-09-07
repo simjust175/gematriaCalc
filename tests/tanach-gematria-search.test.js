@@ -400,6 +400,16 @@ test('findWordEdgeRanges finds exact contiguous pointed initials windows', () =>
   assert.equal(matches[0].classification, 'whole_phrase');
 });
 
+test('entered letters define exact contiguous word slots for initials', () => {
+  const verse = 'שמע בני מוסר שב';
+  const matches = findWordEdgeRanges(verse, 'שבמ', 'initials', 3);
+  assert.equal(matches.length, 1);
+  assert.equal(matches[0].text, 'שמע בני מוסר');
+  assert.deepEqual(findWordEdgeRanges('שמע מוסר בני', 'שבמ', 'initials', 3), []);
+  assert.deepEqual(findWordEdgeRanges('שמע בני', 'שבמ', 'initials', 3), []);
+  assert.deepEqual(findWordEdgeRanges(verse, 'שבמ', 'initials', 4), []);
+});
+
 test('findWordEdgeRanges finds finals and normalizes final forms only for comparison', () => {
   const pointed = 'מֶלֶךְ אָמֵן';
   const normalized = findWordEdgeRanges(pointed, 'כנ', 'finals', 2);
@@ -410,14 +420,26 @@ test('findWordEdgeRanges finds finals and normalizes final forms only for compar
   assert.deepEqual([normalized[0].start, normalized[0].end], [0, 5]);
 });
 
-test('findWordEdgeRanges never skips words or accepts a partial/single-word request', () => {
+test('findWordEdgeRanges never skips words or accepts partial or mismatched windows', () => {
   assert.deepEqual(findWordEdgeRanges('אב גד הו', 'אה', 'initials', 2), []);
   assert.deepEqual(findWordEdgeRanges('אב גד', 'גא', 'initials', 2), []);
   assert.deepEqual(findWordEdgeRanges('אב גד', 'דב', 'finals', 2), []);
-  assert.deepEqual(findWordEdgeRanges('אב גד הו', 'א', 'initials', 1), []);
   assert.deepEqual(findWordEdgeRanges('אב גד הו', 'אג', 'initials', 3), []);
 });
 
+test('one entered letter defines one word slot and finals normalize final forms', () => {
+  const matches = findWordEdgeRanges('שלום חכם לב', 'מ', 'finals', 1);
+  assert.deepEqual(matches.map(match => match.text), ['שלום', 'חכם']);
+  assert.deepEqual(findWordEdgeRanges('שלום', 'ם', 'finals', 1), matches.slice(0, 1));
+  assert.deepEqual(findWordEdgeRanges('שלום', 'ל', 'finals', 1), []);
+});
+
+test('final-form equivalence applies to finals but never to initials', () => {
+  assert.deepEqual(findWordEdgeRanges('מלך', 'ם', 'initials', 1), []);
+  assert.equal(findWordEdgeRanges('מלך', 'מ', 'initials', 1).length, 1);
+  assert.equal(findWordEdgeRanges('שלום', 'מ', 'finals', 1).length, 1);
+  assert.equal(findWordEdgeRanges('שלום', 'ם', 'finals', 1).length, 1);
+});
 test('findWordEdgeRanges follows canonical maqaf words while ignoring punctuation and deduplicates', () => {
   const matches = findWordEdgeRanges('אב־גד הו אב־גד הו', 'אג', 'initials', 2);
   assert.deepEqual(matches.map(match => [match.start, match.end]), [[0, 3], [6, 9]]);
