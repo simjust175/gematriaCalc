@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { calculateMilui } from '../src/utils/milui.js';
 
 const e2ePassword = process.env.E2E_APP_PASSWORD || 'tanach-browser-test-password';
 
@@ -215,4 +216,97 @@ test('signed-in Tanach reader supports cursor, navigation, search, and cited sav
       expect(cleanup.ok()).toBe(true);
     }
   }
+});
+
+test('Tanach reader מילוי follows the exact selection and save-all sends its citation', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-chromium');
+  await signInAndOpenTanach(page);
+
+  const summary = page.getByRole('button', { name: /מילוי/ });
+  await expect(summary).toBeDisabled();
+  await expect(summary).toContainText('בחר אותיות או מילים לחישוב מילוי');
+
+  const settingsResponse = await page.request.get(new URL('/api/settings/milui', page.url()).href);
+  expect(settingsResponse.ok()).toBe(true);
+  const { mapping } = await settingsResponse.json();
+  const letters = page.locator('.verse-token--letter');
+  const slider = page.getByRole('slider');
+
+  await letters.nth(0).click();
+  const singleLetterText = await letters.nth(0).textContent();
+  const singleLetterMilui = calculateMilui(singleLetterText, mapping);
+  await expect(summary).toBeEnabled();
+  await expect(summary.locator('.tanach-milui-summary__value b'))
+    .toHaveText(String(singleLetterMilui.fullGematria));
+
+  await summary.click();
+  const panel = page.locator('#tanach-milui-panel');
+  await expect(panel).toBeVisible();
+  await expect(panel).toContainText(singleLetterMilui.expandedText);
+  await expect(panel).toContainText(
+    `${singleLetterMilui.fillingOnlyGematria} · ${singleLetterMilui.fillingOnlyHebrewNumber}`
+  );
+
+  for (let index = 0; index < 5; index += 1) {
+    await slider.press('Shift+ArrowLeft');
+  }
+  const selectedText = (await Promise.all(
+    Array.from({ length: 6 }, (_, index) => letters.nth(index).textContent())
+  )).join('');
+  const wordMilui = calculateMilui(selectedText, mapping);
+  await expect(summary.locator('.tanach-milui-summary__value b'))
+    .toHaveText(String(wordMilui.fullGematria));
+  await expect(panel).toContainText(wordMilui.expandedText);
+
+  let saveAllBody;
+  await page.route('**/api/milui-interpretations/save-all', async route => {
+    saveAllBody = route.request().postDataJSON();
+    await route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        savedEntry: { id: 999999, created: true },
+        formIds: ['primary', 'av', 'sag', 'ban'],
+        created: 4,
+        existing: 0,
+        interpretations: [],
+      }),
+    });
+  });
+  await panel.getByRole('button', { name: 'שמור כל האופנים' }).click();
+  await expect(panel.getByRole('button', { name: 'כל האופנים נשמרו' })).toBeDisabled();
+  expect(saveAllBody.originalText).toBe(selectedText);
+  expect(saveAllBody.tanachContext).toEqual({
+    bookSlug: 'Genesis',
+    chapter: 1,
+    verse: 1,
+    start: 0,
+    end: 5,
+  });
+});
+
+test('Tanach reader can retry an initial מילוי settings failure', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-chromium');
+  let settingsRequests = 0;
+  await page.route('**/api/settings/milui', async route => {
+    settingsRequests += 1;
+    if (settingsRequests === 1) {
+      await route.fulfill({
+        status: 503,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'temporarily_unavailable' }),
+      });
+      return;
+    }
+    await route.continue();
+  });
+
+  await signInAndOpenTanach(page);
+  await expect(page.getByRole('alert')).toContainText('לא ניתן לטעון את הגדרות המילוי');
+  await page.getByRole('button', { name: 'נסה שוב' }).click();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  expect(settingsRequests).toBe(2);
+
+  await page.locator('.verse-token--letter').first().click();
+  await expect(page.getByRole('button', { name: /מילוי/ })).toBeEnabled();
 });

@@ -1447,8 +1447,114 @@ test('Tanach save context is verified and returned by the saved library API', as
     assert.equal(entry.tanach_end, 27);
     assert.equal(entry.parsha_id, 'bereshit');
     assert.equal(entry.parsha_name, 'בראשית');
+    const provenance = await pool.query(
+      `SELECT save_mode, form_ids
+       FROM saved_entry_milui_save_modes
+       WHERE saved_entry_id = $1`,
+      [savedId]
+    );
+    assert.equal(provenance.rows[0].save_mode, 'primary_only');
+    assert.deepEqual(provenance.rows[0].form_ids, ['primary']);
   } finally {
     if (savedId) await agent.delete(`/api/entries/${savedId}`);
+  }
+});
+
+test('Tanach save-all preserves canonical range provenance and records every מילוי form', async () => {
+  const agent = request.agent(app);
+  await agent.post('/api/auth/login').send({ password: 'correct-test-password-12345' });
+  const verseRes = await agent.get('/api/tanach/verse').query({ book: 'Genesis', chapter: 1, verse: 1 });
+  const cursor = createTanachCursor(verseRes.body.verse.display_text);
+  const start = 6;
+  const end = 13;
+  const canonicalText = cursor.range(start, end).text;
+  const normalizedText = normalize(canonicalText);
+  let savedId;
+  let newInterpretationIds = [];
+
+  const beforeInterpretations = await pool.query(
+    'SELECT id FROM explicit_milui_interpretations WHERE normalized_text = $1',
+    [normalizedText]
+  );
+  const beforeIds = new Set(beforeInterpretations.rows.map(row => String(row.id)));
+
+  try {
+    const forged = await agent.post('/api/milui-interpretations/save-all').send({
+      originalText: 'שמע',
+      tanachContext: { bookSlug: 'Genesis', chapter: 1, verse: 1, start, end },
+    });
+    assert.equal(forged.status, 400);
+    assert.equal(forged.body.error, 'tanach_range_mismatch');
+
+    const savePayload = {
+      originalText: computeAll(canonicalText).normalizedText,
+      tanachContext: { bookSlug: 'Genesis', chapter: 1, verse: 1, start, end, parshaId: 'bereshit' },
+    };
+    const concurrentSaves = await Promise.all([
+      agent.post('/api/milui-interpretations/save-all').send(savePayload),
+      agent.post('/api/milui-interpretations/save-all').send(savePayload),
+    ]);
+    assert.ok(concurrentSaves.every(response => [200, 201].includes(response.status)));
+    assert.equal(concurrentSaves[0].body.savedEntry.id, concurrentSaves[1].body.savedEntry.id);
+    const saved = concurrentSaves.find(response => response.body.savedEntry.created)
+      || concurrentSaves[0];
+    savedId = saved.body.savedEntry.id;
+    assert.deepEqual(saved.body.formIds, ['primary', 'av', 'sag', 'ban']);
+
+    const entry = await pool.query(
+      `SELECT original_text, tanach_book_slug, tanach_chapter, tanach_verse,
+              tanach_start, tanach_end, parsha_id
+       FROM saved_entries WHERE id = $1`,
+      [savedId]
+    );
+    assert.equal(entry.rows[0].original_text, canonicalText);
+    assert.deepEqual(
+      {
+        bookSlug: entry.rows[0].tanach_book_slug,
+        chapter: entry.rows[0].tanach_chapter,
+        verse: entry.rows[0].tanach_verse,
+        start: entry.rows[0].tanach_start,
+        end: entry.rows[0].tanach_end,
+        parshaId: entry.rows[0].parsha_id,
+      },
+      { bookSlug: 'Genesis', chapter: 1, verse: 1, start, end, parshaId: 'bereshit' }
+    );
+
+    const provenance = await pool.query(
+      `SELECT save_mode, form_ids
+       FROM saved_entry_milui_save_modes WHERE saved_entry_id = $1`,
+      [savedId]
+    );
+    assert.equal(provenance.rows[0].save_mode, 'all_forms');
+    assert.deepEqual(provenance.rows[0].form_ids, ['primary', 'av', 'sag', 'ban']);
+
+    const reloadedMatch = await agent.get('/api/matches').query({
+      normalizedText: canonicalText,
+      bookSlug: 'Genesis',
+      chapter: 1,
+      verse: 1,
+      start,
+      end,
+    });
+    assert.equal(reloadedMatch.status, 200);
+    assert.equal(reloadedMatch.body.isAlreadySaved, true);
+    assert.equal(reloadedMatch.body.allMiluiFormsSaved, true);
+
+    const afterInterpretations = await pool.query(
+      'SELECT id FROM explicit_milui_interpretations WHERE normalized_text = $1',
+      [normalizedText]
+    );
+    newInterpretationIds = afterInterpretations.rows
+      .map(row => String(row.id))
+      .filter(id => !beforeIds.has(id));
+  } finally {
+    if (savedId) await agent.delete(`/api/entries/${savedId}`);
+    if (newInterpretationIds.length) {
+      await pool.query(
+        'DELETE FROM explicit_milui_interpretations WHERE id = ANY($1::bigint[])',
+        [newInterpretationIds]
+      );
+    }
   }
 });
 

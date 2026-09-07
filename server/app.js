@@ -8,6 +8,7 @@ import connectPgSimple from 'connect-pg-simple';
 import { ensureMiluiPreferences, pool } from './db.js';
 import { computeAll, normalize } from '../src/composables/useGematria.js';
 import { createTanachCursor } from '../src/composables/useTanachCursor.js';
+import { verifyTanachSaveContext } from './tanachSaveContext.js';
 import { parshaSearchKey } from './tanachParshiot.js';
 import {
   parseGematriaSearchQuery,
@@ -482,9 +483,12 @@ app.get('/api/matches', requireAuth, async (req, res) => {
             return res.status(400).json({ error: 'invalid_tanach_context' });
           }
           chk = await pool.query(
-            `SELECT id FROM saved_entries
-             WHERE tanach_book_slug = $1 AND tanach_chapter = $2
-               AND tanach_verse = $3 AND tanach_start = $4 AND tanach_end = $5`,
+            `SELECT entry.id, mode.save_mode
+             FROM saved_entries entry
+             LEFT JOIN saved_entry_milui_save_modes mode
+               ON mode.saved_entry_id = entry.id
+             WHERE entry.tanach_book_slug = $1 AND entry.tanach_chapter = $2
+               AND entry.tanach_verse = $3 AND entry.tanach_start = $4 AND entry.tanach_end = $5`,
             [req.query.bookSlug, chapter, verse, start, end]
           );
         } else {
@@ -707,62 +711,21 @@ app.post('/api/entries', requireAuth, async (req, res) => {
 
     let verifiedContext = null;
     if (tanachContext != null) {
-      const bookSlug = typeof tanachContext.bookSlug === 'string' ? tanachContext.bookSlug : '';
-      const chapter = Number(tanachContext.chapter);
-      const verse = Number(tanachContext.verse);
-      const start = Number(tanachContext.start);
-      const end = Number(tanachContext.end);
-      if (!bookSlug || !Number.isInteger(chapter) || !Number.isInteger(verse)
-          || !Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start) {
+      try {
+        const verified = await verifyTanachSaveContext(canonicalOriginalText, tanachContext, client);
+        canonicalOriginalText = verified.originalText;
+        calculated = verified.calculated;
+        verifiedContext = verified.context;
+      } catch (error) {
         await client.query('ROLLBACK');
-        return res.status(400).json({ error: 'invalid_tanach_context' });
-      }
-      const verseResult = await client.query(
-        `SELECT v.display_text, b.hebrew_name
-         FROM tanach_verses v JOIN tanach_books b ON b.slug = v.book_slug
-         WHERE v.book_slug = $1 AND v.chapter = $2 AND v.verse = $3`,
-        [bookSlug, chapter, verse]
-      );
-      if (!verseResult.rowCount) {
-        await client.query('ROLLBACK');
-        return res.status(400).json({ error: 'invalid_tanach_context' });
-      }
-      const cursor = createTanachCursor(verseResult.rows[0].display_text);
-      const canonicalRange = cursor.range(start, end);
-      if (end >= cursor.count || normalize(canonicalRange.text) !== calculated.normalizedText) {
-        await client.query('ROLLBACK');
-        return res.status(400).json({ error: 'tanach_range_mismatch' });
-      }
-      // Tanach provenance is authoritative: persist and derive calculations from
-      // the local pointed/cantillated corpus, never from a client display variant.
-      canonicalOriginalText = canonicalRange.text;
-      calculated = computeAll(canonicalOriginalText);
-      const parshaId = typeof tanachContext.parshaId === 'string' ? tanachContext.parshaId : null;
-      let parsha = null;
-      if (parshaId) {
-        const parshaResult = await client.query(
-          `SELECT p.id, p.name_he
-           FROM tanach_parshiot p
-           JOIN tanach_books start_book ON start_book.slug = p.start_book_slug
-           JOIN tanach_books end_book ON end_book.slug = p.end_book_slug
-           JOIN tanach_books current_book ON current_book.slug = $2
-           WHERE p.id = $1
-             AND (current_book.canonical_order, current_book.segment_order, $3::int, $4::int)
-               >= (start_book.canonical_order, start_book.segment_order, p.start_chapter, p.start_verse)
-             AND (current_book.canonical_order, current_book.segment_order, $3::int, $4::int)
-               <= (end_book.canonical_order, end_book.segment_order, p.end_chapter, p.end_verse)`,
-          [parshaId, bookSlug, chapter, verse]
-        );
-        if (!parshaResult.rowCount) {
-          await client.query('ROLLBACK');
+        if (error.code === 'INVALID_TANACH_CONTEXT') {
           return res.status(400).json({ error: 'invalid_tanach_context' });
         }
-        parsha = { id: parshaResult.rows[0].id, name: parshaResult.rows[0].name_he };
+        if (error.code === 'TANACH_RANGE_MISMATCH') {
+          return res.status(400).json({ error: 'tanach_range_mismatch' });
+        }
+        throw error;
       }
-      verifiedContext = {
-        bookSlug, bookLabel: verseResult.rows[0].hebrew_name, chapter, verse, start, end,
-        parshaId: parsha?.id || null, parshaName: parsha?.name || null,
-      };
     }
 
     const exists = verifiedContext
@@ -825,9 +788,7 @@ app.post('/api/entries', requireAuth, async (req, res) => {
         [entryId, w.word, w.word, w.gematria, w.position]
       );
     }
-    if (!verifiedContext) {
-      await recordMiluiSaveMode(entryId, 'primary_only', ['primary'], client);
-    }
+    await recordMiluiSaveMode(entryId, 'primary_only', ['primary'], client);
 
     await client.query('COMMIT');
     try {

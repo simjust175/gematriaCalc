@@ -6,6 +6,7 @@ import {
   normalizeMiluiMapping,
 } from '../src/utils/milui.js';
 import { computeAll } from '../src/composables/useGematria.js';
+import { verifyTanachSaveContext } from './tanachSaveContext.js';
 
 const MODE = 'full_milui';
 
@@ -193,27 +194,32 @@ export async function recordMiluiSaveMode(savedEntryId, mode, formIds, db) {
   );
 }
 
-async function ensureOrdinarySavedEntry(originalText, db) {
-  const calculated = computeAll(originalText);
-  if (!calculated) {
-    const error = new Error('Missing save fields');
-    error.code = 'MISSING_FIELDS';
-    throw error;
-  }
-  const existing = await db.query(
-    `SELECT id FROM saved_entries
-     WHERE tanach_book_slug IS NULL AND normalized_text = $1
-     ORDER BY id ASC LIMIT 1`,
-    [calculated.normalizedText]
-  );
+async function ensureSavedEntry(verified, db) {
+  const { originalText, calculated, context } = verified;
+  const existing = context
+    ? await db.query(
+      `SELECT id FROM saved_entries
+       WHERE tanach_book_slug = $1 AND tanach_chapter = $2
+         AND tanach_verse = $3 AND tanach_start = $4 AND tanach_end = $5`,
+      [context.bookSlug, context.chapter, context.verse, context.start, context.end]
+    )
+    : await db.query(
+      `SELECT id FROM saved_entries
+       WHERE tanach_book_slug IS NULL AND normalized_text = $1
+       ORDER BY id ASC LIMIT 1`,
+      [calculated.normalizedText]
+    );
   if (existing.rowCount) return { id: existing.rows[0].id, created: false };
 
   const inserted = await db.query(
     `INSERT INTO saved_entries
        (original_text, normalized_text, full_gematria, full_gematria_hebrew,
-         initials, initials_gematria, initials_gematria_hebrew,
-         finals, finals_gematria, finals_gematria_hebrew)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+        initials, initials_gematria, initials_gematria_hebrew,
+        finals, finals_gematria, finals_gematria_hebrew,
+        tanach_book_slug, tanach_book_label, tanach_chapter, tanach_verse,
+        tanach_start, tanach_end, parsha_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+     ON CONFLICT DO NOTHING
      RETURNING id`,
     [
       originalText,
@@ -226,8 +232,34 @@ async function ensureOrdinarySavedEntry(originalText, db) {
       calculated.finals,
       calculated.finalsGematria,
       calculated.finalsHebrewNumber,
+      context?.bookSlug || null,
+      context?.bookLabel || null,
+      context?.chapter || null,
+      context?.verse || null,
+      context?.start ?? null,
+      context?.end ?? null,
+      context?.parshaId || null,
     ]
   );
+  if (!inserted.rowCount) {
+    const concurrent = context
+      ? await db.query(
+        `SELECT id FROM saved_entries
+         WHERE tanach_book_slug = $1 AND tanach_chapter = $2
+           AND tanach_verse = $3 AND tanach_start = $4 AND tanach_end = $5`,
+        [context.bookSlug, context.chapter, context.verse, context.start, context.end]
+      )
+      : await db.query(
+        `SELECT id FROM saved_entries
+         WHERE tanach_book_slug IS NULL AND normalized_text = $1
+         ORDER BY id ASC LIMIT 1`,
+        [calculated.normalizedText]
+      );
+    if (concurrent.rowCount) return { id: concurrent.rows[0].id, created: false };
+    const error = new Error('Saved entry conflict could not be resolved');
+    error.code = 'SAVE_CONFLICT';
+    throw error;
+  }
   const entryId = inserted.rows[0].id;
   for (const word of calculated.words) {
     await db.query(
@@ -239,10 +271,12 @@ async function ensureOrdinarySavedEntry(originalText, db) {
   return { id: entryId, created: true };
 }
 
-export async function saveAllCommonMiluiForms(originalText, db) {
+export async function saveAllCommonMiluiForms(originalText, db, { tanachContext = null } = {}) {
+  const verified = await verifyTanachSaveContext(originalText, tanachContext, db);
+  originalText = verified.originalText;
   const { mapping } = await getActiveMapping(db);
   const occurrences = getMiluiVariantOccurrences(originalText, mapping);
-  const savedEntry = await ensureOrdinarySavedEntry(originalText, db);
+  const savedEntry = await ensureSavedEntry(verified, db);
   if (!occurrences.length) {
     await recordMiluiSaveMode(savedEntry.id, 'all_forms', ['primary'], db);
     return {
@@ -370,7 +404,9 @@ export function registerMiluiInterpretationRoutes(app, {
     try {
       await client.query('BEGIN');
       await acquireSaveLock(client);
-      const result = await saveAllCommonMiluiForms(req.body?.originalText, client);
+      const result = await saveAllCommonMiluiForms(req.body?.originalText, client, {
+        tanachContext: req.body?.tanachContext,
+      });
       await client.query('COMMIT');
       if (result.savedEntry.created) {
         try {
@@ -385,6 +421,12 @@ export function registerMiluiInterpretationRoutes(app, {
       await client.query('ROLLBACK').catch(() => {});
       if (error.code === 'MISSING_FIELDS') {
         return res.status(400).json({ error: 'missing_fields' });
+      }
+      if (error.code === 'INVALID_TANACH_CONTEXT') {
+        return res.status(400).json({ error: 'invalid_tanach_context' });
+      }
+      if (error.code === 'TANACH_RANGE_MISMATCH') {
+        return res.status(400).json({ error: 'tanach_range_mismatch' });
       }
       console.error('/api/milui-interpretations/save-all POST error:', error.message);
       return res.status(500).json({ error: 'milui_interpretation_save_all_failed' });

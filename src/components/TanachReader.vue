@@ -180,6 +180,53 @@
             </article>
           </div>
 
+          <section class="tanach-milui-disclosure" aria-labelledby="tanach-milui-title">
+            <button
+              class="tanach-milui-summary"
+              type="button"
+              :disabled="!hasExplicitSelection || !selectedRange.text.trim() || !miluiSettingsLoaded"
+              :aria-expanded="miluiOpen"
+              aria-controls="tanach-milui-panel"
+              @click="toggleMilui"
+            >
+              <span class="tanach-milui-summary__label">
+                <span id="tanach-milui-title" class="eyebrow">מילוי</span>
+                <small v-if="miluiSettingsLoading">טוען הגדרות מילוי...</small>
+                <small v-else-if="miluiCalculation">{{ miluiCalculation.expandedText }}</small>
+                <small v-else-if="hasExplicitSelection">לא ניתן לטעון את חישוב המילוי</small>
+                <small v-else>בחר אותיות או מילים לחישוב מילוי</small>
+              </span>
+              <span v-if="miluiCalculation" class="tanach-milui-summary__value">
+                <b>{{ miluiCalculation.fullGematria }}</b>
+                <span>·</span>
+                <strong>{{ miluiCalculation.fullHebrewNumber }}</strong>
+              </span>
+              <span class="ui-chevron" :class="miluiOpen ? 'ui-chevron--up' : 'ui-chevron--down'" aria-hidden="true"></span>
+            </button>
+            <MiluiPanel
+              v-if="miluiOpen && miluiCalculation"
+              id="tanach-milui-panel"
+              :calculation="miluiCalculation"
+              :source-text="selectedRange.text"
+              :mapping="miluiMapping"
+              :canonical-presets="havayahMiluiPresets"
+              :settings-disabled="!miluiSettingsLoaded"
+              :primary-save-disabled="saveStatus !== 'idle' || matches.isAlreadySaved"
+              :primary-save-label="matches.isAlreadySaved ? 'כבר שמור' : saveStatus === 'saved' ? 'נשמר' : 'שמור טווח'"
+              :save-all-disabled="saveAllStatus !== 'idle' || matches.allMiluiFormsSaved"
+              :save-all-label="matches.allMiluiFormsSaved || saveAllStatus === 'saved' ? 'כל האופנים נשמרו' : saveAllStatus === 'loading' ? 'שומר...' : 'שמור כל האופנים'"
+              @open-settings="openMiluiSettings"
+              @explicit-total-change="explicitMiluiTotal = $event"
+              @interpretation-saved="miluiMatchRefresh += 1"
+              @save-primary="saveRange"
+              @save-all="saveAllMiluiForms"
+            />
+            <p v-if="miluiSettingsError && !miluiSettingsLoaded" class="milui-load-error" role="alert">
+              {{ miluiSettingsError }}
+              <button type="button" @click="loadMiluiSettings">נסה שוב</button>
+            </p>
+          </section>
+
           <details class="word-breakdown">
             <summary>פירוט מילים ואותיות</summary>
             <div v-for="word in result.words" :key="word.position" class="word-result">
@@ -230,6 +277,16 @@
       </aside>
     </div>
 
+    <MiluiSettings
+      v-if="miluiSettingsOpen"
+      :mapping="miluiMapping"
+      :saving="miluiSettingsSaving"
+      :error="miluiSettingsError"
+      :success="miluiSettingsSuccess"
+      @close="miluiSettingsOpen = false"
+      @save="saveMiluiMapping"
+    />
+
     <footer v-if="source" class="source-note">
       <span class="mdi mdi-information-outline"></span>
       {{ source.attribution }}
@@ -245,6 +302,16 @@ import { useLiveMatching } from '@/composables/useLiveMatching.js';
 import MatchPanel from './MatchPanel.vue';
 import TanachScopeSelect from './TanachScopeSelect.vue';
 import SaveSplitButton from './SaveSplitButton.vue';
+import MiluiPanel from './MiluiPanel.vue';
+import MiluiSettings from './MiluiSettings.vue';
+import {
+  CANONICAL_HAVAYAH_MILUI,
+  MILUI_DEFAULT_MAPPING,
+  calculateMilui,
+  cloneMiluiMapping,
+  containsStandaloneHavayah,
+  normalizeMiluiMapping,
+} from '@/utils/milui.js';
 
 const props = defineProps({
   openReference: { type: Object, default: null },
@@ -275,6 +342,17 @@ const searchLoading = ref(false);
 const saveStatus = ref('idle');
 const saveError = ref('');
 const saveMenuOpen = ref(false);
+const miluiOpen = ref(false);
+const miluiMapping = ref(cloneMiluiMapping(MILUI_DEFAULT_MAPPING));
+const miluiSettingsOpen = ref(false);
+const miluiSettingsLoaded = ref(false);
+const miluiSettingsLoading = ref(false);
+const miluiSettingsSaving = ref(false);
+const miluiSettingsError = ref('');
+const miluiSettingsSuccess = ref('');
+const explicitMiluiTotal = ref(0);
+const miluiMatchRefresh = ref(0);
+const saveAllStatus = ref('idle');
 const verseDisplay = ref(null);
 const verseList = ref(null);
 let searchTimer;
@@ -359,8 +437,20 @@ const matchContext = computed(() => ({
   verse: selectedVerseNumber.value,
   start: rangeStart.value,
   end: rangeEnd.value,
+  explicitMiluiTotal: explicitMiluiTotal.value,
+  refresh: miluiMatchRefresh.value,
 }));
 const { matches } = useLiveMatching(result, { context: matchContext });
+const miluiCalculation = computed(() => (
+  miluiSettingsLoaded.value && hasExplicitSelection.value && selectedRange.value.text.trim()
+    ? calculateMilui(selectedRange.value.text, miluiMapping.value)
+    : null
+));
+const havayahMiluiPresets = computed(() => (
+  miluiOpen.value && miluiCalculation.value && containsStandaloneHavayah(selectedRange.value.text)
+    ? CANONICAL_HAVAYAH_MILUI
+    : null
+));
 
 watch(selectedVerse, () => {
   anchorLetterIndex.value = 0;
@@ -369,6 +459,9 @@ watch(selectedVerse, () => {
   isDragging.value = false;
   saveStatus.value = 'idle';
   saveError.value = '';
+  miluiOpen.value = false;
+  explicitMiluiTotal.value = 0;
+  saveAllStatus.value = 'idle';
   nextTick(() => verseDisplay.value?.focus());
 });
 
@@ -378,6 +471,12 @@ watch(selectedVerseNumber, verse => {
 
 watch([selectedBookSlug, selectedChapter, selectedVerseNumber], () => {
   if (!isChangingReference) clearParshaIfOutsideRange();
+});
+
+watch([rangeStart, rangeEnd], () => {
+  saveStatus.value = 'idle';
+  saveError.value = '';
+  saveAllStatus.value = 'idle';
 });
 
 async function loadBooks() {
@@ -769,6 +868,74 @@ async function openSearchResult(item) {
   await loadChapter(item.verse);
 }
 
+async function toggleMilui() {
+  if (!hasExplicitSelection.value || !selectedRange.value.text.trim()) return;
+  miluiOpen.value = !miluiOpen.value;
+  if (miluiOpen.value) await loadMiluiSettings();
+  else explicitMiluiTotal.value = 0;
+}
+
+async function loadMiluiSettings() {
+  if (miluiSettingsLoaded.value || miluiSettingsLoading.value) return;
+  miluiSettingsLoading.value = true;
+  miluiSettingsError.value = '';
+  try {
+    const response = await fetch('/api/settings/milui');
+    if (!response.ok) throw new Error('load_failed');
+    const payload = await response.json();
+    const checked = normalizeMiluiMapping(payload.mapping);
+    if (!checked.valid) throw new Error('invalid_saved_mapping');
+    miluiMapping.value = checked.mapping;
+    miluiSettingsLoaded.value = true;
+  } catch {
+    miluiSettingsError.value = 'לא ניתן לטעון את הגדרות המילוי';
+  } finally {
+    miluiSettingsLoading.value = false;
+  }
+}
+
+async function openMiluiSettings() {
+  await loadMiluiSettings();
+  if (!miluiSettingsLoaded.value) return;
+  miluiSettingsSuccess.value = '';
+  miluiSettingsOpen.value = true;
+}
+
+async function saveMiluiMapping(mapping) {
+  miluiSettingsSaving.value = true;
+  miluiSettingsError.value = '';
+  miluiSettingsSuccess.value = '';
+  try {
+    const response = await fetch('/api/settings/milui', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mapping }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.message || 'save_failed');
+    const checked = normalizeMiluiMapping(payload.mapping);
+    if (!checked.valid) throw new Error('invalid_saved_mapping');
+    miluiMapping.value = checked.mapping;
+    miluiSettingsLoaded.value = true;
+    miluiSettingsSuccess.value = 'הגדרות המילוי עודכנו';
+  } catch {
+    miluiSettingsError.value = 'לא ניתן לשמור את הגדרות המילוי';
+  } finally {
+    miluiSettingsSaving.value = false;
+  }
+}
+
+function tanachContext() {
+  return {
+    bookSlug: selectedBookSlug.value,
+    chapter: selectedChapter.value,
+    verse: selectedVerseNumber.value,
+    start: rangeStart.value,
+    end: rangeEnd.value,
+    parshaId: activeParsha.value?.id,
+  };
+}
+
 async function saveRange() {
   if (!result.value || saveStatus.value === 'loading' || matches.value.isAlreadySaved) return;
   saveStatus.value = 'loading';
@@ -779,14 +946,7 @@ async function saveRange() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         originalText: selectedRange.value.text,
-        tanachContext: {
-          bookSlug: selectedBookSlug.value,
-          chapter: selectedChapter.value,
-          verse: selectedVerseNumber.value,
-          start: rangeStart.value,
-          end: rangeEnd.value,
-          parshaId: activeParsha.value?.id,
-        },
+        tanachContext: tanachContext(),
       }),
     });
     if (response.ok || response.status === 409) {
@@ -799,6 +959,35 @@ async function saveRange() {
   } catch {
     saveStatus.value = 'idle';
     saveError.value = 'שגיאת רשת';
+  }
+}
+
+async function saveAllMiluiForms() {
+  if (!miluiCalculation.value || saveAllStatus.value === 'loading') return;
+  saveAllStatus.value = 'loading';
+  saveError.value = '';
+  try {
+    const response = await fetch('/api/milui-interpretations/save-all', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        originalText: selectedRange.value.text,
+        tanachContext: tanachContext(),
+      }),
+    });
+    if (!response.ok) throw new Error('save_failed');
+    saveAllStatus.value = 'saved';
+    saveStatus.value = 'saved';
+    matches.value.isAlreadySaved = true;
+    matches.value.allMiluiFormsSaved = true;
+    miluiMatchRefresh.value += 1;
+    window.setTimeout(() => {
+      saveAllStatus.value = 'idle';
+      saveStatus.value = 'idle';
+    }, 3000);
+  } catch {
+    saveAllStatus.value = 'idle';
+    saveError.value = 'לא ניתן לשמור את כל אופני המילוי';
   }
 }
 
@@ -818,7 +1007,10 @@ async function saveAsBaseWord() {
   } catch { saveError.value = 'לא ניתן לשמור כרגע'; }
 }
 
-onMounted(loadBooks);
+onMounted(() => {
+  loadBooks();
+  loadMiluiSettings();
+});
 </script>
 
 <style scoped>
@@ -890,6 +1082,19 @@ onMounted(loadBooks);
 .secondary-results { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .secondary-results article { background: white; border: 1px solid var(--border); border-radius: 10px; padding: 15px 18px; }
 .secondary-results strong { color: var(--navy); font-size: 1.4rem; }
+.tanach-milui-disclosure { background: #fff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.tanach-milui-summary { align-items: center; background: transparent; border: 0; color: var(--navy); cursor: pointer; display: flex; font: inherit; gap: 16px; justify-content: space-between; min-height: 66px; padding: 11px 17px; text-align: right; width: 100%; }
+.tanach-milui-summary:hover:not(:disabled), .tanach-milui-summary[aria-expanded="true"] { background: #fdfaf3; }
+.tanach-milui-summary:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+.tanach-milui-summary:disabled { cursor: default; opacity: .72; }
+.tanach-milui-summary__label { align-items: flex-start; display: flex; flex-direction: column; min-width: 0; }
+.tanach-milui-summary__label .eyebrow { color: var(--navy); margin: 0; }
+.tanach-milui-summary__label small { color: var(--text-secondary); font-family: "Noto Serif Hebrew", "Times New Roman", serif; font-size: .86rem; line-height: 1.55; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tanach-milui-summary__value { align-items: baseline; display: flex; flex: 0 0 auto; gap: 6px; }
+.tanach-milui-summary__value b { color: var(--gold); font-size: 1.35rem; }
+.tanach-milui-summary__value strong { color: var(--navy); font-size: 1.05rem; }
+.milui-load-error { border-top: 1px solid var(--border); color: #9b2c2c; font-size: .76rem; margin: 0; padding: 10px 17px; }
+.milui-load-error button { background: transparent; border: 0; color: inherit; cursor: pointer; font: inherit; text-decoration: underline; }
 .word-breakdown { background: white; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 .word-breakdown summary { padding: 13px 17px; cursor: pointer; color: var(--navy); font-weight: 700; }
 .word-result { padding: 10px 17px; border-top: 1px solid #eee9e0; }
@@ -934,5 +1139,8 @@ onMounted(loadBooks);
   .summary-column .progress-card { grid-column: auto; }
   .primary-result { align-items: flex-start; gap: 12px; }
   .primary-value strong { font-size: 1.8rem; }
+  .tanach-milui-summary { gap: 9px; padding-inline: 13px; }
+  .tanach-milui-summary__label small { max-width: 175px; }
+  .tanach-milui-summary__value b { font-size: 1.15rem; }
 }
 </style>

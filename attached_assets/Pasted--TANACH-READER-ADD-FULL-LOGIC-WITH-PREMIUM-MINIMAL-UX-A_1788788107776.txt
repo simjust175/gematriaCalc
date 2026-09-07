@@ -1,0 +1,687 @@
+# TANACH READER — ADD FULL מילוי LOGIC WITH PREMIUM / MINIMAL UX
+
+Add the COMPLETE existing מילוי functionality to the Tanach Reader route shown in the current application.
+
+IMPORTANT:
+The מילוי engine already exists elsewhere in the app.
+
+DO NOT create a second מילוי implementation.
+DO NOT duplicate calculation logic.
+DO NOT invent new mappings.
+
+Reuse the exact existing:
+- מילוי calculation engine
+- default/common מילוי selection
+- alternative מילוי variants
+- מילוי בלבד calculation
+- full מילוי gematria
+- Hebrew numeral formatter
+- preferences/configuration
+- save behavior
+- "שמור כל האופנים" behavior
+
+This task is primarily integration + world-class UI/UX.
+
+==================================================
+1. CORE PRINCIPLE
+==================================================
+
+The Tanach Reader must remain first and foremost a READER.
+
+Do NOT make this route look like another calculator dashboard.
+
+The visual hierarchy should remain:
+
+1. Tanach text / selected range
+2. Primary gematria result
+3. Secondary calculations
+4. מילוי as an elegant progressive disclosure
+
+Advanced מילוי details should never compete visually with the פסוק itself.
+
+==================================================
+2. SOURCE TEXT FOR מילוי
+==================================================
+
+All מילוי calculations on this route must use the EXACT CURRENT TANACH SELECTION.
+
+Example:
+
+If the user selects:
+
+בראשית
+
+calculate מילוי for:
+
+בראשית
+
+If the user selects:
+
+בראשית ברא
+
+calculate מילוי for the complete selected phrase:
+
+בראשית ברא
+
+If the user changes the selection:
+all מילוי values update immediately.
+
+Do NOT calculate from:
+- the whole verse unless the whole verse is selected
+- the current book
+- the current pasuk automatically
+- stale previous selection
+
+The current selected range is the source of truth.
+
+==================================================
+3. NORMALIZATION
+==================================================
+
+Reuse the SAME normalization used by the existing מילוי feature.
+
+Preserve current rules for:
+
+- niqqud
+- cantillation
+- punctuation
+- spaces
+- maqaf
+- final letters
+- Hebrew character normalization
+
+Do not create Tanach-specific מילוי rules.
+
+The same Hebrew phrase must produce the same מילוי result in:
+- calculator
+- Tanach reader
+- saved-entry views
+
+==================================================
+4. WHERE TO PLACE IT
+==================================================
+
+The current reader already has result cards beneath the selected text.
+
+Add the מילוי experience directly BELOW the existing primary calculation cards.
+
+Do NOT put it in the right sidebar.
+
+Do NOT put it inside the פסוק text area.
+
+Do NOT create another large dashboard row.
+
+Preferred structure:
+
+[ גימטריה מלאה — existing ]
+
+[ ראשי תיבות ] [ גימטריית ר״ת ]
+
+[ מילוי — full-width compact disclosure ]
+
+This should visually feel like the natural fourth calculation layer.
+
+==================================================
+5. DEFAULT / CLOSED מילוי STATE
+==================================================
+
+The default state must be very compact.
+
+Conceptually:
+
+מילוי                                      ˅
+יוד הא ...                    38 · לח
+
+or an equivalent refined layout.
+
+Show only:
+
+- label: מילוי
+- the PRIMARY / MOST COMMON מילוי result
+- full מילוי value
+- Hebrew numeral
+
+Optionally include the expanded spelling very subtly if space permits.
+
+Do NOT show all four variants by default.
+
+Do NOT show settings controls by default.
+
+Do NOT show a grid of buttons by default.
+
+==================================================
+6. PRIMARY מילוי RESULT
+==================================================
+
+The most common / default מילוי should be clearly treated as the primary one.
+
+Example structure:
+
+מילוי
+
+שם האות במילואה
+הא ואו ...
+
+38 · לח
+
+מילוי בלבד
+16 · טז
+
+Keep this visually restrained.
+
+The numbers should have slightly more weight than the labels.
+
+Use existing navy + restrained gold.
+
+No new colors.
+
+==================================================
+7. EXPANDED STATE
+==================================================
+
+When the user opens מילוי:
+
+show the full existing מילוי functionality in a refined hierarchy.
+
+The expanded state should contain:
+
+A. PRIMARY מילוי
+- expanded text
+- full מילוי gematria
+- מילוי בלבד
+
+B. OTHER 3 אופנים
+- compact secondary rows/cards
+- clearly subordinate to the primary מילוי
+
+C. actions
+- change מילוי/settings if already supported
+- "שמור כל האופנים"
+
+Do NOT dump all configuration controls into the main view.
+
+==================================================
+8. OTHER 3 מילוי OPTIONS
+==================================================
+
+The other three מילוי variants should appear under a small section such as:
+
+אופנים נוספים
+
+Each alternative should be compact.
+
+Suggested pattern:
+
+ה״י
+יוד הי ...
+34 · לד
+מילוי בלבד 12 · יב
+
+Use either:
+- 3 compact horizontal rows
+or
+- a restrained 3-column layout on very wide screens
+
+Prefer rows if that reads more naturally in RTL.
+
+Do NOT make each one a giant card.
+
+==================================================
+9. RESPONSIVE BEHAVIOR
+==================================================
+
+Large desktop:
+- full-width מילוי disclosure
+- primary result can use a clean two-column internal composition
+- secondary variants may sit in a compact row/grid if space allows
+
+Medium:
+- stack secondary variants cleanly
+
+Mobile:
+- one column
+- no horizontal scrolling
+- no compressed tiny controls
+
+The Tanach text remains the dominant visual element at all widths.
+
+==================================================
+10. SAVE BEHAVIOR — IMPORTANT
+==================================================
+
+The reader currently has:
+
+שמור טווח
+
+Preserve that action.
+
+When the user clicks regular:
+
+שמור טווח
+
+save the selected Tanach range exactly as before, PLUS the DEFAULT / PRIMARY מילוי only.
+
+This must follow the same rule already established in the calculator:
+
+REGULAR SAVE
+=
+normal saved entry
++
+default/basic מילוי only
+
+Do NOT save every variant automatically.
+
+==================================================
+11. ADD "שמור כל האופנים"
+==================================================
+
+Inside the expanded מילוי area add:
+
+שמור כל האופנים
+
+This should save:
+
+- the exact selected Tanach range
+- normal saved-entry data
+- primary מילוי
+- all other available מילוי variants
+
+Reuse the existing save-all implementation.
+
+Do NOT create a separate Tanach-only persistence model if the existing implementation can be reused.
+
+==================================================
+12. DISTINCT SAVE ACTIONS
+==================================================
+
+The two actions must remain conceptually distinct:
+
+שמור טווח
+→ normal save + default מילוי
+
+שמור כל האופנים
+→ normal save + every מילוי variant
+
+Do not make "שמור כל האופנים" the default.
+
+Do not silently upgrade regular saves to all variants.
+
+==================================================
+13. SAVING FEEDBACK
+==================================================
+
+Use existing success/error feedback patterns.
+
+Examples:
+
+נשמר
+
+or
+
+נשמרו כל אופני המילוי
+
+Do not permanently change button labels after save.
+
+Avoid noisy toast stacking.
+
+==================================================
+14. NO SELECTION STATE
+==================================================
+
+If there is no active Tanach selection:
+
+Do NOT show calculated מילוי values for arbitrary text.
+
+Either:
+
+- keep the מילוי disclosure disabled
+or
+- show a quiet state:
+
+בחר אותיות או מילים לחישוב מילוי
+
+Do not guess the intended text.
+
+==================================================
+15. SINGLE LETTER SELECTION
+==================================================
+
+Single letters are valid.
+
+If the user selects:
+
+ב
+
+the reader should calculate its מילוי using the same engine as the calculator.
+
+No special case is needed beyond the existing מילוי logic.
+
+==================================================
+16. MULTI-WORD SELECTION
+==================================================
+
+For a phrase such as:
+
+שמע ישראל
+
+treat the complete selected text as ONE selected phrase for saving and calculation.
+
+Do NOT create separate saved entries for:
+
+שמע
+ישראל
+
+unless the existing save feature explicitly does so elsewhere.
+
+==================================================
+17. MAQAF
+==================================================
+
+Preserve original Tanach display.
+
+For example:
+
+בית־אל
+
+must continue to visually display exactly that way.
+
+For מילוי calculation, use the existing canonical Hebrew normalization/tokenization behavior.
+
+Do not visually rewrite maqaf to spaces.
+
+==================================================
+18. MILUI SETTINGS
+==================================================
+
+If the existing מילוי feature has:
+
+- editable mappings
+- variant preferences
+- app-level default choice
+- "שנה מילוי"
+
+reuse them.
+
+Do NOT add a second settings system to the reader.
+
+If the user changes a מילוי preference here, it should be the same global/app preference used elsewhere.
+
+==================================================
+19. UI DESIGN LANGUAGE
+==================================================
+
+Match the current Tanach Reader precisely:
+
+- cream/off-white
+- navy
+- restrained gold
+- warm borders
+- thin shadows
+- existing radius
+- generous but controlled whitespace
+- RTL
+
+The new component must look like it was part of the original design.
+
+Do NOT add:
+- gradients
+- bright colors
+- dashboard stats
+- illustrations
+- oversized icons
+- dense tables
+- nested cards inside nested cards
+
+==================================================
+20. WORLD-CLASS UX TARGET
+==================================================
+
+The user should be able to:
+
+1. select Tanach text
+2. immediately see its primary gematria
+3. glance at ראשי תיבות
+4. glance at מילוי
+5. expand only if they want deeper מילוי analysis
+
+The sophisticated logic remains underneath.
+
+The reader should still feel calm.
+
+==================================================
+21. VISUAL WEIGHT
+==================================================
+
+The מילוי component should be visually LOWER priority than:
+
+- the Tanach text
+- current selection
+- גימטריה מלאה
+
+Do not make מילוי gold-heavy.
+
+Use gold mainly for:
+- key numeric emphasis
+- active disclosure state
+- selected primary variant
+
+Most typography should remain navy / muted navy.
+
+==================================================
+22. REMOVE DUPLICATED INFORMATION
+==================================================
+
+Do not repeat the same phrase multiple times inside the מילוי section unless necessary.
+
+If the selected Tanach text is already prominently visible above, the מילוי component does not need another giant copy of the selection.
+
+Focus on:
+- expansion
+- values
+- variant differences
+
+==================================================
+23. DETAIL / BREAKDOWN
+==================================================
+
+If the existing מילוי engine supports detailed per-letter/per-word breakdown:
+
+preserve access to it.
+
+But do NOT make it permanently visible.
+
+Put it behind a small:
+
+פירוט
+
+action inside the expanded מילוי state.
+
+Advanced detail is on-demand.
+
+==================================================
+24. EXISTING CALCULATIONS MUST NOT CHANGE
+==================================================
+
+Do not change:
+
+- full gematria
+- ראשי תיבות
+- gematria of ראשי תיבות
+- Tanach selection behavior
+- reader navigation
+- book/parsha/pasuk navigation
+- range selection
+- selected-letter sidebar
+- progress
+- saved range behavior beyond adding the approved מילוי persistence
+
+==================================================
+25. REUSE EXISTING COMPONENTS
+==================================================
+
+Before coding, inspect:
+
+- existing calculator מילוי component
+- existing מילוי calculation hooks/services
+- existing variant preference state
+- existing save-all logic
+- existing Tanach range-save action
+- Tanach reader result components
+
+Prefer extracting/reusing shared presentation pieces rather than duplicating markup.
+
+But do not perform an excessive app-wide refactor.
+
+==================================================
+26. PRODUCTION DATA SAFETY
+==================================================
+
+This production app contains real user data.
+
+Do NOT:
+
+- reset DB
+- truncate tables
+- delete saved entries
+- rewrite saved entries
+- alter Tanach corpus
+- recreate tables
+- copy development DB over production
+
+Prefer NO schema change.
+
+If the existing מילוי persistence already supports this route, reuse it.
+
+If persistence requires an additive change:
+stop first and explain exactly why before performing any risky work.
+
+Existing saved data modified unexpectedly = 0
+Existing saved data deleted = 0
+
+==================================================
+27. PERFORMANCE
+==================================================
+
+Milui calculation should be client/service-level derived data as it is elsewhere.
+
+Changing a Tanach selection should feel immediate.
+
+Do not trigger:
+- unnecessary corpus queries
+- full database searches
+- expensive reindexing
+
+just to display מילוי.
+
+==================================================
+28. ACCESSIBILITY
+==================================================
+
+Ensure:
+
+- accordion/disclosure keyboard accessible
+- proper aria-expanded state
+- buttons have accessible labels
+- focus indicators remain visible
+- RTL reading order remains correct
+
+==================================================
+29. ACCEPTANCE EXAMPLE
+==================================================
+
+User selects:
+
+בראשית
+
+Reader shows existing calculations.
+
+Then beneath:
+
+מילוי
+[primary/default מילוי summary]
+
+User expands.
+
+They see:
+
+PRIMARY:
+expanded spelling
+full מילוי
+מילוי בלבד
+
+אופנים נוספים:
+variant 2
+variant 3
+variant 4
+
+actions:
+שנה מילוי
+פירוט
+שמור כל האופנים
+
+Regular:
+שמור טווח
+
+still means save normal range + primary/default מילוי only.
+
+==================================================
+30. ACCEPTANCE CRITERIA
+==================================================
+
+Complete only when:
+
+1. מילוי works from the exact active Tanach selection.
+2. It updates live when selection changes.
+3. It reuses the existing canonical מילוי engine.
+4. Primary/common מילוי is visible without overwhelming the reader.
+5. Other 3 variants are available only on expansion.
+6. "מילוי בלבד" is available.
+7. Existing variant/settings logic is available.
+8. Regular "שמור טווח" saves default מילוי only.
+9. "שמור כל האופנים" saves all variants.
+10. Empty/no-selection state is handled gracefully.
+11. Single letters work.
+12. Multi-word selections work.
+13. Original Tanach text remains untouched.
+14. UI is clean on desktop/mobile.
+15. No unrelated functionality changes.
+16. Existing production user data remains intact.
+17. Tests and build pass.
+
+==================================================
+31. TESTS
+==================================================
+
+Add/update tests for:
+
+- single-letter Tanach selection → correct מילוי
+- multi-letter selection
+- multi-word selection
+- niqqud/cantillation normalization
+- final letters
+- maqaf
+- changing selection updates calculations
+- no selection state
+- regular save stores default מילוי only
+- save-all stores all variants
+- existing reader calculations remain unchanged
+- calculator מילוי behavior remains unchanged
+
+==================================================
+32. FINAL REPORT
+==================================================
+
+After implementation report:
+
+- components/files changed
+- which existing מילוי logic was reused
+- how selected Tanach text feeds the calculation
+- how the UI is structured collapsed vs expanded
+- exact regular-save behavior
+- exact save-all behavior
+- whether any schema/API change was required
+- confirmation Tanach corpus was untouched
+- confirmation existing saved user data was untouched
+- test/build results
+
+Do not perform unrelated refactors.
