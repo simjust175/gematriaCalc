@@ -1,0 +1,134 @@
+Fix the ראשי תיבות / סופי תיבות letter highlighting.
+
+The current problem is NOT simply that the gold padding is too large.
+
+The highlight span is affecting the horizontal layout of the Hebrew text.
+
+This causes highlighted first/last letters to become visually separated from the rest of their own word.
+
+For example:
+
+שנה
+
+must continue to look like one naturally spaced Hebrew word.
+
+It must NOT visually become:
+
+ש נה
+
+just because ש is highlighted.
+
+Likewise:
+
+בצאתו
+
+must remain naturally joined/spaced as normal Hebrew typography.
+
+==================================================
+REQUIRED SOLUTION
+==================================================
+
+The highlight must NOT change the width, spacing, kerning, or positioning of the Hebrew text.
+
+Do NOT use horizontal padding/margin on the actual letter span.
+
+Preferred implementation:
+
+- keep the matching letter inline in normal text flow
+- padding: 0
+- margin: 0
+- no min-width
+- no altered letter-spacing
+- no flex/grid wrapper around individual Hebrew letters
+
+Create the gold highlight visually BEHIND the glyph using:
+
+- a ::before / ::after pseudo-element
+OR
+- an equivalent absolutely positioned background layer
+
+The background may extend slightly around the glyph visually, but it must NOT consume layout space.
+
+Conceptually:
+
+.highlight-letter {
+  position: relative;
+  display: inline;
+  padding: 0;
+  margin: 0;
+}
+
+.highlight-letter::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  /* small visual extension around the glyph only */
+}
+
+Use the app's existing restrained gold background and subtle radius.
+
+==================================================
+CRITICAL TYPOGRAPHY REQUIREMENT
+==================================================
+
+Normal Hebrew text spacing must remain exactly the same whether a letter is highlighted or not.
+
+Compare:
+
+unhighlighted:
+שנה
+
+highlighted:
+[ש]נה
+
+The distance between ש and נ must be IDENTICAL in both cases.
+
+The gold background is only a visual layer.
+
+It must never insert a gap.
+
+==================================================
+NIQQUD / CANTILLATION
+==================================================
+
+Preserve niqqud and cantillation correctly.
+
+The highlight should belong visually to the base Hebrew letter without:
+
+- separating combining marks
+- moving vowel points
+- changing line height
+- causing marks to overlap neighboring letters
+
+Do not strip or visually reposition niqqud/cantillation.
+
+==================================================
+APPLY CONSISTENTLY
+==================================================
+
+Apply this same non-layout-affecting highlight behavior to:
+
+- Tanach ראשי תיבות results
+- Tanach סופי תיבות results
+- saved-match sidebar ראשי תיבות highlighting
+- saved-match sidebar סופי תיבות highlighting
+
+Do NOT alter normal gematria phrase highlighting.
+
+==================================================
+ACCEPTANCE TEST
+==================================================
+
+The fix is correct only when:
+
+1. Highlighted Hebrew words have exactly the same character spacing as normal Hebrew words.
+2. שנה still visually reads as שנה when ש is highlighted.
+3. בצאתו still visually reads as בצאתו when ב is highlighted.
+4. The gold background remains visible and elegant.
+5. No horizontal padding creates gaps.
+6. Niqqud/cantillation remain correctly attached.
+7. Search logic is unchanged.
+8. No API/database changes.
+
+This is a typography/rendering fix only.
+Do not redesign the cards or result layout.
