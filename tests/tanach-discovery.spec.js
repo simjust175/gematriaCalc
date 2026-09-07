@@ -91,19 +91,21 @@ test('Tanach edge cards highlight only matching initial and final letters', asyn
   const textarea = page.locator('.heb-input');
   const discovery = page.locator('.gematria-discovery');
 
-  await textarea.fill('בא');
+  await textarea.fill('בב');
   await discovery.getByRole('button', { name: 'ראשי תיבות' }).click();
   const initialsCard = discovery.locator('.match-card').filter({ hasText: 'בראשית א:א' }).first();
   await expect(initialsCard).toBeVisible();
-  await expect(initialsCard.locator('.context-text mark')).toHaveText(['ב', 'ב']);
-  await expect(initialsCard.locator('.context-text')).toContainText('בראשית ברא');
+  await expect(initialsCard.locator('.context-text mark')).toHaveText([/^ב/u, /^ב/u]);
+  const initialsText = await initialsCard.locator('.context-text').textContent();
+  expect(initialsText.normalize('NFD').replace(/[\u0591-\u05C7]/gu, '')).toContain('בראשית ברא');
 
   await textarea.fill('תא');
   await discovery.getByRole('button', { name: 'סופי תיבות' }).click();
   const finalsCard = discovery.locator('.match-card').filter({ hasText: 'בראשית א:א' }).first();
   await expect(finalsCard).toBeVisible();
-  await expect(finalsCard.locator('.context-text mark')).toHaveText(['ת', 'א']);
-  await expect(finalsCard.locator('.context-text')).toContainText('בראשית ברא');
+  await expect(finalsCard.locator('.context-text mark')).toHaveText([/^ת/u, /^א/u]);
+  const finalsText = await finalsCard.locator('.context-text').textContent();
+  expect(finalsText.normalize('NFD').replace(/[\u0591-\u05C7]/gu, '')).toContain('בראשית ברא');
 });
 
 test('calculator discovery navigates Tanach scopes with accessible listboxes while preserving the weekly shortcut', async ({ page }, testInfo) => {

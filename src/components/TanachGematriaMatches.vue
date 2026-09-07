@@ -126,7 +126,18 @@
         </div>
         <p class="context-text">
           <span v-if="result.beforeText" class="muted-text">{{ result.beforeText }}</span>
-          <mark>{{ result.text }}</mark>
+          <template v-if="isEdgeMethod">
+            <template v-for="(part, partIndex) in highlightedParts(result.text)" :key="partIndex">
+              <template v-if="part.segments">
+                <template v-for="(segment, segmentIndex) in part.segments" :key="segmentIndex">
+                  <mark v-if="segment.derivedHighlighted">{{ segment.text }}</mark>
+                  <span v-else>{{ segment.text }}</span>
+                </template>
+              </template>
+              <span v-else>{{ part.text }}</span>
+            </template>
+          </template>
+          <mark v-else>{{ result.text }}</mark>
           <span v-if="result.afterText" class="muted-text">{{ result.afterText }}</span>
         </p>
         <footer class="card-actions">
@@ -160,6 +171,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useTanachGematriaMatches } from '@/composables/useTanachGematriaMatches.js';
 import { toHebrewNumber } from '@/composables/useGematria.js';
+import { mapFinalsToOriginalText, mapInitialsToOriginalText } from '@/utils/initialsHighlight.js';
 import TanachScopeSelect from './TanachScopeSelect.vue';
 
 const props = defineProps({
@@ -326,6 +338,13 @@ function typeLabel(type) {
 function citation(item) {
   const book = item.bookName || item.book || item.bookSlug || '';
   return `${book} ${toHebrewNumber(item.chapter)}:${toHebrewNumber(item.verse)}`.trim();
+}
+const isEdgeMethod = computed(() => method.value === 'initials' || method.value === 'finals');
+function highlightedParts(text) {
+  const parts = method.value === 'finals'
+    ? mapFinalsToOriginalText(text, props.pattern)
+    : mapInitialsToOriginalText(text, props.pattern);
+  return parts || [{ text, segments: null }];
 }
 function resultKey(item) {
   return item.id || `${item.bookSlug || item.book || ''}-${item.chapter}-${item.verse}-${item.start}-${item.end}`;
