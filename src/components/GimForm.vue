@@ -12,7 +12,7 @@
             v-model="inputText"
             class="heb-input"
             :class="{ 'heb-input--active': hasInput }"
-            placeholder="הקלד מילה או משפט..."
+            placeholder="הקלד מילה, משפט או מספר..."
             ref="textareaRef"
             dir="rtl"
             autocomplete="off"
@@ -38,6 +38,9 @@
             <span class="mdi mdi-close-circle"></span>
           </button>
         </div>
+        <p v-if="inputInterpretation.error" class="input-validation" role="status">
+          {{ inputInterpretation.error }}
+        </p>
 
         <!-- Results — only when there's valid input -->
         <transition name="results-fade">
@@ -48,7 +51,7 @@
               <div class="result-panel-toolbar">
                 <div class="save-row">
                   <SaveSplitButton
-                    v-if="!miluiOpen"
+                    v-if="!miluiOpen && !isNumericMode"
                     :primary-label="matches.isAlreadySaved ? 'כבר שמור' : saveStatus === 'saved' ? 'נשמר' : 'שמור'"
                     :disabled="saveStatus === 'loading' || matches.isAlreadySaved"
                     @primary="saveEntry"
@@ -64,7 +67,7 @@
                   <div class="primary-result-content">
                     <div class="result-label">גימטריה מלאה</div>
                     <div class="result-value-row">
-                      <span class="result-num primary-num">{{ result.fullGematria }}</span>
+                      <span class="result-num primary-num">{{ result.fullGematria.toLocaleString('he-IL') }}</span>
                       <span class="result-divider">·</span>
                       <span class="result-heb primary-heb">{{ result.fullHebrewNumber }}</span>
                     </div>
@@ -72,19 +75,21 @@
                 </div>
                 <div class="result-section">
                   <div class="result-label">ראשי תיבות</div>
-                  <div class="result-value-row roshei-value">
+                  <div v-if="!isNumericMode" class="result-value-row roshei-value">
                     <span class="roshei-letters">{{ result.initials }}</span>
                     <span class="result-divider">·</span>
                     <span class="result-num secondary-num">{{ result.initialsGematria }}</span>
                   </div>
+                  <div v-else class="result-value-row result-unavailable" aria-label="לא זמין">—</div>
                 </div>
                 <div class="result-section">
                   <div class="result-label">סופי תיבות</div>
-                  <div class="result-value-row roshei-value">
+                  <div v-if="!isNumericMode" class="result-value-row roshei-value">
                     <span class="roshei-letters">{{ result.finals }}</span>
                     <span class="result-divider">·</span>
                     <span class="result-num secondary-num">{{ result.finalsGematria }}</span>
                   </div>
+                  <div v-else class="result-value-row result-unavailable" aria-label="לא זמין">—</div>
                 </div>
               </div>
             </div>
@@ -95,12 +100,15 @@
                   class="milui-toggle"
                   type="button"
                   :aria-expanded="miluiOpen"
+                  :disabled="isNumericMode"
                   aria-controls="milui-calculation"
                   @click="toggleMilui"
                 >
                   <span class="advanced-toggle__copy">
                     <span class="advanced-toggle__label">מילוי</span>
-                    <small class="advanced-toggle__subtitle">חישוב לפי שמות האותיות</small>
+                    <small class="advanced-toggle__subtitle">
+                      {{ isNumericMode ? 'מילוי זמין עבור אותיות ומילים בלבד' : 'חישוב לפי שמות האותיות' }}
+                    </small>
                   </span>
                   <span
                     class="milui-toggle__chevron ui-chevron"
@@ -228,7 +236,7 @@
 
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue';
-import { computeAll } from '@/composables/useGematria.js';
+import { computeAll, interpretGematriaInput } from '@/composables/useGematria.js';
 import { useLiveMatching } from '@/composables/useLiveMatching.js';
 import BaseWordsDisclosure from './BaseWordsDisclosure.vue';
 import SaveSplitButton from './SaveSplitButton.vue';
@@ -272,15 +280,17 @@ const saveAllStatus = ref('idle');
 let saveResetTimer = null;
 
 // ── Computed result ───────────────────────────────────────────────────────────
+const inputInterpretation = computed(() => interpretGematriaInput(inputText.value));
 const result  = computed(() => computeAll(inputText.value));
 const hasInput = computed(() => !!result.value);
+const isNumericMode = computed(() => result.value?.inputMode === 'numeric');
 const matchingContext = computed(() => ({
   explicitMiluiTotal: explicitMiluiTotal.value,
   refresh: miluiMatchRefresh.value,
 }));
 const { matches } = useLiveMatching(result, { context: matchingContext });
 const miluiCalculation = computed(() => {
-  if (!miluiOpen.value || !result.value) return null;
+  if (!miluiOpen.value || !result.value || isNumericMode.value) return null;
   return calculateMilui(inputText.value, miluiMapping.value);
 });
 const havayahMiluiPresets = computed(() => (
@@ -296,6 +306,7 @@ watch(inputText, (val) => {
   saveError.value = '';
   saveAllStatus.value = 'idle';
   explicitMiluiTotal.value = 0;
+  if (isNumericMode.value) miluiOpen.value = false;
   if (!val) {
     miluiOpen.value = false;
     miluiSettingsOpen.value = false;
@@ -308,6 +319,7 @@ watch(inputText, (val) => {
 });
 
 async function toggleMilui() {
+  if (isNumericMode.value) return;
   miluiOpen.value = !miluiOpen.value;
   if (miluiOpen.value) {
     await loadMiluiSettings();
@@ -488,6 +500,9 @@ async function saveAsBaseWord() {
 .advanced-tools { display: flex; flex-direction: column; gap: 9px; }
 :deep(.gematria-discovery) { margin-top: 10px; }
 .match-col  { position: sticky; top: 88px; }
+.input-validation { margin: -7px 4px 0; color: #9a5e42; font-size: .76rem; }
+.result-unavailable { color: var(--text-secondary, #74716a); font-weight: 500; }
+.milui-toggle:disabled { cursor: default; opacity: .68; }
 
 /* Hide mobile match panel on desktop, desktop aside on mobile */
 .match-col-mobile { display: none; }

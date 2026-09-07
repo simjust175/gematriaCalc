@@ -192,6 +192,31 @@ test('GET /api/matches with valid session returns 200', async () => {
   assert.notEqual(res.status, 401);
 });
 
+test('bare numeric values can be matched but cannot be saved as phrase entries', async () => {
+  const agent = request.agent(app);
+  await agent.post('/api/auth/login').send({ password: 'correct-test-password-12345' });
+
+  const matchRes = await agent.get('/api/matches?normalizedText=602');
+  assert.equal(matchRes.status, 200);
+
+  const largeDiscovery = await agent
+    .get('/api/tanach/gematria-matches')
+    .query({ value: 100001 });
+  assert.equal(largeDiscovery.status, 200);
+  assert.equal(largeDiscovery.body.target, 100001);
+  assert.equal(largeDiscovery.body.total, 0);
+
+  const saveRes = await agent.post('/api/entries').send({ originalText: '602' });
+  assert.equal(saveRes.status, 400);
+  assert.equal(saveRes.body.error, 'numeric_entry_not_supported');
+
+  const saveAllRes = await agent
+    .post('/api/milui-interpretations/save-all')
+    .send({ originalText: '602' });
+  assert.equal(saveAllRes.status, 400);
+  assert.equal(saveAllRes.body.error, 'numeric_entry_not_supported');
+});
+
 test('saved library search, summaries, and sorting compose without changing saved data', async () => {
   const agent = request.agent(app);
   await agent.post('/api/auth/login').send({ password: 'correct-test-password-12345' });
@@ -1564,7 +1589,7 @@ test('Tanach gematria discovery validates, paginates, filters, and preserves can
 
   for (const query of [
     { value: 0 },
-    { value: 100001 },
+    { value: '9007199254740992' },
     { value: 913, type: 'unknown' },
     { value: 913, page: 0 },
     { value: 913, limit: 0 },

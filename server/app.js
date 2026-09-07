@@ -704,6 +704,9 @@ app.post('/api/entries', requireAuth, async (req, res) => {
     if (!calculated) {
       return res.status(400).json({ error: 'missing_fields' });
     }
+    if (calculated.inputMode === 'numeric') {
+      return res.status(400).json({ error: 'numeric_entry_not_supported' });
+    }
 
     client = await pool.connect();
     await client.query('BEGIN');

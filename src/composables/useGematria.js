@@ -28,6 +28,7 @@ const HEBREW_NUMBER_MAP = [
   [10, 'י'], [9, 'ט'], [8, 'ח'], [7, 'ז'], [6, 'ו'], [5, 'ה'],
   [4, 'ד'], [3, 'ג'], [2, 'ב'], [1, 'א'],
 ];
+const MAX_HEBREW_NUMBER_CHARACTERS = 512;
 
 /**
  * Strip niqqud (U+05B0–U+05C7), cantillation (U+0591–U+05AF), punctuation,
@@ -60,7 +61,10 @@ export function calcGematria(text) {
  * Examples: 21→כא, 310→שי, 951→תתקנא
  */
 export function toHebrewNumber(n) {
-  if (!n || n <= 0) return '';
+  if (!Number.isSafeInteger(n) || n <= 0) return '';
+  // The legacy representation repeats ת for each 400. Keep it for ordinary
+  // values, but never allocate an unbounded string for very large targets.
+  if (Math.floor(n / 400) > MAX_HEBREW_NUMBER_CHARACTERS) return '—';
   let result = '';
   let rem = n;
   for (const [val, letters] of HEBREW_NUMBER_MAP) {
@@ -115,9 +119,55 @@ export function getWordBreakdown(text) {
     });
 }
 
+/**
+ * Interpret calculator input without changing Hebrew normalization rules.
+ * Valid direct numbers are positive safe integers, optionally comma-grouped.
+ */
+export function interpretGematriaInput(text) {
+  const raw = String(text || '');
+  const trimmed = raw.trim();
+  if (!trimmed) return { mode: 'empty', numericValue: null, error: '' };
+
+  const plainInteger = /^\d+$/u.test(trimmed);
+  const groupedInteger = /^[1-9]\d{0,2}(?:,\d{3})+$/u.test(trimmed);
+  if (plainInteger || groupedInteger) {
+    const numericValue = Number(trimmed.replaceAll(',', ''));
+    if (Number.isSafeInteger(numericValue) && numericValue > 0) {
+      return { mode: 'numeric', numericValue, error: '' };
+    }
+    return { mode: 'invalid', numericValue: null, error: 'נא להזין מספר שלם וחיובי' };
+  }
+
+  if (/^[\d,.\-+\s]+$/u.test(trimmed)) {
+    return { mode: 'invalid', numericValue: null, error: 'נא להזין מספר שלם וחיובי' };
+  }
+
+  return { mode: 'hebrew', numericValue: null, error: '' };
+}
+
 /** Compute the full result object for any input string. Returns null if empty/zero. */
 export function computeAll(text) {
-  if (!text || !text.trim()) return null;
+  const interpretation = interpretGematriaInput(text);
+  if (interpretation.mode === 'empty' || interpretation.mode === 'invalid') return null;
+
+  if (interpretation.mode === 'numeric') {
+    const fullGematria = interpretation.numericValue;
+    return {
+      inputMode: 'numeric',
+      normalizedText: String(fullGematria),
+      letterPattern: '',
+      fullGematria,
+      fullHebrewNumber: toHebrewNumber(fullGematria),
+      initials: '',
+      initialsGematria: 0,
+      initialsHebrewNumber: '',
+      finals: '',
+      finalsGematria: 0,
+      finalsHebrewNumber: '',
+      words: [],
+    };
+  }
+
   const norm = normalize(text);
   if (!norm) return null;
 
@@ -132,6 +182,7 @@ export function computeAll(text) {
   const letterPattern = getHebrewLetterPattern(norm);
 
   return {
+    inputMode: 'hebrew',
     normalizedText: norm,
     letterPattern,
     fullGematria,

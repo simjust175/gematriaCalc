@@ -15,6 +15,7 @@ import {
   getFinals,
   getWordBreakdown,
   computeAll,
+  interpretGematriaInput,
 } from '../src/composables/useGematria.js';
 import { useLiveMatching } from '../src/composables/useLiveMatching.js';
 import { useTanachGematriaMatches } from '../src/composables/useTanachGematriaMatches.js';
@@ -106,6 +107,36 @@ test('Tanach edge pattern uses every entered Hebrew letter, ignoring formatting 
 test('empty string returns null', () => {
   assert.equal(computeAll(''), null);
   assert.equal(computeAll('   '), null);
+});
+
+test('direct numeric input uses the whole positive integer as gematria', () => {
+  const plain = computeAll('602');
+  assert.equal(plain.inputMode, 'numeric');
+  assert.equal(plain.fullGematria, 602);
+  assert.equal(plain.fullHebrewNumber, 'תרב');
+  assert.equal(plain.initials, '');
+  assert.equal(plain.initialsGematria, 0);
+  assert.equal(plain.finals, '');
+  assert.equal(plain.letterPattern, '');
+  assert.deepEqual(plain.words, []);
+
+  assert.equal(computeAll(' 1,112 ').fullGematria, 1112);
+  assert.equal(computeAll('00602').fullGematria, 602);
+  assert.equal(computeAll('18').fullHebrewNumber, 'יח');
+  const large = computeAll('9007199254740991');
+  assert.equal(large.fullGematria, Number.MAX_SAFE_INTEGER);
+  assert.equal(large.fullHebrewNumber, '—');
+});
+
+test('numeric interpretation rejects invalid targets and preserves mixed Hebrew input', () => {
+  for (const input of ['0', '-18', '18.5', '1,12', '9007199254740992']) {
+    assert.equal(interpretGematriaInput(input).mode, 'invalid');
+    assert.equal(computeAll(input), null);
+  }
+
+  const mixed = computeAll('שלום 602');
+  assert.equal(mixed.inputMode, 'hebrew');
+  assert.equal(mixed.fullGematria, computeAll('שלום').fullGematria);
 });
 
 // ── ראשי תיבות ───────────────────────────────────────────────────────────────

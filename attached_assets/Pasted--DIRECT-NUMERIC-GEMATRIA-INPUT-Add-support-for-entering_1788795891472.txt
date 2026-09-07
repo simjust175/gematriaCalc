@@ -1,0 +1,559 @@
+# DIRECT NUMERIC GEMATRIA INPUT
+
+Add support for entering a NUMBER directly into the main calculator input.
+
+The client wants to be able to type:
+
+602
+
+and have the app understand:
+
+"The desired gematria value is 602."
+
+This should feel completely natural and require NO separate mode toggle.
+
+==================================================
+1. AUTOMATIC INPUT MODE
+==================================================
+
+The main calculator should automatically distinguish between:
+
+A. Hebrew text input
+B. Pure numeric input
+
+If the input contains Hebrew letters:
+use the existing normal Hebrew gematria behavior.
+
+If the input is purely numeric:
+treat that number itself as the current full gematria value.
+
+Example:
+
+Input:
+602
+
+Result:
+
+גימטריה מלאה
+602 · תרב
+
+Do NOT calculate:
+
+6 + 0 + 2
+
+Do NOT treat the individual digits as characters.
+
+The numeric value itself is the gematria target.
+
+==================================================
+2. ACCEPT COMMON NUMBER FORMATS
+==================================================
+
+Support:
+
+602
+1112
+1,112
+13,657
+
+Trim surrounding whitespace.
+
+Examples:
+
+" 602 "
+→ 602
+
+"1,112"
+→ 1112
+
+Do not allow malformed numeric strings to silently become values.
+
+==================================================
+3. PURE NUMERIC MODE ONLY
+==================================================
+
+Only activate direct-number mode when the input is clearly numeric.
+
+Examples:
+
+602
+→ numeric mode
+
+1,112
+→ numeric mode
+
+שלום
+→ normal Hebrew mode
+
+שלום 602
+→ normal text mode
+
+Do NOT interpret numbers embedded inside Hebrew text as a numeric override.
+
+Preserve the existing Hebrew-text normalization behavior for mixed input.
+
+==================================================
+4. HEBREW NUMERAL
+==================================================
+
+Reuse the existing Hebrew-number formatter.
+
+Example:
+
+18
+→ 18 · יח
+
+26
+→ 26 · כו
+
+602
+→ 602 · תרב
+
+1112
+→ 1,112 + the app's existing correct Hebrew-numeral representation
+
+Do not create another numeral conversion implementation.
+
+==================================================
+5. MAIN RESULT UI
+==================================================
+
+Do NOT add a new large "numeric mode" panel.
+
+The user types the number into the SAME existing calculator box.
+
+The normal גימטריה מלאה result simply displays that value.
+
+A tiny subtle indication may appear near the input/result, such as:
+
+ערך מספרי
+
+but only if it genuinely improves clarity.
+
+Avoid adding another toggle or toolbar.
+
+The experience should feel:
+
+"type 602 → get gematria 602"
+
+==================================================
+6. TANACH GEMATRIA SEARCH
+==================================================
+
+This is one of the main reasons for the feature.
+
+If the user types:
+
+602
+
+then the Tanach discovery section should search for:
+
+gematria value 602
+
+exactly as if Hebrew text with gematria 602 had been entered.
+
+Therefore existing:
+
+"איפה עוד מופיע הערך 602?"
+
+must work normally.
+
+All existing whole-word / multi-word Tanach gematria matching rules remain unchanged.
+
+==================================================
+7. SAVED MATCHES
+==================================================
+
+Saved-entry matching that depends on FULL GEMATRIA should work.
+
+Example:
+
+numeric input:
+602
+
+If saved entries have full gematria 602:
+
+show them in התאמות שמורות.
+
+This is useful because the user may know only the number and want to discover what has already been saved at that value.
+
+==================================================
+8. מילות יסוד
+==================================================
+
+מילות יסוד matching should also work because it depends on the current numeric full-gematria value.
+
+Example:
+
+numeric input:
+260
+
+base word:
+יהוה = 26
+
+Result:
+
+יהוה
+נכנס 10 פעמים (י׳)
+
+This remains valid even though the input itself is numeric.
+
+==================================================
+9. ראשי תיבות
+==================================================
+
+A pure number has no Hebrew letters.
+
+Therefore normal calculator:
+
+ראשי תיבות
+
+cannot be derived.
+
+Do NOT invent initials from digits.
+
+In numeric mode, show a quiet unavailable state such as:
+
+—
+
+or hide/disable the value appropriately while keeping the layout stable.
+
+Do not display misleading data.
+
+==================================================
+10. גימטריית ראשי תיבות
+==================================================
+
+Likewise, no ראשי תיבות means no גימטריית ר״ת.
+
+Show:
+
+—
+
+or equivalent quiet unavailable state.
+
+Do not treat the entered number as גימטריית ר״ת.
+
+==================================================
+11. MILUI
+==================================================
+
+A pure numeric value has no Hebrew letters to spell out.
+
+Therefore מילוי is NOT calculable from a numeric-only input.
+
+When numeric mode is active:
+
+either disable the מילוי disclosure
+
+or show a quiet message:
+
+מילוי זמין עבור אותיות ומילים בלבד
+
+Do NOT invent a מילוי for the Hebrew numeral representation.
+
+For example:
+
+602
+
+must NOT automatically calculate מילוי of:
+
+תרב
+
+because תרב is only the display representation of the number, not the user's entered Hebrew text.
+
+==================================================
+12. TANACH ראשי תיבות / סופי תיבות
+==================================================
+
+Numeric input also has no letter sequence.
+
+Therefore Tanach search modes:
+
+ראשי תיבות
+סופי תיבות
+
+should be unavailable for numeric input.
+
+גימטריה remains available.
+
+Suggested behavior:
+
+גימטריה = active
+
+ראשי תיבות = disabled
+סופי תיבות = disabled
+
+Optional tooltip/helper:
+
+נדרש טקסט עברי
+
+Keep this visually subtle.
+
+==================================================
+13. AUTOMATIC HEBREW KEYBOARD
+==================================================
+
+The global automatic-Hebrew typing feature must NOT interfere with numeric entry.
+
+Number keys must remain numbers.
+
+Typing:
+
+602
+
+must result in:
+
+602
+
+even when:
+
+מקלדת עברית אוטומטית
+
+is enabled.
+
+Do not convert digits into Hebrew characters.
+
+==================================================
+14. EDITING BEHAVIOR
+==================================================
+
+Mode detection must update live.
+
+Example:
+
+user types:
+
+6
+→ numeric mode, value 6
+
+60
+→ numeric mode, value 60
+
+602
+→ numeric mode, value 602
+
+If they then add a Hebrew letter:
+
+602ש
+
+it is no longer a pure numeric input.
+
+Fall back to the normal text-input rules.
+
+No page reload or explicit mode change.
+
+==================================================
+15. LEADING ZEROES
+==================================================
+
+Normalize numeric input sensibly.
+
+Example:
+
+00602
+
+should resolve numerically to:
+
+602
+
+Do not display misleading leading zeroes in calculated results.
+
+The text box itself may preserve what the user typed while focused if that is easiest, but the calculated value is 602.
+
+==================================================
+16. ZERO / NEGATIVE / DECIMAL VALUES
+==================================================
+
+Gematria targets should be positive whole numbers.
+
+Therefore:
+
+0
+negative values
+decimal values
+
+should NOT become valid gematria searches.
+
+Examples:
+
+0
+-18
+18.5
+
+show a quiet validation state.
+
+Do not send invalid values into Tanach search.
+
+==================================================
+17. LARGE VALUES
+==================================================
+
+Do not impose an arbitrary small limit unless the existing gematria engine/search architecture requires one.
+
+Use safe integer validation.
+
+If the Tanach search naturally has no result for a large number, simply show zero results.
+
+==================================================
+18. REGULAR SAVE
+==================================================
+
+Do NOT automatically create a normal phrase save from a bare number unless the existing product behavior clearly supports numeric-only saved entries.
+
+Preferred behavior:
+
+For pure numeric input, ordinary "שמור" should be disabled or unavailable because there is no Hebrew phrase to save.
+
+The user can still:
+- search Tanach
+- inspect saved matches
+- inspect מילות יסוד relationships
+
+Do not create fake saved text such as "602" unless there is already an approved numeric-entry model.
+
+==================================================
+19. KEEP LAYOUT STABLE
+==================================================
+
+Numeric mode should not cause the calculator layout to jump around.
+
+The three existing result areas should remain visually aligned.
+
+Example:
+
+גימטריה מלאה
+602 · תרב
+
+ראשי תיבות
+—
+
+גימטריית ר״ת
+—
+
+This is preferable to completely removing cards and moving the rest of the page.
+
+==================================================
+20. SHARED INTERNAL MODEL
+==================================================
+
+Do not scatter checks like:
+
+if (/^\d+$/)
+
+through many components.
+
+Centralize input interpretation.
+
+Conceptually derive something like:
+
+inputMode:
+"hebrew" | "numeric" | "empty"
+
+numericGematriaValue:
+number | null
+
+Then downstream features can consume the appropriate state.
+
+Follow the existing architecture rather than forcing this exact type shape if there is a cleaner existing pattern.
+
+==================================================
+21. DO NOT CHANGE GEMATRIA LOGIC
+==================================================
+
+The normal Hebrew calculator must remain exactly as it works today.
+
+Do not modify:
+- Hebrew gematria calculation
+- ראשי תיבות derivation
+- סופי תיבות
+- מילוי mappings
+- Tanach corpus
+- saved data
+- מילות יסוד calculation
+
+This is an additional input interpretation layer.
+
+==================================================
+22. NO DATABASE CHANGE
+==================================================
+
+No database/schema migration should be needed.
+
+Do NOT:
+- alter tables
+- rewrite saved entries
+- modify Tanach corpus
+- reset DB
+- copy development DB to production
+
+==================================================
+23. TESTS
+==================================================
+
+Add regression tests proving:
+
+1. input "602" → full gematria 602
+2. input "1,112" → full gematria 1112
+3. input "18" → Hebrew numeral יח using existing formatter
+4. digits are NOT summed individually
+5. numeric mode works while automatic Hebrew keyboard is enabled
+6. numeric value drives Tanach gematria search
+7. numeric value drives full-gematria saved matching
+8. numeric value drives מילות יסוד divisibility matching
+9. ראשי תיבות unavailable in numeric mode
+10. גימטריית ר״ת unavailable
+11. מילוי unavailable
+12. Tanach ר״ת / ס״ת modes unavailable
+13. 0 rejected
+14. negative values rejected
+15. decimals rejected
+16. normal Hebrew input behavior is unchanged
+17. mixed Hebrew/numeric input does NOT trigger direct-number mode
+
+==================================================
+24. UX TARGET
+==================================================
+
+The client should be able to do this:
+
+type:
+
+602
+
+and instantly see:
+
+גימטריה מלאה
+602 · תרב
+
+Then immediately use:
+
+Tanach discovery
+saved matches
+מילות יסוד
+
+for value 602.
+
+No mode selection.
+No extra form.
+No settings.
+
+It should simply work.
+
+==================================================
+25. FINAL REPORT
+==================================================
+
+After implementation report:
+
+- where input-mode detection was centralized
+- supported numeric formats
+- behavior of ראשי תיבות / מילוי in numeric mode
+- Tanach behavior
+- saved-match behavior
+- מילות יסוד behavior
+- confirmation automatic Hebrew keyboard leaves digits untouched
+- confirmation no DB/schema changes occurred
+- test/build results
+
+Do not perform unrelated refactors.

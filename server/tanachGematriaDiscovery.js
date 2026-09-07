@@ -4,7 +4,6 @@ import { toHebrewNumber } from '../src/composables/useGematria.js';
 import { getCurrentWeeklyParshah } from './tanachWeeklyParsha.js';
 import { TANACH_PARSHIOT } from './tanachParshiot.js';
 
-export const MAX_GEMATRIA_TARGET = 100000;
 export const MAX_GEMATRIA_PAGE_SIZE = 50;
 
 const VALID_TYPES = new Set(['all', 'whole_word', 'whole_phrase', 'partial']);
@@ -151,7 +150,7 @@ export function parseGematriaSearchQuery(query) {
   if (query.method != null && typeof query.method !== 'string') return { error: 'invalid_match_method' };
   if (!VALID_METHODS.has(method)) return { error: 'invalid_match_method' };
   if (method === 'gematria') {
-    if (!isScalar(query.value) || !Number.isSafeInteger(value) || value < 1 || value > MAX_GEMATRIA_TARGET) {
+    if (!isScalar(query.value) || !Number.isSafeInteger(value) || value < 1) {
       return { error: 'invalid_gematria_value' };
     }
     if (query.sequence != null || query.word_count != null) return { error: 'invalid_match_query' };

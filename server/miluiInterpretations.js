@@ -273,6 +273,11 @@ async function ensureSavedEntry(verified, db) {
 
 export async function saveAllCommonMiluiForms(originalText, db, { tanachContext = null } = {}) {
   const verified = await verifyTanachSaveContext(originalText, tanachContext, db);
+  if (verified.calculated.inputMode === 'numeric') {
+    const error = new Error('Numeric entries cannot be saved');
+    error.code = 'NUMERIC_ENTRY_NOT_SUPPORTED';
+    throw error;
+  }
   originalText = verified.originalText;
   const { mapping } = await getActiveMapping(db);
   const occurrences = getMiluiVariantOccurrences(originalText, mapping);
@@ -421,6 +426,9 @@ export function registerMiluiInterpretationRoutes(app, {
       await client.query('ROLLBACK').catch(() => {});
       if (error.code === 'MISSING_FIELDS') {
         return res.status(400).json({ error: 'missing_fields' });
+      }
+      if (error.code === 'NUMERIC_ENTRY_NOT_SUPPORTED') {
+        return res.status(400).json({ error: 'numeric_entry_not_supported' });
       }
       if (error.code === 'INVALID_TANACH_CONTEXT') {
         return res.status(400).json({ error: 'invalid_tanach_context' });
