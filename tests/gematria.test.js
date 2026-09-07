@@ -370,6 +370,15 @@ test('initials and finals highlighting share canonical maqaf and hyphen word bou
   }
 });
 
+test('final highlighting preserves and highlights displayed final forms', () => {
+  const parts = mapFinalsToOriginalText('מלך שלום', 'כם');
+  assert.ok(parts);
+  const highlighted = parts.flatMap(part => part.segments || [])
+    .filter(segment => segment.derivedHighlighted);
+  assert.deepEqual(highlighted.map(segment => segment.text), ['ך', 'ם']);
+  assert.equal(parts.map(part => part.text).join(''), 'מלך שלום');
+});
+
 test('live matching clears old reasons and ignores stale A → B → A responses', async () => {
   const pending = [];
   const fetchImpl = () => {

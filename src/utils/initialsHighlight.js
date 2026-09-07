@@ -2,6 +2,7 @@ import { isHebrewWordBoundary, normalize } from '../composables/useGematria.js';
 
 const HEBREW_LETTER = /^[\u05D0-\u05EA]$/;
 const HEBREW_MARK = /^[\u0591-\u05C7]$/;
+const FINAL_TO_STANDARD = { ך: 'כ', ם: 'מ', ן: 'נ', ף: 'פ', ץ: 'צ' };
 
 function splitGraphemeLikeClusters(text) {
   const clusters = [];
@@ -17,6 +18,10 @@ function splitGraphemeLikeClusters(text) {
 
 function firstHebrewLetter(cluster) {
   return [...cluster].find(character => HEBREW_LETTER.test(character)) || '';
+}
+
+function comparableEdgeLetter(letter, edge) {
+  return edge === 'last' ? (FINAL_TO_STANDARD[letter] || letter) : letter;
 }
 
 function splitAtHebrewWordBoundaries(text) {
@@ -62,8 +67,15 @@ function mapDerivedLettersToOriginalText(originalText, expectedLetters, edge) {
     tokenMappings.push({ partIndex, clusterIndex, clusters });
   }
 
-  const expected = normalize(String(expectedLetters || '')).replace(/\s+/g, '');
-  if (!expected || reconstructedInitials.join('') !== expected) return null;
+  const expected = normalize(String(expectedLetters || ''))
+    .replace(/\s+/g, '')
+    .split('')
+    .map(letter => comparableEdgeLetter(letter, edge))
+    .join('');
+  const reconstructed = reconstructedInitials
+    .map(letter => comparableEdgeLetter(letter, edge))
+    .join('');
+  if (!expected || reconstructed !== expected) return null;
 
   const highlightedByPart = new Map(
     tokenMappings.map(mapping => [mapping.partIndex, mapping])

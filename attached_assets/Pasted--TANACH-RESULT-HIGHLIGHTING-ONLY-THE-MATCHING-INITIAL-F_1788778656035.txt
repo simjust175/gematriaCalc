@@ -1,0 +1,215 @@
+# TANACH RESULT HIGHLIGHTING — ONLY THE MATCHING INITIAL/FINAL LETTERS
+
+The ראשי תיבות / סופי תיבות Tanach search logic is now correct.
+
+This task is ONLY to refine how matching results are highlighted.
+
+CURRENT PROBLEM:
+
+In Tanach result cards, the entire matched words/phrase are currently receiving the gold background.
+
+That is too visually heavy and does not clearly show WHY the result matched.
+
+==================================================
+REQUIRED BEHAVIOR
+==================================================
+
+For ראשי תיבות results:
+
+highlight ONLY the FIRST matching Hebrew letter of each matched word.
+
+Example pattern:
+
+שבמ
+
+Matched phrase:
+
+שמע בני מוסר
+
+Display conceptually as:
+
+[ש]מע [ב]ני [מ]וסר
+
+Only:
+
+ש
+ב
+מ
+
+should have the existing restrained gold background.
+
+The rest of each word should remain normal text.
+
+==================================================
+סופי תיבות
+==================================================
+
+For סופי תיבות results:
+
+highlight ONLY the FINAL matching Hebrew letter of each matched word.
+
+Example:
+
+word1 → final matching letter highlighted
+word2 → final matching letter highlighted
+word3 → final matching letter highlighted
+
+Do NOT highlight the entire words.
+
+==================================================
+IMPORTANT
+==================================================
+
+Preserve:
+
+- original Tanach spelling
+- original maqaf
+- niqqud/cantillation display
+- punctuation
+- verse context
+- card layout
+- reader links
+- save-range behavior
+
+Only change the visual highlight spans.
+
+==================================================
+FINAL LETTER FORMS
+==================================================
+
+If a סופי תיבות pattern matches via normalized final forms:
+
+כ ↔ ך
+מ ↔ ם
+נ ↔ ן
+פ ↔ ף
+צ ↔ ץ
+
+highlight the ACTUAL displayed final-form character from the Tanach text.
+
+Example:
+
+pattern:
+מ
+
+word ends:
+ם
+
+Then highlight:
+
+ם
+
+Do not visually replace it with מ.
+
+==================================================
+MAQAF
+==================================================
+
+If a phrase contains:
+
+בית־אל
+
+and it is treated internally as two logical words:
+
+preserve the displayed:
+
+בית־אל
+
+If ראשי תיבות matches both logical words:
+
+highlight only:
+
+ב in בית
+א in אל
+
+Do NOT highlight the maqaf.
+
+==================================================
+GEMATRIA RESULTS
+==================================================
+
+Do NOT apply this change to normal גימטריה matching.
+
+The existing gematria phrase/word highlighting can remain as it is.
+
+This letter-only highlighting applies only when search method is:
+
+ראשי תיבות
+or
+סופי תיבות
+
+==================================================
+VISUAL STYLE
+==================================================
+
+Reuse the existing restrained gold highlight.
+
+Do not:
+
+- increase saturation
+- add outlines
+- add badges
+- underline the letters
+- make the letters oversized
+
+The gold background alone should indicate the matched initials/finals.
+
+==================================================
+SIDEBAR CONSISTENCY
+==================================================
+
+Use the SAME visual logic as the existing saved-match sidebar:
+
+ראשי תיבות:
+only first letters highlighted
+
+סופי תיבות:
+only final letters highlighted
+
+The Tanach cards and sidebar should feel consistent.
+
+==================================================
+TESTS
+==================================================
+
+Add/update rendering tests proving:
+
+1. ראשי תיבות match שבמ on שמע בני מוסר highlights only:
+   ש
+   ב
+   מ
+
+2. The remaining letters in each word have no gold highlight.
+
+3. סופי תיבות highlights only the final matching letters.
+
+4. Final-letter forms display correctly.
+
+5. Maqaf remains unhighlighted and visible.
+
+6. גימטריה result highlighting remains unchanged.
+
+==================================================
+NO OTHER CHANGES
+==================================================
+
+Do not change:
+
+- search logic
+- counts
+- pagination
+- tokenizer
+- database
+- APIs
+- card structure
+- filters
+
+This is UI rendering only.
+
+After implementation report:
+
+- component changed
+- how initial/final letter spans are identified
+- confirmation full words are no longer highlighted for ר״ת/ס״ת
+- confirmation gematria highlighting is unchanged
+- test/build result
