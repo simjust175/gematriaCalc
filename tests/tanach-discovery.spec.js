@@ -16,6 +16,12 @@ test('calculator discovery filters and opens the exact canonical Tanach range', 
 
   const discovery = page.locator('.gematria-discovery');
   await expect(discovery.getByRole('heading')).toContainText('913');
+  await expect(discovery.getByRole('button', { name: /הכול/ })).toBeVisible();
+  await expect(discovery.getByRole('button', { name: /חלקי? מילים|חלק ממילה/ })).toHaveCount(0);
+  await expect(discovery.locator('.match-card:not(.skeleton-card)').first()).toBeVisible();
+  const allTypeLabels = await discovery.locator('.type-label').allTextContents();
+  expect(allTypeLabels.length).toBeGreaterThan(0);
+  expect(allTypeLabels.every(label => ['מילה אחת', 'מילים שלימות'].includes(label.trim()))).toBe(true);
   await discovery.getByRole('button', { name: /מילה שלמה/ }).click();
 
   const genesis = discovery.locator('.match-card').filter({
@@ -42,7 +48,7 @@ test('changing target clears stale cards immediately and load more appends serve
   await expect(discovery.getByRole('heading')).toContainText('376');
   await expect(discovery.locator('.match-card:not(.skeleton-card)')).toHaveCount(0);
 
-  await textarea.fill('א');
+  await textarea.fill('בראשית');
   await expect(discovery.locator('.load-more')).toBeVisible();
   await expect(discovery.locator('.match-card:not(.skeleton-card)')).toHaveCount(12);
   await discovery.locator('.load-more').click();

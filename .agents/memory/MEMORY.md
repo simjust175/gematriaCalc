@@ -4,6 +4,7 @@
 - [Derived מילוי matching](milui-derived-matching.md) — default מילוי stays derived; deliberate occurrence-level variants may be saved separately
 - [Saved-entry integrity](saved-entry-integrity.md) — Server recalculates saved gematria data and backfills existing entries
 - [Tanach parashah citations](tanach-parashah-citations.md) — Validate portion ranges against UXLC’s Hebrew numbering, not English verse numbering
+- [Tanach discovery “all” filter](tanach-discovery-all-filter.md) — “הכול” includes only complete words and contiguous whole-word phrases, never partial ranges
 - [UXLC representation upgrades](uxlc-representation-upgrades.md) — Pointed qere display is versioned; discovery cache follows corpus revisions
 - [Reliable browser tests](browser-tests-nix.md) — Use Nix Chromium, isolate saved data, and keep decorative icons out of accessible names
 - [Production startup readiness](production-startup-readiness.md) — Autoscale health checks need the app shell before corpus/database initialization completes

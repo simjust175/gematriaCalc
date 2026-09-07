@@ -1744,14 +1744,15 @@ test('qere representation is identical across discovery, exact opening data, and
     ['Kings_2:18:27', null],
     ['Isaiah:36:12', null],
   ]);
-  // UXLC 2.5 canonical positions for the two qere occurrences. Requesting
-  // distant pages also verifies that server pagination does not rescan or lose
-  // exact ranges after the first target scan.
-  for (const page of [146, 158]) {
+  // These qere strings are internal ranges within larger verse words, so this
+  // representation-focused test requests the explicit partial classification.
+  for (const scope of [
+    { chapter_book: 'Kings_2', chapter: 18, verse: 27, type: 'whole_word' },
+    { chapter_book: 'Isaiah', chapter: 36, verse: 12, type: 'partial' },
+  ]) {
     const response = await agent.get('/api/tanach/gematria-matches').query({
       value: target,
-      type: 'all',
-      page,
+      ...scope,
       limit: 50,
     });
     assert.equal(response.status, 200);
