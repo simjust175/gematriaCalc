@@ -1,0 +1,51 @@
+Refine the visual styling of highlighted letters in the gematria app.
+
+IMPORTANT:
+The problem is NOT the card padding.
+The problem is the highlighted gold background around selected letters.
+
+Current issue:
+The highlighted letters in ראשי תיבות / סופי תיבות have too much horizontal padding, so they look bulky and create too much spacing on the x-axis.
+
+Goal:
+Make the highlight background hug the selected letter tightly and elegantly, while preserving readability and the premium look.
+
+Apply this everywhere the same highlight style is used, especially:
+- Tanach result cards
+- sidebar saved-match cards
+- ראשי תיבות results
+- סופי תיבות results
+
+Design requirements:
+- highlight only the actual selected letter(s), not the full word
+- keep the gold background
+- reduce horizontal padding significantly
+- reduce vertical padding slightly
+- keep a small subtle border radius
+- do not add large margins between highlighted letters
+- do not let the highlight create excessive spacing between adjacent letters
+- maintain beautiful RTL rendering
+- preserve niqqud / cantillation rendering behavior
+
+Implementation guidance:
+- inspect the element/class used for highlighted letters
+- remove any oversized inline padding or min-width
+- use a tight inline highlight style, for example:
+  - display: inline-block
+  - line-height: 1
+  - padding-inline: about 0.12em–0.18em
+  - padding-block: about 0.02em–0.08em
+  - border-radius: about 4px–6px
+  - margin-inline: 0.02em–0.05em at most
+  - width: auto
+  - min-width: 0
+- if there is nested wrapping that adds extra spacing, simplify it
+- avoid chunky pill-button appearance
+
+Important:
+Do NOT redesign the cards.
+Do NOT change the general layout.
+This is a micro-polish task focused specifically on the highlighted background around matched letters.
+
+Desired result:
+The selected letters should look like refined, tight gold highlights that sit naturally inside the Hebrew text, without creating large horizontal gaps.

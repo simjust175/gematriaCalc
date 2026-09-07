@@ -370,11 +370,15 @@ function matchedMiluiSummary(match) {
 }
 
 .match-text__initial {
-  padding: 0;
-  margin: 0;
-  border-radius: 2px;
+  display: inline-block;
+  width: auto;
+  min-width: 0;
+  margin-inline: .02em;
+  padding: .03em .14em;
+  border-radius: 4px;
   background: rgba(213, 173, 79, 0.25);
   color: #192844;
+  line-height: 1.08;
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
 }

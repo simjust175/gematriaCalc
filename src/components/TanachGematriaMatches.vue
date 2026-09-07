@@ -435,7 +435,19 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .citation strong { font-size: .94rem; }
 .citation span { color: var(--text-secondary, #74716a); font-size: .68rem; }
 .context-text { margin: 12px 0 16px; color: #5b5a56; font-family: "Noto Serif Hebrew", "Times New Roman", serif; font-size: 1.08rem; line-height: 1.9; }
-.context-text mark { padding: 2px 4px; border-radius: 3px; background: #f2e4bd; color: #4e3b13; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.context-text mark {
+  display: inline-block;
+  width: auto;
+  min-width: 0;
+  margin-inline: .02em;
+  padding: .03em .14em;
+  border-radius: 4px;
+  background: #f2e4bd;
+  color: #4e3b13;
+  line-height: 1.08;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
 .muted-text { color: #b0aaa0; }
 .card-actions { margin-top: auto; padding-top: 10px; border-top: 1px solid #f0ece5; }
 .card-actions button { padding: 6px 8px; border-color: transparent; background: transparent; font-size: .7rem; }
