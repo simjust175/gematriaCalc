@@ -24,6 +24,19 @@ function comparableEdgeLetter(letter, edge) {
   return edge === 'last' ? (FINAL_TO_STANDARD[letter] || letter) : letter;
 }
 
+function exactLetterMultisetMatch(left, right) {
+  if (!left || left.length !== right.length) return false;
+  const counts = new Map();
+  for (const letter of left) counts.set(letter, (counts.get(letter) || 0) + 1);
+  for (const letter of right) {
+    const remaining = counts.get(letter);
+    if (!remaining) return false;
+    if (remaining === 1) counts.delete(letter);
+    else counts.set(letter, remaining - 1);
+  }
+  return counts.size === 0;
+}
+
 function splitAtHebrewWordBoundaries(text) {
   const parts = [];
   let word = '';
@@ -75,7 +88,7 @@ function mapDerivedLettersToOriginalText(originalText, expectedLetters, edge) {
   const reconstructed = reconstructedInitials
     .map(letter => comparableEdgeLetter(letter, edge))
     .join('');
-  if (!expected || reconstructed !== expected) return null;
+  if (!exactLetterMultisetMatch(expected, reconstructed)) return null;
 
   const highlightedByPart = new Map(
     tokenMappings.map(mapping => [mapping.partIndex, mapping])

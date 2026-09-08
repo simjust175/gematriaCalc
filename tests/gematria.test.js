@@ -366,6 +366,16 @@ test('initials highlighting fails safely when source letters do not match metada
   assert.equal(mapInitialsToOriginalText('שקנו בג שח', 'שטו'), null);
 });
 
+test('initials highlighting preserves source order for an exact reordered multiset', () => {
+  const parts = mapInitialsToOriginalText('בית תורה שמע', 'שבת');
+  assert.ok(parts);
+  const highlighted = parts.flatMap(part => part.segments || [])
+    .filter(segment => segment.derivedHighlighted)
+    .map(segment => normalize(segment.text));
+  assert.deepEqual(highlighted, ['ב', 'ת', 'ש']);
+  assert.equal(mapInitialsToOriginalText('בית שמע שמע', 'שבת'), null);
+});
+
 test('finals highlighting maps exact final graphemes and ignores trailing punctuation', () => {
   const original = 'שקנו,  בג שָׂח!';
   const parts = mapFinalsToOriginalText(original, 'וגח');
@@ -408,6 +418,16 @@ test('final highlighting preserves and highlights displayed final forms', () => 
     .filter(segment => segment.derivedHighlighted);
   assert.deepEqual(highlighted.map(segment => segment.text), ['ך', 'ם']);
   assert.equal(parts.map(part => part.text).join(''), 'מלך שלום');
+});
+
+test('finals highlighting preserves source order for an exact reordered multiset', () => {
+  const parts = mapFinalsToOriginalText('לב אמת איש', 'שבת');
+  assert.ok(parts);
+  const highlighted = parts.flatMap(part => part.segments || [])
+    .filter(segment => segment.derivedHighlighted)
+    .map(segment => normalize(segment.text));
+  assert.deepEqual(highlighted, ['ב', 'ת', 'ש']);
+  assert.equal(mapFinalsToOriginalText('לב איש איש', 'שבת'), null);
 });
 
 test('live matching clears old reasons and ignores stale A → B → A responses', async () => {

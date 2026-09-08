@@ -1812,6 +1812,47 @@ test('Tanach initials/finals discovery uses exact complete-word windows and vali
     oneLetter.body.results.map(item => normalize(item.text)),
     ['בראשית', 'ברא']
   );
+
+  for (const method of ['initials', 'finals']) {
+    const ordered = await agent.get('/api/tanach/gematria-matches').query({
+      method,
+      sequence: 'שבת',
+      page: 1,
+      limit: 2,
+    });
+    const reordered = await agent.get('/api/tanach/gematria-matches').query({
+      method,
+      sequence: 'בתש',
+      page: 1,
+      limit: 2,
+    });
+    assert.equal(ordered.status, 200);
+    assert.equal(reordered.status, 200);
+    assert.ok(ordered.body.total > 2, `expected paginated ${method} שבת results`);
+    assert.equal(reordered.body.total, ordered.body.total);
+    assert.deepEqual(reordered.body.counts, ordered.body.counts);
+    assert.deepEqual(
+      reordered.body.results.map(item => [item.bookSlug, item.chapter, item.verse, item.start, item.end]),
+      ordered.body.results.map(item => [item.bookSlug, item.chapter, item.verse, item.start, item.end]),
+    );
+
+    const secondPage = await agent.get('/api/tanach/gematria-matches').query({
+      method,
+      sequence: 'תבש',
+      page: 2,
+      limit: 2,
+    });
+    assert.equal(secondPage.status, 200);
+    assert.equal(secondPage.body.total, ordered.body.total);
+    assert.equal(secondPage.body.hasMore, 4 < ordered.body.total);
+    assert.ok(secondPage.body.results.length > 0);
+    const firstPageKeys = new Set(ordered.body.results.map(item => (
+      `${item.bookSlug}:${item.chapter}:${item.verse}:${item.start}:${item.end}`
+    )));
+    assert.ok(secondPage.body.results.every(item => !firstPageKeys.has(
+      `${item.bookSlug}:${item.chapter}:${item.verse}:${item.start}:${item.end}`
+    )));
+  }
 });
 
 test('Tanach gematria discovery searches only matching cards by normalized text, reference, and weekly filter', async () => {

@@ -400,14 +400,34 @@ test('findWordEdgeRanges finds exact contiguous pointed initials windows', () =>
   assert.equal(matches[0].classification, 'whole_phrase');
 });
 
-test('entered letters define exact contiguous word slots for initials', () => {
+test('entered initials find ordered and reordered exact contiguous word windows', () => {
   const verse = 'שמע בני מוסר שב';
   const matches = findWordEdgeRanges(verse, 'שבמ', 'initials', 3);
-  assert.equal(matches.length, 1);
+  assert.equal(matches.length, 2);
   assert.equal(matches[0].text, 'שמע בני מוסר');
-  assert.deepEqual(findWordEdgeRanges('שמע מוסר בני', 'שבמ', 'initials', 3), []);
+  assert.equal(matches[1].text, 'בני מוסר שב');
+  assert.equal(findWordEdgeRanges('שמע מוסר בני', 'שבמ', 'initials', 3).length, 1);
   assert.deepEqual(findWordEdgeRanges('שמע בני', 'שבמ', 'initials', 3), []);
   assert.deepEqual(findWordEdgeRanges(verse, 'שבמ', 'initials', 4), []);
+});
+
+test('שבת initials match every permutation while enforcing repeated-letter counts exactly', () => {
+  for (const phrase of [
+    'שמע בית תורה',
+    'בית תורה שמע',
+    'תורה שמע בית',
+    'שמע תורה בית',
+    'תורה בית שמע',
+    'בית שמע תורה',
+  ]) {
+    const matches = findWordEdgeRanges(phrase, 'שבת', 'initials', 3);
+    assert.equal(matches.length, 1, `expected שבת to match ${phrase}`);
+    assert.equal(matches[0].text, phrase);
+  }
+  assert.equal(findWordEdgeRanges('בית שמע שמע', 'ששב', 'initials', 3).length, 1);
+  assert.deepEqual(findWordEdgeRanges('בית שמע שמע', 'שבת', 'initials', 3), []);
+  assert.deepEqual(findWordEdgeRanges('שמע בית', 'שבת', 'initials', 3), []);
+  assert.deepEqual(findWordEdgeRanges('שמע בית תורה אדם', 'שבת', 'initials', 4), []);
 });
 
 test('findWordEdgeRanges finds finals and normalizes final forms only for comparison', () => {
@@ -420,10 +440,17 @@ test('findWordEdgeRanges finds finals and normalizes final forms only for compar
   assert.deepEqual([normalized[0].start, normalized[0].end], [0, 5]);
 });
 
+test('שבת finals match ordered and reordered windows with exact multiplicities', () => {
+  assert.equal(findWordEdgeRanges('איש לב אמת', 'שבת', 'finals', 3).length, 1);
+  assert.equal(findWordEdgeRanges('לב אמת איש', 'שבת', 'finals', 3).length, 1);
+  assert.equal(findWordEdgeRanges('לב איש איש', 'ששב', 'finals', 3).length, 1);
+  assert.deepEqual(findWordEdgeRanges('לב איש איש', 'שבת', 'finals', 3), []);
+});
+
 test('findWordEdgeRanges never skips words or accepts partial or mismatched windows', () => {
   assert.deepEqual(findWordEdgeRanges('אב גד הו', 'אה', 'initials', 2), []);
-  assert.deepEqual(findWordEdgeRanges('אב גד', 'גא', 'initials', 2), []);
-  assert.deepEqual(findWordEdgeRanges('אב גד', 'דב', 'finals', 2), []);
+  assert.deepEqual(findWordEdgeRanges('אב גד', 'אב', 'initials', 2), []);
+  assert.deepEqual(findWordEdgeRanges('אב גד', 'בא', 'finals', 2), []);
   assert.deepEqual(findWordEdgeRanges('אב גד הו', 'אג', 'initials', 3), []);
 });
 

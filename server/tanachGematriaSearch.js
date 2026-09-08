@@ -22,6 +22,10 @@
  */
 
 import { createTanachCursor } from '../src/composables/useTanachCursor.js';
+import {
+  createDerivedLetterProfile,
+  derivedLetterProfilesMatch,
+} from './derivedLetterMatching.js';
 
 const FINAL_FORM_MAP = Object.freeze({
   ך: 'כ',
@@ -74,6 +78,7 @@ export function findWordEdgeRanges(displayText, sequence, method, wordCount) {
     : character => character;
   const normalizedSequence = [...sequence].map(comparisonLetter).join('');
   if ([...normalizedSequence].length !== wordCount || !/^[\u05D0-\u05EA]+$/.test(sequence)) return [];
+  const targetProfile = createDerivedLetterProfile(normalizedSequence, method);
 
   const cursor = createTanachCursor(displayText);
   const words = cursorWords(cursor);
@@ -83,7 +88,8 @@ export function findWordEdgeRanges(displayText, sequence, method, wordCount) {
     const candidate = window.map(word => (
       method === 'initials' ? word.first : word.last
     )).map(comparisonLetter).join('');
-    if (candidate !== normalizedSequence) continue;
+    const candidateProfile = createDerivedLetterProfile(candidate, method);
+    if (!derivedLetterProfilesMatch(candidateProfile, targetProfile)) continue;
 
     const start = window[0].start;
     const end = window.at(-1).end;

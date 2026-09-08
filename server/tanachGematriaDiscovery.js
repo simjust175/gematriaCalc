@@ -3,6 +3,7 @@ import { createTanachCursor } from '../src/composables/useTanachCursor.js';
 import { toHebrewNumber } from '../src/composables/useGematria.js';
 import { getCurrentWeeklyParshah } from './tanachWeeklyParsha.js';
 import { TANACH_PARSHIOT } from './tanachParshiot.js';
+import { normalizeDerivedLetters } from './derivedLetterMatching.js';
 
 export const MAX_GEMATRIA_PAGE_SIZE = 50;
 
@@ -326,7 +327,7 @@ export async function searchTanachGematria(db, options, mayRetry = true) {
   const { corpus, revision } = await loadCorpus(db);
   const cacheKey = method === 'gematria'
     ? `gematria:${value}`
-    : `${method}:${sequence}:${wordCount}`;
+    : `${method}:${[...normalizeDerivedLetters(sequence, method)].sort().join('')}:${wordCount}`;
   let entry = targetCache.get(cacheKey);
   if (!entry) {
     const counts = { all: 0, whole_word: 0, whole_phrase: 0, partial: 0 };
