@@ -13,10 +13,10 @@ Each saved entry appears at most once. Its reasons include full, ראשי תיב
 
 **Failure rule:** A canonical save stays committed if optional מילוי indexing fails. Missing active rows self-heal; incomplete coverage produces an explicit unavailable state rather than a valid empty match result.
 
-**Text rule:** Canonical current text plus generated first and final letters are compared with the corresponding saved derived values. Punctuation, גרש/גרשיים, ניקוד, and whitespace normalize before comparison.
+**Text rule:** Canonical current text plus generated first and final letters are compared with saved derived values as exact letter multisets: order is irrelevant, but length and every duplicate count must match. Punctuation, גרש/גרשיים, ניקוד, and whitespace normalize first; final-form equivalence applies only to סופי תיבות.
 
 **Highlight rule:** Exact contributing graphemes keep the surrounding text’s navy color, weight, width, baseline, and line-height. Use only a pale gold background with zero padding/margin; never make letters gold or badge-like.
 
-**Why:** Explicit Hebrew badges explain every reason without duplicate cards or misleading derived values as full gematria. Versioning prevents mixed מילוי data. Request IDs and abort handling prevent stale A→B→A responses.
+**Why:** Users expect reordered ראשי/סופי letters to match while preserving the saved phrase’s actual derived order. Explicit Hebrew badges explain every reason without duplicate cards or misleading derived values as full gematria. Versioning prevents mixed מילוי data. Request IDs and abort handling prevent stale A→B→A responses.
 
-**How to apply:** Derive all criteria server-side, map highlighted first/final graphemes back to original text, and fail closed if mapping cannot be verified. Consolidate by saved-entry ID. Apply production schema changes only through Publish.
+**How to apply:** Derive all criteria server-side, use indexed gematria only to fetch permutation candidates, verify exact normalized letter counts before emitting a text reason, map highlights from stored derived values, and consolidate by saved-entry ID. Apply production schema changes only through Publish.

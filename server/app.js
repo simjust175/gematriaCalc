@@ -42,6 +42,10 @@ import {
   invalidateMiluiCoverageCheck,
   rebuildAndActivateMiluiMapping,
 } from './miluiIndex.js';
+import {
+  createDerivedLetterProfile,
+  matchesAnyDerivedLetterProfile,
+} from './derivedLetterMatching.js';
 
 export const app = express();
 const PostgresSessionStore = connectPgSimple(session);
@@ -462,6 +466,12 @@ app.get('/api/matches', requireAuth, async (req, res) => {
         .filter(Boolean)
         .map(value => normalize(value).replace(/\s+/g, ''))
     )];
+    const initialsProfiles = initialsTextCandidates
+      .map(value => createDerivedLetterProfile(value, 'initials'));
+    const finalsProfiles = finalsTextCandidates
+      .map(value => createDerivedLetterProfile(value, 'finals'));
+    const initialsCandidateGematria = [...new Set(initialsProfiles.map(profile => profile.gematria))];
+    const finalsCandidateGematria = [...new Set(finalsProfiles.map(profile => profile.gematria))];
 
     const entryMatches = new Map();
     let isAlreadySaved = false;
@@ -516,10 +526,18 @@ app.get('/api/matches', requireAuth, async (req, res) => {
          WHERE full_gematria = $1
             OR initials_gematria = $1
             OR initials = ANY($2::text[])
+             OR initials_gematria = ANY($4::integer[])
              OR finals_gematria = $1
              OR finals = ANY($3::text[])
+              OR finals_gematria = ANY($5::integer[])
          ORDER BY created_at DESC`,
-        [g, initialsTextCandidates, finalsTextCandidates]
+        [
+          g,
+          initialsTextCandidates,
+          finalsTextCandidates,
+          initialsCandidateGematria,
+          finalsCandidateGematria,
+        ]
       );
 
       for (const entry of entriesRes.rows) {
@@ -528,11 +546,16 @@ app.get('/api/matches', requireAuth, async (req, res) => {
         const matchTypes = [];
 
         if (entry.full_gematria === g) matchTypes.push('full_gematria');
-        if (initialsTextCandidates.includes(normalizedInitials)) matchTypes.push('initials_text');
+        if (matchesAnyDerivedLetterProfile(normalizedInitials, initialsProfiles, 'initials')) {
+          matchTypes.push('initials_text');
+        }
         if (entry.initials_gematria === g) matchTypes.push('initials_gematria');
-        if (finalsTextCandidates.includes(normalizedFinals)) matchTypes.push('finals_text');
+        if (matchesAnyDerivedLetterProfile(normalizedFinals, finalsProfiles, 'finals')) {
+          matchTypes.push('finals_text');
+        }
         if (entry.finals_gematria === g) matchTypes.push('finals_gematria');
 
+        if (!matchTypes.length) continue;
         entryMatches.set(entry.id, {
           type: 'entry',
           ...entry,

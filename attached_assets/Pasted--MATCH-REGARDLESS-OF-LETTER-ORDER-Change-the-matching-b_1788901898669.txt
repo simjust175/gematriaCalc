@@ -1,0 +1,357 @@
+# ראשי תיבות + סופי תיבות — MATCH REGARDLESS OF LETTER ORDER
+
+Change the matching behavior for ראשי תיבות and סופי תיבות so that the order of the derived letters does NOT matter.
+
+Do not change how ראשי תיבות or סופי תיבות themselves are calculated.
+
+Only change the MATCHING rule.
+
+==================================================
+CORE RULE
+==================================================
+
+A ראשי תיבות or סופי תיבות match should succeed when both sides contain exactly the same Hebrew letters with exactly the same quantities, regardless of order.
+
+Treat the derived strings as multisets of letters rather than ordered strings.
+
+Example target:
+
+שבת
+
+These should all match:
+
+שבת
+בתש
+תשב
+בשת
+תבש
+שתב
+
+because each contains exactly:
+
+ש × 1
+ב × 1
+ת × 1
+
+==================================================
+EXAMPLE FROM CLIENT
+==================================================
+
+If the entered/current value is:
+
+שבת
+
+A saved phrase such as:
+
+שמש בית תיבה
+
+has ראשי תיבות:
+
+שבת
+
+→ MATCH
+
+But this must ALSO match:
+
+בתוך תנוך שבים
+
+whose ראשי תיבות are:
+
+בתש
+
+because it contains the exact same letters:
+ב + ת + ש
+
+The order is irrelevant.
+
+==================================================
+IMPORTANT: DUPLICATE LETTERS MATTER
+==================================================
+
+This is NOT merely "contains the same kinds of letters."
+
+Letter counts must be identical.
+
+Example target:
+
+שבש
+
+Required letters:
+
+ש × 2
+ב × 1
+
+These may match:
+
+שבש
+ששב
+בשש
+
+These must NOT match:
+
+שבת
+שב
+ששבת
+בש
+
+No missing letters.
+No extra letters.
+No approximate matches.
+
+==================================================
+LENGTH MUST MATCH
+==================================================
+
+The normalized derived strings must have the same number of Hebrew letters.
+
+Example:
+
+שבת
+
+must NOT match:
+
+שבתי
+
+even if שבת is contained inside it.
+
+This feature is exact permutation matching only.
+
+==================================================
+APPLY TO BOTH SYSTEMS
+==================================================
+
+Use this exact rule for:
+
+1. ראשי תיבות string matching
+2. סופי תיבות string matching
+
+Do NOT automatically apply this new rule to:
+
+- full gematria
+- מילוי
+- מילות יסוד
+- ordinary saved-word matching
+
+Those systems should remain unchanged.
+
+==================================================
+NORMALIZATION
+==================================================
+
+Before comparing:
+
+- ignore spaces
+- ignore punctuation
+- ignore geresh/gershayim
+- ignore niqqud
+- ignore cantillation
+
+Use the same Hebrew normalization rules already used by the app.
+
+Preserve original text for display.
+
+Final-letter handling should remain consistent with the app's existing ראשי/סופי תיבות normalization rules.
+
+Do not invent a different normalization system.
+
+==================================================
+RECOMMENDED COMPARISON
+==================================================
+
+Conceptually:
+
+1. normalize the derived ראשי תיבות / סופי תיבות string
+2. count each Hebrew letter
+3. compare the letter-count maps
+
+Example:
+
+שבת → { ש:1, ב:1, ת:1 }
+בתש → { ב:1, ת:1, ש:1 }
+
+These maps are identical → MATCH.
+
+Do not rely only on sorting if the existing Hebrew normalization/helper architecture has a safer reusable approach.
+
+==================================================
+SIDEBAR DISPLAY
+==================================================
+
+Keep the current visual system.
+
+The saved phrase should display in its ORIGINAL natural order.
+
+Do NOT rearrange the phrase to match the current input.
+
+For:
+
+בתוך תנוך שבים
+
+display it exactly that way.
+
+Continue highlighting the exact contributing ראשי תיבות letters using the approved soft-gold BACKGROUND treatment:
+
+[ב]תוך [ת]נוך [ש]בים
+
+The highlighted letters make clear which letters participated.
+
+For סופי תיבות, continue highlighting the exact final contributing letters.
+
+==================================================
+RESULT INFORMATION
+==================================================
+
+The user should be able to see the ACTUAL derived letters of the saved phrase.
+
+Example:
+
+current:
+שבת
+
+saved phrase:
+בתוך תנוך שבים
+
+actual ראשי תיבות:
+בתש
+
+This is still a valid match because:
+בתש is a permutation of שבת.
+
+Do not falsely display the saved phrase's ראשי תיבות as שבת.
+
+Preserve its actual derived value: בתש.
+
+==================================================
+BADGES
+==================================================
+
+Keep the current approved badge system.
+
+A permutation ראשי תיבות match is still fundamentally:
+
+ראשי תיבות
+
+A permutation סופי תיבות match is still:
+
+סופי תיבות
+
+Do not add a loud new badge.
+
+If helpful, a very subtle secondary text may say:
+
+אותן אותיות בסדר שונה
+
+but only if it improves clarity without creating clutter.
+
+Prefer visual simplicity.
+
+==================================================
+NUMERIC GEMATRIA MATCHING
+==================================================
+
+Do not break existing גימטריית ראשי תיבות / גימטריית סופי תיבות behavior.
+
+Because permutations naturally have the same gematria, numeric matches may overlap.
+
+Deduplicate the saved result.
+
+One saved entry should appear once even if it qualifies through:
+
+- ראשי תיבות permutation
+- גימטריית ר״ת
+- or multiple related reasons
+
+Keep appropriate existing badges without duplicating the result card.
+
+==================================================
+TESTS
+==================================================
+
+Add explicit tests.
+
+TARGET:
+שבת
+
+MATCH:
+שבת
+בתש
+תשב
+שתב
+תבש
+בשת
+
+NO MATCH:
+שבש
+שבתא
+שב
+תש
+אבשת
+
+DUPLICATE TEST:
+
+TARGET:
+שבש
+
+MATCH:
+שבש
+בשש
+ששב
+
+NO MATCH:
+שבת
+בש
+ששבת
+בבש
+
+Test both:
+
+- ראשי תיבות
+- סופי תיבות
+
+Also test:
+- punctuation
+- niqqud
+- repeated spaces
+- final Hebrew letters according to current normalization rules
+
+==================================================
+SAFETY
+==================================================
+
+This should be primarily matching-logic work.
+
+Do NOT:
+
+- reset database
+- rewrite saved entries
+- alter saved client text
+- delete data
+- perform destructive migrations
+
+Existing saved entries should automatically benefit from the new comparison behavior wherever possible.
+
+==================================================
+ACCEPTANCE CRITERIA
+==================================================
+
+Complete when:
+
+1. ראשי תיבות matches exact permutations regardless of order.
+2. סופי תיבות matches exact permutations regardless of order.
+3. Duplicate-letter quantities must match exactly.
+4. Extra/missing letters do not match.
+5. Original phrase order remains unchanged on screen.
+6. Exact contributing letters remain highlighted correctly.
+7. Existing badge design remains unchanged.
+8. Result deduplication still works.
+9. Other matching systems remain unchanged.
+10. Tests/build pass.
+
+After implementation, report:
+- exact comparison rule used
+- normalization used
+- duplicate-letter handling
+- ראשי תיבות tests
+- סופי תיבות tests
+- confirmation no existing data was modified
+- build/test results

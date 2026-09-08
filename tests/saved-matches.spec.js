@@ -64,7 +64,7 @@ test('live matching shows the dedicated full מילוי badge', async ({ page })
   }
 });
 
-test('ראשי תיבות match highlights only the exact contributing source letters', async ({ page }) => {
+test('permuted ראשי וסופי תיבות matches highlight the saved phrase in its original order', async ({ page }) => {
   await loginAndOpenCalculator(page);
   const savedText = 'שְׁקנו בג שח';
   const createResponse = await page.request.post(new URL('/api/entries', page.url()).href, {
@@ -74,7 +74,7 @@ test('ראשי תיבות match highlights only the exact contributing source le
   const savedId = (await createResponse.json()).id;
 
   try {
-    await page.locator('.heb-input').fill('שבש');
+    await page.locator('.heb-input').fill('בשש');
     const savedCard = page.locator('.match-panel:visible .match-item').filter({
       has: page.locator('.match-text', { hasText: savedText }),
     });
@@ -113,7 +113,7 @@ test('ראשי תיבות match highlights only the exact contributing source le
     expect(initialsHighlightStyle.backdropColor).toBe('rgba(213, 173, 79, 0.25)');
     expect(initialsHighlightStyle.fontWeight).toBe(initialsHighlightStyle.parentFontWeight);
 
-    await page.locator('.heb-input').fill('וגח');
+    await page.locator('.heb-input').fill('חוג');
     await expect(savedCard).toHaveCount(1);
     await expect(savedCard.locator('.match-badge--finals')).toHaveText('סופי תיבות');
     await expect(savedCard.locator('.match-text__initial')).toHaveCount(3);
@@ -124,7 +124,7 @@ test('ראשי תיבות match highlights only the exact contributing source le
 
     await page.reload();
     await expect(page.locator('.heb-input')).toBeVisible();
-    await page.locator('.heb-input').fill('וגח');
+    await page.locator('.heb-input').fill('חוג');
     const reloadedCard = page.locator('.match-panel:visible .match-item').filter({
       has: page.locator('.match-text', { hasText: savedText }),
     });

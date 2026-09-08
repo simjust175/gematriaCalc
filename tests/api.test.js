@@ -1136,6 +1136,54 @@ test('incomplete מילוי coverage suppresses only מילוי while preserving
   }
 });
 
+test('ראשי וסופי תיבות text matches exact letter permutations without rewriting saved values', async () => {
+  const agent = request.agent(app);
+  const savedIds = [];
+  const token = uniqueHebrewToken();
+  const reversedToken = [...token].reverse().join('');
+  await agent
+    .post('/api/auth/login')
+    .send({ password: 'correct-test-password-12345' });
+
+  const save = async originalText => {
+    const response = await agent.post('/api/entries').send({ originalText });
+    assert.equal(response.status, 200);
+    savedIds.push(response.body.id);
+    return response.body.id;
+  };
+
+  try {
+    const initialsId = await save(`ב${token} ת${reversedToken} ש${token}`);
+    const finalsId = await save(`${token}ב ${reversedToken}ת ${token}ש`);
+    const wrongInitialsId = await save(`ש${token} ש${reversedToken} ק${token} ב${reversedToken}`);
+    const wrongFinalsId = await save(`${token}ש ${reversedToken}ש ${token}ק ${reversedToken}ב`);
+
+    const response = await agent
+      .get('/api/matches')
+      .query({ normalizedText: 'שָׁ״בּ, ת!' });
+    assert.equal(response.status, 200);
+
+    const rowsFor = id => response.body.matches.filter(entry => entry.id === id);
+    const initialsRows = rowsFor(initialsId);
+    const finalsRows = rowsFor(finalsId);
+    assert.equal(initialsRows.length, 1, 'permutation initials must produce one saved-entry card');
+    assert.equal(finalsRows.length, 1, 'permutation finals must produce one saved-entry card');
+    assert.ok(initialsRows[0].matchTypes.includes('initials_text'));
+    assert.ok(finalsRows[0].matchTypes.includes('finals_text'));
+    assert.equal(initialsRows[0].initials, 'בתש', 'actual saved initials must remain unchanged');
+    assert.equal(finalsRows[0].finals, 'בתש', 'actual saved finals must remain unchanged');
+
+    const wrongInitials = rowsFor(wrongInitialsId)[0];
+    const wrongFinals = rowsFor(wrongFinalsId)[0];
+    assert.ok(wrongInitials?.matchTypes.includes('initials_gematria'));
+    assert.ok(wrongFinals?.matchTypes.includes('finals_gematria'));
+    assert.equal(wrongInitials.matchTypes.includes('initials_text'), false);
+    assert.equal(wrongFinals.matchTypes.includes('finals_text'), false);
+  } finally {
+    await Promise.all(savedIds.map(id => agent.delete(`/api/entries/${id}`)));
+  }
+});
+
 test('matching returns applicable reasons once per saved entry and preserves word matches', async () => {
   const agent = request.agent(app);
   const alphabet = [...'אבגדהוזחטיכלמנסעפצקרשת'];
