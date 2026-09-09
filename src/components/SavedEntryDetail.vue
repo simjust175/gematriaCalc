@@ -5,29 +5,43 @@
     class="entry-detail detail-panel"
     aria-label="פרטי הערך השמור"
   >
-    <div v-if="entry.tanach_book_slug" class="detail-row detail-reference">
-      <span class="detail-label">מקור בתנ״ך:</span>
-      <span class="detail-value">{{ formatTanachReference(entry) }}</span>
-      <span class="detail-gematria">אותיות {{ entry.tanach_start + 1 }}–{{ entry.tanach_end + 1 }}</span>
+    <header class="detail-header">
+      <strong>פרטי החישוב</strong>
+      <button type="button" class="detail-close" aria-label="סגור פירוט" @click="$emit('close')">
+        <span class="mdi mdi-close" aria-hidden="true"></span>
+        סגור
+      </button>
+    </header>
+
+    <div class="derived-values">
+      <div v-if="entry.tanach_book_slug" class="detail-row detail-reference">
+        <span class="detail-label">מקור בתנ״ך</span>
+        <span class="detail-value">{{ formatTanachReference(entry) }}</span>
+        <span class="detail-gematria">אותיות {{ entry.tanach_start + 1 }}–{{ entry.tanach_end + 1 }}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">ראשי תיבות</span>
+        <span class="detail-value">{{ entry.initials }}</span>
+        <span class="detail-gematria">{{ entry.initials_gematria }} · {{ entry.initials_gematria_hebrew }}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">סופי תיבות</span>
+        <span class="detail-value">{{ entry.finals }}</span>
+        <span class="detail-gematria">{{ entry.finals_gematria }} · {{ entry.finals_gematria_hebrew }}</span>
+      </div>
+      <div v-if="currentMilui" class="detail-row detail-row--milui">
+        <span class="detail-label">מילוי נוכחי</span>
+        <span class="detail-gematria">
+          {{ currentMilui.fullGematria }} · {{ currentMilui.fullHebrewNumber }}
+        </span>
+      </div>
     </div>
-    <div class="detail-row">
-      <span class="detail-label">ראשי תיבות:</span>
-      <span class="detail-value">{{ entry.initials }}</span>
-      <span class="detail-gematria">{{ entry.initials_gematria }} · {{ entry.initials_gematria_hebrew }}</span>
-    </div>
-    <div class="detail-row">
-      <span class="detail-label">סופי תיבות:</span>
-      <span class="detail-value">{{ entry.finals }}</span>
-      <span class="detail-gematria">{{ entry.finals_gematria }} · {{ entry.finals_gematria_hebrew }}</span>
-    </div>
-    <div v-if="currentMilui" class="detail-row detail-row--milui">
-      <span class="detail-label">מילוי לפי ההגדרות הנוכחיות:</span>
-      <span class="detail-gematria">
-        {{ currentMilui.fullGematria }} · {{ currentMilui.fullHebrewNumber }}
-      </span>
-    </div>
+
     <section v-if="entry.curated_matches?.length" class="curated-section" aria-label="התאמות נבחרות">
-      <h3>התאמות נבחרות</h3>
+      <h3>
+        התאמות נבחרות
+        <span>{{ entry.curated_matches.length }}</span>
+      </h3>
       <article v-for="match in entry.curated_matches" :key="match.id" class="curated-match">
         <div class="curated-match__text">{{ match.original_text || match.originalText }}</div>
         <div class="curated-match__meta">
@@ -75,7 +89,7 @@ const props = defineProps({
   entry: { type: Object, required: true },
   miluiMapping: { type: Object, default: null },
 });
-defineEmits(['open-curated', 'remove-curated']);
+defineEmits(['close', 'open-curated', 'remove-curated']);
 const removingId = ref(null);
 
 const currentMilui = computed(() => (
@@ -125,23 +139,43 @@ function matchReference(match) {
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
   grid-column: 1 / -1;
-  padding: 18px 22px;
+  padding: 13px 16px 11px;
   width: 100%;
 }
+.detail-header { align-items: center; display: flex; justify-content: space-between; min-height: 28px; }
+.detail-header > strong { color: var(--navy); font-size: .86rem; }
+.detail-close {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: .76rem;
+  gap: 3px;
+  padding: 4px 7px;
+}
+.detail-close:hover { background: var(--gold-light); border-color: #e1d1aa; color: var(--navy); }
+.detail-close:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.derived-values { display: grid; gap: 6px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
 .detail-row {
   align-items: center;
   display: flex;
   font-size: .88rem;
-  gap: 8px;
+  background: #fff;
+  border: 1px solid #eee9e0;
+  border-radius: 8px;
+  gap: 6px;
+  min-width: 0;
+  padding: 7px 9px;
 }
 
-.detail-reference {
-  border-bottom: 1px solid #eee9e0;
-  padding-bottom: 12px;
-}
+.detail-reference { grid-column: 1 / -1; }
 
 .detail-label {
   color: var(--text-secondary);
@@ -151,15 +185,15 @@ function matchReference(match) {
 }
 
 .detail-value { color: var(--navy); font-size: 1rem; font-weight: 600; }
-.detail-gematria { color: var(--text-secondary); font-size: .82rem; margin-right: auto; }
-.detail-words { font-size: .88rem; }
-.detail-words-title { margin-bottom: 8px; }
+.detail-gematria { color: var(--text-secondary); font-size: .82rem; margin-right: auto; white-space: nowrap; }
+.detail-words { border-top: 1px solid #eee9e0; display: grid; font-size: .84rem; gap: 0 14px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); padding-top: 8px; }
+.detail-words-title { grid-column: 1 / -1; margin-bottom: 3px; }
 
 .detail-word-row {
   border-bottom: 1px solid #f0ece4;
   display: flex;
   justify-content: space-between;
-  padding: 5px 0;
+  padding: 3px 0;
 }
 
 .detail-word-block:last-child .detail-word-row { border-bottom: 0; }
@@ -172,7 +206,7 @@ function matchReference(match) {
   flex-wrap: wrap;
   font-size: .75rem;
   gap: 5px 10px;
-  padding: 6px 0 9px;
+  padding: 3px 0 5px;
 }
 
 .detail-letter { white-space: nowrap; }
@@ -184,11 +218,12 @@ function matchReference(match) {
   font-size: .75rem;
   gap: 4px;
 }
-.curated-section { border-top: 1px solid #eee9e0; padding-top: 12px; }
-.curated-section h3 { color: var(--navy); font-size: .9rem; margin-bottom: 8px; }
-.curated-match { border-bottom: 1px solid #f0ece4; padding: 7px 0; }
+.curated-section { background: #fffdf8; border: 1px solid #eadfca; border-radius: 9px; padding: 8px 10px; }
+.curated-section h3 { align-items: center; color: var(--navy); display: flex; font-size: .86rem; gap: 6px; margin: 0 0 4px; }
+.curated-section h3 span { background: var(--gold-light); border-radius: 999px; color: #80601d; font-size: .68rem; padding: 1px 6px; }
+.curated-match { border-bottom: 1px solid #f0ece4; padding: 5px 0; }
 .curated-match:last-child { border-bottom: 0; }
-.curated-match__text { color: var(--navy); font-family: "Noto Serif Hebrew", serif; font-size: .95rem; }
+.curated-match__text { color: var(--navy); font-family: "Noto Serif Hebrew", serif; font-size: .92rem; line-height: 1.45; }
 .curated-match__meta { align-items: center; display: flex; flex-wrap: wrap; gap: 6px; color: var(--text-secondary); font-size: .72rem; }
 .reason-badge { background: var(--gold-light); border-radius: 999px; color: #80601d; padding: 2px 7px; }
 .curated-match__meta button { border: 0; background: transparent; color: #80601d; cursor: pointer; font: inherit; }
@@ -197,7 +232,9 @@ function matchReference(match) {
 .remove-confirm-button, .remove-cancel-button { padding: 2px 5px; }
 
 @media (max-width: 680px) {
-  .entry-detail { gap: 12px; padding: 15px 16px; }
+  .entry-detail { gap: 9px; padding: 11px 12px; }
+  .derived-values { grid-template-columns: 1fr; }
+  .detail-reference { grid-column: auto; }
   .detail-row { align-items: flex-start; flex-wrap: wrap; }
 }
 </style>

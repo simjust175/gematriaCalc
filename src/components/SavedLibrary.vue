@@ -137,6 +137,7 @@
                   :milui-mapping="miluiMapping"
                    @open-curated="openCurated"
                    @remove-curated="removeCurated"
+                   @close="expandedId = null"
                 />
               </template>
             </div>
@@ -160,6 +161,7 @@
               :milui-mapping="miluiMapping"
                  @open-curated="openCurated"
                  @remove-curated="removeCurated"
+                 @close="expandedId = null"
             />
           </template>
         </template>
@@ -184,6 +186,7 @@
             :milui-mapping="miluiMapping"
                @open-curated="openCurated"
                @remove-curated="removeCurated"
+               @close="expandedId = null"
           />
         </template>
       </template>

@@ -210,9 +210,71 @@ test('curated single save confirms a new parent and disables the saved source', 
   const discovery = page.locator('.gematria-discovery');
   const card = discovery.locator('.match-card').first();
   await expect(card).toBeVisible();
-  await card.getByRole('button', { name: 'שמור כהתאמה' }).click();
+  await card.getByRole('button', { name: 'שמור התאמה' }).click();
   await expect(discovery.getByRole('status')).toContainText('החישוב וההתאמה נשמרו');
-  await expect(card.getByRole('button', { name: 'נשמר כהתאמה' })).toBeDisabled();
+  await expect(card.getByRole('button', { name: 'נשמרה' })).toBeDisabled();
+});
+
+test('curated result save survives reload and prevents duplicate submission', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-chromium');
+  await login(page);
+  const source = {
+    id: 'persistent-curated-source', text: 'שלום', bookSlug: 'genesis',
+    bookName: 'בראשית', chapter: 1, verse: 1, start: 0, end: 4, type: 'whole_word',
+  };
+  let saved = false;
+  let postCount = 0;
+  await page.route('**/api/tanach/gematria-matches**', route => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({
+      results: [source],
+      counts: { all: 1, whole_word: 1, whole_phrase: 0 },
+      total: 1, hasMore: false,
+    }),
+  }));
+  await page.route('**/api/entries?**', route => {
+    const url = new URL(route.request().url());
+    if (url.searchParams.get('search') !== 'שלום') return route.continue();
+    return route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({
+        entries: saved ? [{
+          id: 501, original_text: 'שלום', normalized_text: 'שלום', tanach_book_slug: null,
+          curated_matches: [{
+            id: 901, originalText: source.text,
+            tanachContext: {
+              bookSlug: source.bookSlug, chapter: source.chapter, verse: source.verse,
+              start: source.start, end: source.end,
+            },
+            reasonCodes: ['full_gematria'],
+          }],
+        }] : [],
+        total: saved ? 1 : 0,
+      }),
+    });
+  });
+  await page.route('**/api/entries/curated-matches', route => {
+    postCount += 1;
+    saved = true;
+    return route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({ success: true, parentId: 501, parentCreated: true, matches: [] }),
+    });
+  });
+
+  await page.locator('.heb-input').fill('שלום');
+  const action = page.locator('.match-card').first().getByRole('button', { name: 'שמור התאמה' });
+  await action.click();
+  await expect(page.locator('.match-card').first().getByRole('button', { name: 'נשמרה' })).toBeDisabled();
+  expect(postCount).toBe(1);
+
+  await page.reload();
+  await expect(page.locator('.heb-input')).toBeVisible();
+  await page.locator('.heb-input').fill('שלום');
+  const persistedAction = page.locator('.match-card').first().getByRole('button', { name: 'נשמרה' });
+  await expect(persistedAction).toBeDisabled();
+  await persistedAction.click({ force: true });
+  expect(postCount).toBe(1);
 });
 
 test('curated saved state permits another reason and another parent for the same source', async ({ page }, testInfo) => {
@@ -245,16 +307,16 @@ test('curated saved state permits another reason and another parent for the same
   const input = page.locator('.heb-input');
   const discovery = page.locator('.gematria-discovery');
   await input.fill('שלום');
-  const curatedAction = discovery.locator('.match-card').first().getByRole('button', { name: /שמור כהתאמה|נשמר כהתאמה/ });
+  const curatedAction = discovery.locator('.match-card').first().getByRole('button', { name: /שמור התאמה|נשמרה/ });
   await curatedAction.click();
-  await expect(curatedAction).toHaveText(/נשמר כהתאמה/);
+  await expect(curatedAction).toHaveText(/נשמרה/);
 
   await discovery.getByRole('button', { name: 'ראשי תיבות' }).click();
-  await expect(curatedAction).toHaveText(/שמור כהתאמה/);
+  await expect(curatedAction).toHaveText(/שמור התאמה/);
   await curatedAction.click();
 
   await input.fill('שלומ');
-  await expect(curatedAction).toHaveText(/שמור כהתאמה/);
+  await expect(curatedAction).toHaveText(/שמור התאמה/);
   await curatedAction.click();
 
   await expect.poll(() => requests.length).toBe(3);
@@ -287,13 +349,13 @@ test('curated multi-select shows gold cards, supports cancel, and submits a bulk
   const discovery = page.locator('.gematria-discovery');
   await discovery.getByRole('button', { name: 'בחירה מרובה' }).click();
   const cards = discovery.locator('.match-card');
-  await cards.nth(0).getByRole('button', { name: 'שמור כהתאמה' }).click();
-  await cards.nth(1).getByRole('button', { name: 'שמור כהתאמה' }).click();
+  await cards.nth(0).getByRole('button', { name: 'שמור התאמה' }).click();
+  await cards.nth(1).getByRole('button', { name: 'שמור התאמה' }).click();
   await expect(discovery.locator('.curated-selected-card')).toHaveCount(2);
   await discovery.getByRole('button', { name: 'ביטול' }).click();
   await expect(discovery.locator('.curated-selected-card')).toHaveCount(0);
-  await cards.nth(0).getByRole('button', { name: 'שמור כהתאמה' }).click();
-  await cards.nth(1).getByRole('button', { name: 'שמור כהתאמה' }).click();
+  await cards.nth(0).getByRole('button', { name: 'שמור התאמה' }).click();
+  await cards.nth(1).getByRole('button', { name: 'שמור התאמה' }).click();
   await discovery.getByRole('button', { name: 'שמור התאמות נבחרות' }).click();
   await expect.poll(() => requestBody?.matches?.length).toBe(2);
   expect(requestBody.matches.every(match => match.reasonCode === 'full_gematria')).toBe(true);

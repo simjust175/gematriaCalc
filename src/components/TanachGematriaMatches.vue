@@ -182,8 +182,8 @@
             :aria-pressed="selectedKeys.has(resultKey(result))"
             @click="selectionMode ? toggleCuratedSelection(result) : saveCuratedSingle(result)"
           >
-            <span class="mdi" :class="curatedSavedKeys.has(curatedStateKey(result)) ? 'mdi-star-check-outline' : 'mdi-star-outline'" aria-hidden="true"></span>
-            {{ curatedSavedKeys.has(curatedStateKey(result)) ? 'נשמר כהתאמה' : selectedKeys.has(resultKey(result)) ? 'נבחר' : 'שמור כהתאמה' }}
+            <span class="mdi" :class="curatedSavedKeys.has(curatedStateKey(result)) ? 'mdi-bookmark-check' : 'mdi-bookmark-plus-outline'" aria-hidden="true"></span>
+            {{ curatedSavedKeys.has(curatedStateKey(result)) ? 'נשמרה' : selectedKeys.has(resultKey(result)) ? 'נבחרה' : 'שמור התאמה' }}
           </button>
         </footer>
         <span v-if="saveErrors.has(resultKey(result))" class="save-error" role="status">לא ניתן לשמור כרגע</span>
@@ -208,7 +208,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue';
 import { useTanachGematriaMatches } from '@/composables/useTanachGematriaMatches.js';
-import { toHebrewNumber } from '@/composables/useGematria.js';
+import { normalize, toHebrewNumber } from '@/composables/useGematria.js';
 import { mapFinalsToOriginalText, mapInitialsToOriginalText } from '@/utils/initialsHighlight.js';
 import TanachScopeSelect from './TanachScopeSelect.vue';
 
@@ -234,6 +234,8 @@ const chapterVerses = ref([]);
 const chapterVersesLoading = ref(false);
 const chapterVersesError = ref('');
 let chapterRequestId = 0;
+let curatedStateRequestId = 0;
+let curatedStateTimer;
 const filterOptions = [
   { value: 'all', label: 'הכול' },
   { value: 'whole_word', label: 'מילה שלמה' },
@@ -274,7 +276,9 @@ watch(hasPattern, (valid) => {
 });
 watch([method, () => props.sourceText], () => {
   selectedKeys.value = new Set();
-});
+  window.clearTimeout(curatedStateTimer);
+  curatedStateTimer = window.setTimeout(syncCuratedSavedState, 250);
+}, { immediate: true });
 const selectedBook = computed(() => (
   rangeMetadata.value.canonicalBooks?.find(book => Number(book.order) === Number(bookOrder.value)) || null
 ));
@@ -399,6 +403,10 @@ function highlightedParts(text) {
 function resultKey(item) {
   return item.id || `${item.bookSlug || item.book || ''}-${item.chapter}-${item.verse}-${item.start}-${item.end}`;
 }
+function canonicalSourceKey(item) {
+  const context = item.tanach_context || item.tanachContext || item;
+  return `${context.bookSlug || context.book_slug || item.bookSlug || item.book || ''}-${context.chapter}-${context.verse}-${context.start}-${context.end}`;
+}
 function openResult(item) {
   emit('open', item);
 }
@@ -410,7 +418,33 @@ function reasonCode() {
   }[method.value] || 'full_gematria';
 }
 function curatedStateKey(item, savedReason = reasonCode(), parentText = props.sourceText) {
-  return `${parentText}\u0000${savedReason}\u0000${resultKey(item)}`;
+  return `${parentText}\u0000${savedReason}\u0000${canonicalSourceKey(item)}`;
+}
+async function syncCuratedSavedState() {
+  const parentText = props.sourceText;
+  const requestId = ++curatedStateRequestId;
+  if (!parentText.trim()) return;
+  try {
+    const params = new URLSearchParams({ search: parentText, limit: '100', offset: '0' });
+    const response = await fetch(`/api/entries?${params}`);
+    if (!response.ok) return;
+    const payload = await response.json();
+    if (requestId !== curatedStateRequestId || parentText !== props.sourceText) return;
+    const normalizedParent = normalize(parentText);
+    const parent = (payload.entries || []).find(entry =>
+      !entry.tanach_book_slug && entry.normalized_text === normalizedParent
+    );
+    if (!parent) return;
+    const hydrated = new Set(curatedSavedKeys.value);
+    for (const match of parent.curated_matches || []) {
+      for (const savedReason of match.reasonCodes || match.reason_codes || []) {
+        hydrated.add(curatedStateKey(match, savedReason, parentText));
+      }
+    }
+    curatedSavedKeys.value = hydrated;
+  } catch {
+    // Saving remains available if the background saved-state check fails.
+  }
 }
 function toggleCuratedSelection(item) {
   const key = resultKey(item);
@@ -602,8 +636,8 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .card-actions button { padding: 6px 8px; border-color: transparent; background: transparent; font-size: .7rem; }
 .reader-action { color: #69727b !important; }
 .save-action { color: #98732b !important; }
-.curated-action { color: #8e6d2c !important; }
-.curated-action.saved { color: #55724b !important; cursor: default; opacity: .82; }
+.curated-action { background: #fffaf0 !important; border-color: #e2d1aa !important; color: #765812 !important; font-weight: 700 !important; }
+.curated-action.saved { background: #f3f7f0 !important; border-color: #cbd9c5 !important; color: #55724b !important; cursor: default; opacity: .9; }
 .curated-action.selected, .selection-toggle.active { background: #f2e4bd !important; color: #765812 !important; border-color: #d6bd7a !important; }
 .selection-toggle { border: 1px solid transparent; border-radius: 7px; background: transparent; color: #8e6d2c; padding: 6px 9px; font: inherit; font-size: .7rem; cursor: pointer; }
 .curated-save-bar { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 14px auto 0; padding: 8px 12px; border: 1px solid #dcc58e; border-radius: 9px; background: #fbf4e6; color: #765812; font-size: .76rem; }

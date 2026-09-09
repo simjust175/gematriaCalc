@@ -82,7 +82,7 @@ test('saved library composes search, views, sorting, grouping, detail, and delet
     const settings = await settingsResponse.json();
     const selectedEntryText = await initialFirstCard.locator('.entry-text').innerText();
     const expectedMilui = calculateMilui(selectedEntryText, settings.mapping);
-    await expect(initialDetail.getByText('מילוי לפי ההגדרות הנוכחיות:')).toBeVisible();
+    await expect(initialDetail.getByText('מילוי נוכחי')).toBeVisible();
     await expect(initialDetail.locator('.detail-row--milui .detail-gematria')).toContainText(
       String(expectedMilui.fullGematria)
     );
@@ -288,9 +288,16 @@ test('saved library renders curated matches, opens reader, and removes only the 
   await card.getByRole('button', { name: 'פתח פירוט', exact: true }).click();
   const detail = page.locator('[data-detail-entry-id="804"]');
   await expect(detail.getByRole('heading', { name: 'התאמות נבחרות' })).toBeVisible();
+  expect((await detail.boundingBox()).height).toBeLessThan(360);
   await expect(detail).toContainText('גימטריה');
   await expect(detail).toContainText('ראשי תיבות');
-  await detail.getByRole('button', { name: 'פתח בקורא' }).click();
+  await detail.getByRole('button', { name: 'סגור פירוט' }).click();
+  await expect(detail).toHaveCount(0);
+  await expect(card.getByRole('button', { name: 'פתח פירוט', exact: true })).toHaveAttribute('aria-expanded', 'false');
+  await card.getByRole('button', { name: 'פתח פירוט', exact: true }).click();
+  const reopenedDetail = page.locator('[data-detail-entry-id="804"]');
+  await expect(reopenedDetail).toBeVisible();
+  await reopenedDetail.getByRole('button', { name: 'פתח בקורא' }).click();
   await expect(page.locator('.tanach-page')).toBeVisible();
   await page.getByRole('button', { name: 'שמורים', exact: true }).click();
   await expect(card).toBeVisible();
