@@ -68,11 +68,14 @@ test('calculator discovery switches intentionally between gematria and letter se
   const discovery = page.locator('.gematria-discovery');
   const initials = discovery.getByRole('button', { name: 'ראשי תיבות' });
   const finals = discovery.getByRole('button', { name: 'סופי תיבות' });
+  const methodSelector = discovery.locator('.controls-secondary-row .method-selector');
   await expect(initials).toBeEnabled();
   await expect(finals).toBeEnabled();
+  const gematriaSelectorX = (await methodSelector.boundingBox()).x;
 
   await initials.click();
   await expect(initials).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(async () => (await methodSelector.boundingBox()).x).toBe(gematriaSelectorX);
   const orderSwitch = discovery.getByRole('switch', { name: /אותן אותיות בכל סדר/ });
   await expect(orderSwitch).toBeVisible();
   await expect(orderSwitch).toHaveAttribute('aria-checked', 'false');
@@ -92,6 +95,7 @@ test('calculator discovery switches intentionally between gematria and letter se
 
   await finals.click();
   await expect(finals).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(async () => (await methodSelector.boundingBox()).x).toBe(gematriaSelectorX);
   await expect(orderSwitch).toHaveAttribute('aria-checked', 'true');
   await expect(discovery.getByRole('heading')).toContainText('שבמ');
   await expect(discovery.getByText('מילים רצופות המסתיימות באותיות שבמ')).toBeVisible();

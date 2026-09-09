@@ -83,14 +83,6 @@
             <span>{{ counts[item.value] || 0 }}</span>
           </button>
         </div>
-        <div class="method-selector" role="group" aria-label="חיפוש לפי">
-          <button v-for="item in methodOptions" :key="item.value" type="button"
-            :class="{ active: method === item.value }" :aria-pressed="method === item.value"
-            :aria-label="item.label"
-            :disabled="item.value !== 'gematria' && !hasPattern" @click="method = item.value">
-            <span>{{ item.label }}</span>
-          </button>
-        </div>
         <button
           v-if="isEdgeMethod"
           type="button"
@@ -106,6 +98,14 @@
             <small>כולל סדר שונה</small>
           </span>
         </button>
+        <div class="method-selector" role="group" aria-label="חיפוש לפי">
+          <button v-for="item in methodOptions" :key="item.value" type="button"
+            :class="{ active: method === item.value }" :aria-pressed="method === item.value"
+            :aria-label="item.label"
+            :disabled="item.value !== 'gematria' && !hasPattern" @click="method = item.value">
+            <span>{{ item.label }}</span>
+          </button>
+        </div>
       </div>
     </div>
     <p v-if="rangeMetadataError || chapterVersesError" class="range-filter-error" role="status">{{ rangeMetadataError || chapterVersesError }}</p>
@@ -440,7 +440,7 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .filter-list button:hover, .card-actions button:hover:not(:disabled), .load-more:hover { transform: translateY(-1px); border-color: #c09840; }
 .filter-list button.active { background: var(--gold-light, #f6edda); color: #765812; border-color: #d4b96c; font-weight: 700; }
 .filter-list button span { margin-inline-start: 4px; opacity: .7; font-variant-numeric: tabular-nums; }
-.order-switch { display: inline-flex; align-items: center; gap: 8px; margin-inline-start: auto; padding: 4px 7px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #5f6878; font: inherit; text-align: right; cursor: pointer; transition: color .16s ease, background .16s ease, border-color .16s ease; }
+.order-switch { display: inline-flex; align-items: center; gap: 8px; padding: 4px 7px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #5f6878; font: inherit; text-align: right; cursor: pointer; transition: color .16s ease, background .16s ease, border-color .16s ease; }
 .order-switch:hover { border-color: #e0cfaa; background: rgba(246,237,218,.52); }
 .order-switch.active { color: #765812; }
 .switch-track { position: relative; flex: 0 0 auto; width: 30px; height: 17px; border: 1px solid #cfc5b4; border-radius: 999px; background: #e8e2d8; transition: background .18s ease, border-color .18s ease; }
