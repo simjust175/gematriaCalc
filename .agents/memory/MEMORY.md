@@ -13,3 +13,4 @@
 - [Production recovery](production-recovery.md) — Production PostgreSQL has a verified seven-day point-in-time restore window
 - [Managed schema releases](managed-schema-releases.md) — Post-merge applies additive SQL to dev; Publish owns production schema diffs
 - [Database test isolation](database-test-isolation.md) — DB-mutating Node test files must run serially or global row-count assertions observe temporary rows
+- [Desktop PWA installation](desktop-pwa-installation.md) — install from the secondary app menu; keep the service worker network-only so auth/data and deployed updates stay live
