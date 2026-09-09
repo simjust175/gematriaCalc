@@ -456,16 +456,13 @@ app.get('/api/matches', requireAuth, async (req, res) => {
     const { normalizedText } = req.query;
     const current = computeAll(typeof normalizedText === 'string' ? normalizedText : '');
     const g = current?.fullGematria || 0;
-    const initialsTextCandidates = [...new Set(
-      [current?.normalizedText, current?.initials]
-        .filter(Boolean)
-        .map(value => normalize(value).replace(/\s+/g, ''))
-    )];
-    const finalsTextCandidates = [...new Set(
-      [current?.normalizedText, current?.finals]
-        .filter(Boolean)
-        .map(value => normalize(value).replace(/\s+/g, ''))
-    )];
+    // ראשי/סופי text matching always uses the complete entered target.
+    // Do not also use the target phrase's own derived edge letters: for a
+    // one-word target such as שבת that would reduce the target to ש/ת and
+    // incorrectly accept a one-word saved candidate.
+    const textTarget = normalize(current?.normalizedText || '').replace(/\s+/g, '');
+    const initialsTextCandidates = textTarget ? [textTarget] : [];
+    const finalsTextCandidates = textTarget ? [textTarget] : [];
     const initialsProfiles = initialsTextCandidates
       .map(value => createDerivedLetterProfile(value, 'initials'));
     const finalsProfiles = finalsTextCandidates

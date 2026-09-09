@@ -430,6 +430,16 @@ test('שבת initials match every permutation while enforcing repeated-letter co
   assert.deepEqual(findWordEdgeRanges('שמע בית תורה אדם', 'שבת', 'initials', 4), []);
 });
 
+test('שבת requires exactly three contributing words for initials in both order modes', () => {
+  assert.deepEqual(findWordEdgeRanges('שמע', 'שבת', 'initials', 3), []);
+  assert.deepEqual(findWordEdgeRanges('שמע בית', 'שבת', 'initials', 3), []);
+  assert.equal(findWordEdgeRanges('שמע בית תורה', 'שבת', 'initials', 3).length, 1);
+  assert.deepEqual(findWordEdgeRanges('בית תורה שמע', 'שבת', 'initials', 3), []);
+  assert.equal(findWordEdgeRanges('בית תורה שמע', 'שבת', 'initials', 3, true).length, 1);
+  assert.deepEqual(findWordEdgeRanges('שמע בית תורה אדם', 'שבת', 'initials', 4), []);
+  assert.deepEqual(findWordEdgeRanges('שמע בית', 'שבת', 'initials', 2, true), []);
+});
+
 test('findWordEdgeRanges finds finals and normalizes final forms only for comparison', () => {
   const pointed = 'מֶלֶךְ אָמֵן';
   const normalized = findWordEdgeRanges(pointed, 'כנ', 'finals', 2);
@@ -446,6 +456,16 @@ test('שבת finals match ordered and reordered windows with exact multiplicitie
   assert.equal(findWordEdgeRanges('לב אמת איש', 'שבת', 'finals', 3, true).length, 1);
   assert.equal(findWordEdgeRanges('לב איש איש', 'ששב', 'finals', 3, true).length, 1);
   assert.deepEqual(findWordEdgeRanges('לב איש איש', 'שבת', 'finals', 3, true), []);
+});
+
+test('שבת requires exactly three contributing words for finals in both order modes', () => {
+  assert.deepEqual(findWordEdgeRanges('איש', 'שבת', 'finals', 3), []);
+  assert.deepEqual(findWordEdgeRanges('איש לב', 'שבת', 'finals', 3), []);
+  assert.equal(findWordEdgeRanges('איש לב אמת', 'שבת', 'finals', 3).length, 1);
+  assert.deepEqual(findWordEdgeRanges('לב אמת איש', 'שבת', 'finals', 3), []);
+  assert.equal(findWordEdgeRanges('לב אמת איש', 'שבת', 'finals', 3, true).length, 1);
+  assert.deepEqual(findWordEdgeRanges('איש לב אמת אור', 'שבת', 'finals', 4), []);
+  assert.deepEqual(findWordEdgeRanges('איש לב', 'שבת', 'finals', 2, true), []);
 });
 
 test('findWordEdgeRanges never skips words or accepts partial or mismatched windows', () => {

@@ -1334,6 +1334,59 @@ test('ראשי וסופי תיבות text matches exact letter permutations with
   }
 });
 
+test('saved ראשי וסופי lookup requires the full target length', async () => {
+  const agent = request.agent(app);
+  const savedIds = [];
+  const token = uniqueHebrewToken();
+  const reversedToken = [...token].reverse().join('');
+  await agent
+    .post('/api/auth/login')
+    .send({ password: 'correct-test-password-12345' });
+
+  const save = async originalText => {
+    const response = await agent.post('/api/entries').send({ originalText });
+    assert.equal(response.status, 200);
+    savedIds.push(response.body.id);
+    return response.body.id;
+  };
+
+  try {
+    const oneInitialId = await save(`ש${token}`);
+    const twoInitialsId = await save(`ש${token} ב${reversedToken}`);
+    const strictInitialsId = await save(`ש${token} ב${reversedToken} ת${token}`);
+    const permutedInitialsId = await save(`ב${token} ת${reversedToken} ש${token}`);
+    const extraInitialsId = await save(`ש${token} ב${reversedToken} ת${token} א${reversedToken}`);
+    const oneFinalId = await save(`${token}ש`);
+    const twoFinalsId = await save(`${token}ש ${reversedToken}ב`);
+    const strictFinalsId = await save(`${token}ש ${reversedToken}ב ${token}ת`);
+    const permutedFinalsId = await save(`${token}ב ${reversedToken}ת ${token}ש`);
+    const extraFinalsId = await save(`${token}ש ${reversedToken}ב ${token}ת ${reversedToken}א`);
+
+    const response = await agent
+      .get('/api/matches')
+      .query({ normalizedText: 'שבת' });
+    assert.equal(response.status, 200);
+
+    const matchTypesFor = id => (
+      response.body.matches.find(entry => entry.id === id)?.matchTypes || []
+    );
+    for (const id of [oneInitialId, twoInitialsId, extraInitialsId]) {
+      assert.equal(matchTypesFor(id).includes('initials_text'), false);
+    }
+    for (const id of [strictInitialsId, permutedInitialsId]) {
+      assert.equal(matchTypesFor(id).includes('initials_text'), true);
+    }
+    for (const id of [oneFinalId, twoFinalsId, extraFinalsId]) {
+      assert.equal(matchTypesFor(id).includes('finals_text'), false);
+    }
+    for (const id of [strictFinalsId, permutedFinalsId]) {
+      assert.equal(matchTypesFor(id).includes('finals_text'), true);
+    }
+  } finally {
+    await Promise.all(savedIds.map(id => agent.delete(`/api/entries/${id}`)));
+  }
+});
+
 test('matching returns applicable reasons once per saved entry and preserves word matches', async () => {
   const agent = request.agent(app);
   const alphabet = [...'אבגדהוזחטיכלמנסעפצקרשת'];
@@ -1427,27 +1480,18 @@ test('matching returns applicable reasons once per saved entry and preserves wor
     const initialsGematriaOnly = await getMatch(initialsGematriaOnlyText, savedId);
     assert.deepEqual(entryReasons(initialsGematriaOnly), ['initials_gematria']);
 
-    const initialsTextOnlyInput = [...calculated.initials]
-      .map(letter => `${letter}א`)
-      .join(' ״ ');
-    const initialsTextOnly = await getMatch(initialsTextOnlyInput, savedId);
-    assert.deepEqual(entryReasons(initialsTextOnly), ['initials_text']);
+    const initialsTextOnly = await getMatch(calculated.initials, savedId);
+    assert.deepEqual(entryReasons(initialsTextOnly), ['initials_text', 'initials_gematria']);
 
     const finalsGematriaOnlyText = toHebrewNumber(calculated.finalsGematria);
     const finalsGematriaOnly = await getMatch(finalsGematriaOnlyText, savedId);
     assert.ok(entryReasons(finalsGematriaOnly).includes('finals_gematria'));
 
-    const finalsTextOnlyInput = [...calculated.finals]
-      .map(letter => `א${letter}`)
-      .join(' ״ ');
-    const finalsTextOnly = await getMatch(finalsTextOnlyInput, savedId);
+    const finalsTextOnly = await getMatch(calculated.finals, savedId);
     assert.ok(entryReasons(finalsTextOnly).includes('finals_text'));
 
-    const twoReasons = await getMatch(originalText, savedId);
-    assert.deepEqual(
-      entryReasons(twoReasons),
-      ['full_gematria', 'initials_text', 'finals_text']
-    );
+    const fullTarget = await getMatch(originalText, savedId);
+    assert.deepEqual(entryReasons(fullTarget), ['full_gematria']);
 
     const allReasons = await getMatch(allTypesText, allTypesId);
     assert.deepEqual(
