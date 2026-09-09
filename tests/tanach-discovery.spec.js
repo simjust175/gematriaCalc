@@ -73,6 +73,18 @@ test('calculator discovery switches intentionally between gematria and letter se
 
   await initials.click();
   await expect(initials).toHaveAttribute('aria-pressed', 'true');
+  const orderSwitch = discovery.getByRole('switch', { name: /אותן אותיות בכל סדר/ });
+  await expect(orderSwitch).toBeVisible();
+  await expect(orderSwitch).toHaveAttribute('aria-checked', 'false');
+  const unorderedInitials = page.waitForResponse(response => {
+    const url = new URL(response.url());
+    return url.pathname === '/api/tanach/gematria-matches'
+      && url.searchParams.get('method') === 'initials'
+      && url.searchParams.get('order_independent') === 'true';
+  });
+  await orderSwitch.click();
+  await unorderedInitials;
+  await expect(orderSwitch).toHaveAttribute('aria-checked', 'true');
   await expect(discovery.getByRole('heading')).toContainText('שבמ');
   await expect(discovery.getByText('מילים רצופות הפותחות באותיות שבמ')).toBeVisible();
   await expect(discovery.getByRole('button', { name: /מילה שלמה/ })).toHaveCount(0);
@@ -80,6 +92,7 @@ test('calculator discovery switches intentionally between gematria and letter se
 
   await finals.click();
   await expect(finals).toHaveAttribute('aria-pressed', 'true');
+  await expect(orderSwitch).toHaveAttribute('aria-checked', 'true');
   await expect(discovery.getByRole('heading')).toContainText('שבמ');
   await expect(discovery.getByText('מילים רצופות המסתיימות באותיות שבמ')).toBeVisible();
 

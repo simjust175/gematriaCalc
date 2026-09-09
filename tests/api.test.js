@@ -1736,6 +1736,8 @@ test('Tanach initials/finals discovery uses exact complete-word windows and vali
     { method: 'initials', sequence: 'בב', value: 4 },
     { method: 'gematria', value: 4, sequence: 'בב', word_count: 2 },
     { method: 'unknown', sequence: 'בב' },
+    { method: 'gematria', value: 4, order_independent: 'true' },
+    { method: 'initials', sequence: 'בב', order_independent: 'yes' },
   ]) {
     const invalid = await agent.get('/api/tanach/gematria-matches').query(query);
     assert.equal(invalid.status, 400);
@@ -1772,6 +1774,32 @@ test('Tanach initials/finals discovery uses exact complete-word windows and vali
     finals.body.results.map(item => [item.start, item.end, normalize(item.text)]),
     [[0, 8, 'בראשית ברא']]
   );
+
+  for (const query of [
+    { method: 'initials', sequence: 'אבב' },
+    { method: 'finals', sequence: 'את' },
+  ]) {
+    const strict = await agent.get('/api/tanach/gematria-matches').query({
+      ...query,
+      chapter_book: 'Genesis',
+      chapter: 1,
+      verse: 1,
+      limit: 10,
+    });
+    const anyOrder = await agent.get('/api/tanach/gematria-matches').query({
+      ...query,
+      order_independent: 'true',
+      chapter_book: 'Genesis',
+      chapter: 1,
+      verse: 1,
+      limit: 10,
+    });
+    assert.equal(strict.status, 200);
+    assert.equal(strict.body.total, 0);
+    assert.equal(anyOrder.status, 200);
+    assert.equal(anyOrder.body.total, 1);
+    assert.equal(anyOrder.body.orderIndependent, true);
+  }
 
   const firstPage = await agent.get('/api/tanach/gematria-matches').query({
     method: 'initials',
@@ -1814,18 +1842,27 @@ test('Tanach initials/finals discovery uses exact complete-word windows and vali
   );
 
   for (const method of ['initials', 'finals']) {
+    const strictReordered = await agent.get('/api/tanach/gematria-matches').query({
+      method,
+      sequence: 'בתש',
+      page: 1,
+      limit: 2,
+    });
     const ordered = await agent.get('/api/tanach/gematria-matches').query({
       method,
       sequence: 'שבת',
+      order_independent: 'true',
       page: 1,
       limit: 2,
     });
     const reordered = await agent.get('/api/tanach/gematria-matches').query({
       method,
       sequence: 'בתש',
+      order_independent: 'true',
       page: 1,
       limit: 2,
     });
+    assert.equal(strictReordered.status, 200);
     assert.equal(ordered.status, 200);
     assert.equal(reordered.status, 200);
     assert.ok(ordered.body.total > 2, `expected paginated ${method} שבת results`);
@@ -1839,6 +1876,7 @@ test('Tanach initials/finals discovery uses exact complete-word windows and vali
     const secondPage = await agent.get('/api/tanach/gematria-matches').query({
       method,
       sequence: 'תבש',
+      order_independent: 'true',
       page: 2,
       limit: 2,
     });

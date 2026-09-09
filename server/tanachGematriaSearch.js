@@ -64,7 +64,7 @@ function cursorWords(cursor) {
  * complete words in one verse. Returned text and indexes always come from the
  * canonical pointed cursor; normalization is used for comparison only.
  */
-export function findWordEdgeRanges(displayText, sequence, method, wordCount) {
+export function findWordEdgeRanges(displayText, sequence, method, wordCount, orderIndependent = false) {
   if (
     !displayText
     || (method !== 'initials' && method !== 'finals')
@@ -88,8 +88,12 @@ export function findWordEdgeRanges(displayText, sequence, method, wordCount) {
     const candidate = window.map(word => (
       method === 'initials' ? word.first : word.last
     )).map(comparisonLetter).join('');
-    const candidateProfile = createDerivedLetterProfile(candidate, method);
-    if (!derivedLetterProfilesMatch(candidateProfile, targetProfile)) continue;
+    if (orderIndependent) {
+      const candidateProfile = createDerivedLetterProfile(candidate, method);
+      if (!derivedLetterProfilesMatch(candidateProfile, targetProfile)) continue;
+    } else if (candidate !== normalizedSequence) {
+      continue;
+    }
 
     const start = window[0].start;
     const end = window.at(-1).end;

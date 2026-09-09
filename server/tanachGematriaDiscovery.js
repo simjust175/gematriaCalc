@@ -139,6 +139,7 @@ export function parseGematriaSearchQuery(query) {
   const requestedLimit = query.limit == null ? 12 : Number(query.limit);
   const search = typeof query.search === 'string' ? query.search.trim() : '';
   const currentParshah = query.parsha === 'current';
+  const orderIndependent = query.order_independent === 'true';
   const requestedChumash = typeof query.chumash === 'string' ? query.chumash : '';
   const chumash = requestedChumash === 'all' ? '' : requestedChumash;
   const parshaId = typeof query.parsha_id === 'string' ? query.parsha_id : '';
@@ -154,7 +155,9 @@ export function parseGematriaSearchQuery(query) {
     if (!isScalar(query.value) || !Number.isSafeInteger(value) || value < 1) {
       return { error: 'invalid_gematria_value' };
     }
-    if (query.sequence != null || query.word_count != null) return { error: 'invalid_match_query' };
+    if (query.sequence != null || query.word_count != null || query.order_independent != null) {
+      return { error: 'invalid_match_query' };
+    }
   } else {
     if (query.value != null || query.word_count != null) return { error: 'invalid_match_query' };
     if (
@@ -166,6 +169,11 @@ export function parseGematriaSearchQuery(query) {
       return { error: 'invalid_match_sequence' };
     }
     if (type !== 'all' && type !== 'whole_phrase') return { error: 'invalid_match_type' };
+    if (
+      query.order_independent != null
+      && query.order_independent !== 'true'
+      && query.order_independent !== 'false'
+    ) return { error: 'invalid_order_independent' };
   }
   if (query.type != null && typeof query.type !== 'string') return { error: 'invalid_match_type' };
   if (!VALID_TYPES.has(type)) return { error: 'invalid_match_type' };
@@ -216,6 +224,7 @@ export function parseGematriaSearchQuery(query) {
     value,
     sequence,
     wordCount,
+    orderIndependent,
     type,
     page,
     limit: Math.min(requestedLimit, MAX_GEMATRIA_PAGE_SIZE),
@@ -312,6 +321,7 @@ export async function searchTanachGematria(db, options, mayRetry = true) {
     value,
     sequence = '',
     wordCount = 0,
+    orderIndependent = false,
     type,
     page,
     limit,
@@ -325,9 +335,13 @@ export async function searchTanachGematria(db, options, mayRetry = true) {
     verse: verseNumber = 0,
   } = options;
   const { corpus, revision } = await loadCorpus(db);
+  const normalizedSequence = normalizeDerivedLetters(sequence, method);
+  const cacheSequence = orderIndependent
+    ? [...normalizedSequence].sort().join('')
+    : normalizedSequence;
   const cacheKey = method === 'gematria'
     ? `gematria:${value}`
-    : `${method}:${[...normalizeDerivedLetters(sequence, method)].sort().join('')}:${wordCount}`;
+    : `${method}:${orderIndependent ? 'any' : 'strict'}:${cacheSequence}:${wordCount}`;
   let entry = targetCache.get(cacheKey);
   if (!entry) {
     const counts = { all: 0, whole_word: 0, whole_phrase: 0, partial: 0 };
@@ -335,7 +349,13 @@ export async function searchTanachGematria(db, options, mayRetry = true) {
     for (let verseIndex = 0; verseIndex < corpus.length; verseIndex += 1) {
       const verseMatches = method === 'gematria'
         ? findGematriaRanges(corpus[verseIndex].display_text, value)
-        : findWordEdgeRanges(corpus[verseIndex].display_text, sequence, method, wordCount);
+        : findWordEdgeRanges(
+            corpus[verseIndex].display_text,
+            sequence,
+            method,
+            wordCount,
+            orderIndependent,
+          );
       for (const match of verseMatches) {
         counts.all += 1;
         counts[match.classification] += 1;
@@ -385,7 +405,7 @@ export async function searchTanachGematria(db, options, mayRetry = true) {
     method,
     ...(method === 'gematria'
       ? { target: value }
-      : { sequence, wordCount }),
+      : { sequence, wordCount, orderIndependent }),
     results,
     counts,
     total,

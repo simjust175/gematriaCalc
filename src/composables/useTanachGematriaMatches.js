@@ -6,6 +6,7 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
   const fetchImpl = options.fetchImpl || globalThis.fetch;
   const methodRef = options.methodRef;
   const sequenceRef = options.sequenceRef;
+  const orderIndependentRef = options.orderIndependentRef;
   const debounceMs = options.debounceMs ?? 350;
   const limit = options.limit ?? 12;
   const results = ref([]);
@@ -47,6 +48,9 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
   function currentWordCount() {
     return [...currentSequence()].length;
   }
+  function currentOrderIndependent() {
+    return currentMethod() !== 'gematria' && valueOf(orderIndependentRef) === true;
+  }
   function canRequest() {
     return currentMethod() === 'gematria' ? !!valueOfTarget() : currentWordCount() >= 1;
   }
@@ -80,6 +84,7 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
         params.set('type', filter.value);
       } else {
         params.set('sequence', currentSequence());
+        if (currentOrderIndependent()) params.set('order_independent', 'true');
       }
       if (search.value.trim()) params.set('search', search.value.trim());
        if (bookOrder.value) params.set('book_order', String(bookOrder.value));
@@ -208,7 +213,13 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
   }
 
   const stop = watch(
-    () => [valueOfTarget(), currentMethod(), currentSequence(), currentWordCount()],
+    () => [
+      valueOfTarget(),
+      currentMethod(),
+      currentSequence(),
+      currentWordCount(),
+      currentOrderIndependent(),
+    ],
     schedule,
     { immediate: true, flush: 'sync' },
   );

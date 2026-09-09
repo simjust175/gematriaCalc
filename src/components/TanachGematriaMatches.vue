@@ -91,6 +91,21 @@
             <span>{{ item.label }}</span>
           </button>
         </div>
+        <button
+          v-if="isEdgeMethod"
+          type="button"
+          class="order-switch"
+          role="switch"
+          :aria-checked="orderIndependent"
+          :class="{ active: orderIndependent }"
+          @click="orderIndependent = !orderIndependent"
+        >
+          <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+          <span class="order-switch-copy">
+            <span>אותן אותיות בכל סדר</span>
+            <small>כולל סדר שונה</small>
+          </span>
+        </button>
       </div>
     </div>
     <p v-if="rangeMetadataError || chapterVersesError" class="range-filter-error" role="status">{{ rangeMetadataError || chapterVersesError }}</p>
@@ -196,6 +211,7 @@ const filterOptions = [
   { value: 'whole_phrase', label: 'מילים שלימות' },
 ];
 const method = ref('gematria');
+const orderIndependent = ref(false);
 const methodOptions = [
   { value: 'gematria', label: 'גימטריה' },
   { value: 'initials', label: 'ראשי תיבות' },
@@ -208,6 +224,7 @@ const {
   useTanachGematriaMatches(computed(() => props.target), {
     methodRef: method,
     sequenceRef: computed(() => props.pattern),
+    orderIndependentRef: orderIndependent,
   });
 
 const formattedTarget = computed(() => Number(props.target || 0).toLocaleString('he-IL'));
@@ -423,6 +440,17 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .filter-list button:hover, .card-actions button:hover:not(:disabled), .load-more:hover { transform: translateY(-1px); border-color: #c09840; }
 .filter-list button.active { background: var(--gold-light, #f6edda); color: #765812; border-color: #d4b96c; font-weight: 700; }
 .filter-list button span { margin-inline-start: 4px; opacity: .7; font-variant-numeric: tabular-nums; }
+.order-switch { display: inline-flex; align-items: center; gap: 8px; margin-inline-start: auto; padding: 4px 7px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #5f6878; font: inherit; text-align: right; cursor: pointer; transition: color .16s ease, background .16s ease, border-color .16s ease; }
+.order-switch:hover { border-color: #e0cfaa; background: rgba(246,237,218,.52); }
+.order-switch.active { color: #765812; }
+.switch-track { position: relative; flex: 0 0 auto; width: 30px; height: 17px; border: 1px solid #cfc5b4; border-radius: 999px; background: #e8e2d8; transition: background .18s ease, border-color .18s ease; }
+.switch-thumb { position: absolute; top: 2px; inset-inline-start: 2px; width: 11px; height: 11px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(26,39,68,.22); transition: transform .18s ease; }
+.order-switch.active .switch-track { border-color: #bc9137; background: #c59a43; }
+.order-switch.active .switch-thumb { transform: translateX(-13px); }
+.order-switch-copy { display: grid; gap: 1px; line-height: 1.1; }
+.order-switch-copy > span { font-size: .7rem; font-weight: 780; white-space: nowrap; }
+.order-switch-copy small { color: #9a8d76; font-size: .61rem; font-weight: 600; }
+.order-switch.active .order-switch-copy small { color: #96732b; }
 .range-filter-error { margin: -2px 2px 10px; color: #a45e46; font-size: .71rem; }
 .parshah-note { margin: 0 0 13px; color: var(--text-secondary, #74716a); font-size: .73rem; }
 .parshah-note strong { color: #87671f; }
@@ -483,5 +511,5 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .load-more { display: flex; align-items: center; gap: 7px; margin: 16px auto 0; padding-inline: 16px; }
 @keyframes breathe { from { opacity: .45; } to { opacity: 1; } }
 @media (max-width: 820px) { .match-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 560px) { .discovery-header { align-items: flex-start; gap: 8px; }.title-line { align-items: flex-start; gap: 7px; }.title-line h2 { flex: 1 1 auto; }.match-grid { grid-template-columns: 1fr; }.total-mark strong { font-size: .78rem; }.controls { gap: 11px; padding: 11px; }.controls-primary-row { grid-template-columns: 1fr; gap: 9px; }.manual-range { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }.manual-range > :first-child { grid-column: 1 / -1; }.parshah-filter { min-height: 46px; }.controls-secondary-row { flex-direction: column; align-items: stretch; gap: 9px; }.controls-secondary-row .method-selector { align-self: flex-start; order: 1; margin-inline-start: 0; }.controls-secondary-row .filter-list { order: 2; gap: 6px; } }
+@media (max-width: 560px) { .discovery-header { align-items: flex-start; gap: 8px; }.title-line { align-items: flex-start; gap: 7px; }.title-line h2 { flex: 1 1 auto; }.match-grid { grid-template-columns: 1fr; }.total-mark strong { font-size: .78rem; }.controls { gap: 11px; padding: 11px; }.controls-primary-row { grid-template-columns: 1fr; gap: 9px; }.manual-range { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }.manual-range > :first-child { grid-column: 1 / -1; }.parshah-filter { min-height: 46px; }.controls-secondary-row { flex-direction: column; align-items: stretch; gap: 9px; }.controls-secondary-row .method-selector { align-self: flex-start; order: 1; margin-inline-start: 0; }.controls-secondary-row .filter-list { order: 2; gap: 6px; }.controls-secondary-row .order-switch { order: 2; align-self: flex-start; margin-inline-start: 0; } }
 </style>
