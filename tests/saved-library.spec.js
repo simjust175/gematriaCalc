@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { calculateMilui } from '../src/utils/milui.js';
 
+test.use({ serviceWorkers: 'block' });
+
 const e2ePassword = process.env.E2E_APP_PASSWORD || 'tanach-browser-test-password';
 
 function uniqueHebrewToken() {
@@ -243,4 +245,64 @@ test('saved library loads later pages before grouping cross-page values', async 
   await expect(page.locator('.entry-card')).toHaveCount(100);
   await page.getByRole('button', { name: /הצג עוד/ }).click();
   await expect(page.locator('.entry-card')).toHaveCount(101);
+});
+
+test('saved library renders curated matches, opens reader, and removes only the connection', async ({ page }) => {
+  const entry = {
+    id: 804, original_text: 'שלום', full_gematria: 376, full_gematria_hebrew: 'שעו',
+    initials: 'ש', initials_gematria: 300, initials_gematria_hebrew: 'ש',
+    finals: 'ם', finals_gematria: 40, finals_gematria_hebrew: 'מ',
+    created_at: new Date().toISOString(), words: [], curated_match_count: 1,
+    curated_matches: [{
+      id: 1301, originalText: 'בראשית', tanachContext: {
+        bookSlug: 'genesis', chapter: 1, verse: 1, start: 0, end: 6,
+      }, reasonCodes: ['full_gematria', 'initials_text'],
+    }],
+  };
+  await page.addInitScript(({ mockedEntry }) => {
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = (input, init) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.includes('/api/entries?')) {
+        return Promise.resolve(new Response(JSON.stringify({
+          entries: [mockedEntry], total: 1,
+          stats: { saved: 1, distinctValues: 1, sharedValues: 0 },
+          pagination: { hasMore: false, nextOffset: 1 },
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+      }
+      if (url.includes('/api/entries/804/curated-matches/1301')
+          && (init?.method || input.method) === 'DELETE') {
+        window.__curatedDeleteCalled = true;
+        return Promise.resolve(new Response(JSON.stringify({ success: true }), {
+          status: 200, headers: { 'Content-Type': 'application/json' },
+        }));
+      }
+      return originalFetch(input, init);
+    };
+  }, { mockedEntry: entry });
+  await signIn(page);
+  await page.getByRole('button', { name: 'שמורים', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'שמורים' })).toBeVisible();
+  const card = page.locator('[data-entry-id="804"]');
+  await expect(card).toContainText('1 התאמות שמורות');
+  await card.getByRole('button', { name: 'פתח פירוט', exact: true }).click();
+  const detail = page.locator('[data-detail-entry-id="804"]');
+  await expect(detail.getByRole('heading', { name: 'התאמות נבחרות' })).toBeVisible();
+  await expect(detail).toContainText('גימטריה');
+  await expect(detail).toContainText('ראשי תיבות');
+  await detail.getByRole('button', { name: 'פתח בקורא' }).click();
+  await expect(page.locator('.tanach-page')).toBeVisible();
+  await page.getByRole('button', { name: 'שמורים', exact: true }).click();
+  await expect(card).toBeVisible();
+  await card.getByRole('button', { name: 'פתח פירוט', exact: true }).click();
+  const openDetail = page.locator('[data-detail-entry-id="804"]');
+  await openDetail.getByRole('button', { name: 'הסר' }).click();
+  await expect(openDetail).toContainText('להסיר?');
+  await openDetail.getByRole('button', { name: 'ביטול' }).click();
+  await expect(openDetail.getByRole('button', { name: 'הסר' })).toBeVisible();
+  await openDetail.getByRole('button', { name: 'הסר' }).click();
+  await openDetail.getByRole('button', { name: 'אישור' }).click();
+  await expect(card).toBeVisible();
+  await expect(card).not.toContainText('1 התאמות שמורות');
+  await expect.poll(() => page.evaluate(() => window.__curatedDeleteCalled)).toBe(true);
 });

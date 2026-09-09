@@ -14,3 +14,4 @@
 - [Managed schema releases](managed-schema-releases.md) — Post-merge applies additive SQL to dev; Publish owns production schema diffs
 - [Database test isolation](database-test-isolation.md) — DB-mutating Node test files must run serially or global row-count assertions observe temporary rows
 - [Desktop PWA installation](desktop-pwa-installation.md) — install from the secondary app menu; keep the service worker network-only so auth/data and deployed updates stay live
+- [Curated Tanach connections](curated-tanach-connections.md) — saved search results belong to a parent calculation; canonical sources dedupe while reasons accumulate

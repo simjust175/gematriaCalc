@@ -70,6 +70,9 @@
         </button>
       </div>
       <div class="controls-secondary-row">
+        <button type="button" class="selection-toggle" :class="{ active: selectionMode }" @click="toggleSelectionMode">
+          {{ selectionMode ? 'יציאה מבחירה' : 'בחירה מרובה' }}
+        </button>
         <div v-if="method === 'gematria'" class="filter-list" role="group" aria-label="סוג התאמה">
           <button
             v-for="item in filterOptions"
@@ -132,7 +135,7 @@
       <span>{{ currentParshah ? 'אפשר להסיר את סינון פרשת השבוע או לבחור ספר או פרשה.' : manualScopeLabel ? 'אפשר לבחור טווח תנ״ך אחר או סיווג התאמה אחר.' : 'אפשר לבחור סיווג אחר או להמשיך לחקור ערך חדש במחשבון.' }}</span>
     </div>
     <div v-else class="match-grid" aria-live="polite">
-      <article v-for="(result, index) in results" :key="resultKey(result)" class="match-card">
+      <article v-for="(result, index) in results" :key="resultKey(result)" class="match-card" :class="{ 'curated-selected-card': selectedKeys.has(resultKey(result)) }">
         <div class="card-topline">
           <span class="type-label">{{ typeLabel(result.type) }}</span>
           <span class="match-index">{{ String(index + 1).padStart(2, '0') }}</span>
@@ -171,10 +174,29 @@
             <span class="mdi" :class="savedKeys.has(resultKey(result)) ? 'mdi-bookmark-check-outline' : 'mdi-bookmark-outline'" aria-hidden="true"></span>
             {{ savedKeys.has(resultKey(result)) ? 'נשמר' : 'שמור טווח' }}
           </button>
+          <button
+            type="button"
+            class="curated-action"
+            :class="{ selected: selectedKeys.has(resultKey(result)) || curatedSavedKeys.has(curatedStateKey(result)), saved: curatedSavedKeys.has(curatedStateKey(result)) }"
+            :disabled="curatedSavedKeys.has(curatedStateKey(result))"
+            :aria-pressed="selectedKeys.has(resultKey(result))"
+            @click="selectionMode ? toggleCuratedSelection(result) : saveCuratedSingle(result)"
+          >
+            <span class="mdi" :class="curatedSavedKeys.has(curatedStateKey(result)) ? 'mdi-star-check-outline' : 'mdi-star-outline'" aria-hidden="true"></span>
+            {{ curatedSavedKeys.has(curatedStateKey(result)) ? 'נשמר כהתאמה' : selectedKeys.has(resultKey(result)) ? 'נבחר' : 'שמור כהתאמה' }}
+          </button>
         </footer>
         <span v-if="saveErrors.has(resultKey(result))" class="save-error" role="status">לא ניתן לשמור כרגע</span>
       </article>
     </div>
+    <div v-if="selectedKeys.size" class="curated-save-bar" role="status">
+      <span>{{ selectedKeys.size }} התאמות נבחרו</span>
+      <button type="button" :disabled="curatedSaving" @click="saveCuratedMatches">
+        {{ curatedSaving ? 'שומר…' : 'שמור התאמות נבחרות' }}
+      </button>
+      <button type="button" class="cancel-curated" :disabled="curatedSaving" @click="clearCuratedSelection">ביטול</button>
+    </div>
+    <p v-if="curatedMessage" class="curated-message" :class="{ error: curatedError }" role="status">{{ curatedMessage }}</p>
 
     <div v-if="loading && results.length" class="loading-note" role="status">טוען עוד התאמות…</div>
     <button v-if="hasMore && !loading" type="button" class="load-more" @click="loadMore">
@@ -193,11 +215,18 @@ import TanachScopeSelect from './TanachScopeSelect.vue';
 const props = defineProps({
   target: { type: Number, required: true },
   pattern: { type: String, default: '' },
+  sourceText: { type: String, default: '' },
 });
 const emit = defineEmits(['open', 'saved']);
 const savedKeys = ref(new Set());
 const saveErrors = ref(new Set());
 const savingKey = ref('');
+const selectedKeys = ref(new Set());
+const curatedSavedKeys = ref(new Set());
+const selectionMode = ref(false);
+const curatedSaving = ref(false);
+const curatedMessage = ref('');
+const curatedError = ref(false);
 const rangeMetadata = ref({ canonicalBooks: [], parshiot: [] });
 const rangeMetadataLoading = ref(true);
 const rangeMetadataError = ref('');
@@ -242,6 +271,9 @@ const discoveryDescription = computed(() => method.value === 'gematria'
     : `מילים רצופות המסתיימות באותיות ${props.pattern}`);
 watch(hasPattern, (valid) => {
   if (!valid && method.value !== 'gematria') method.value = 'gematria';
+});
+watch([method, () => props.sourceText], () => {
+  selectedKeys.value = new Set();
 });
 const selectedBook = computed(() => (
   rangeMetadata.value.canonicalBooks?.find(book => Number(book.order) === Number(bookOrder.value)) || null
@@ -370,6 +402,78 @@ function resultKey(item) {
 function openResult(item) {
   emit('open', item);
 }
+function reasonCode() {
+  return {
+    gematria: 'full_gematria',
+    initials: 'initials_text',
+    finals: 'finals_text',
+  }[method.value] || 'full_gematria';
+}
+function curatedStateKey(item, savedReason = reasonCode(), parentText = props.sourceText) {
+  return `${parentText}\u0000${savedReason}\u0000${resultKey(item)}`;
+}
+function toggleCuratedSelection(item) {
+  const key = resultKey(item);
+  const next = new Set(selectedKeys.value);
+  if (next.has(key)) next.delete(key); else next.add(key);
+  selectedKeys.value = next;
+}
+function toggleSelectionMode() {
+  selectionMode.value = !selectionMode.value;
+  if (!selectionMode.value) clearCuratedSelection();
+}
+function clearCuratedSelection() {
+  selectedKeys.value = new Set();
+}
+async function saveCuratedSingle(item) {
+  if (curatedSaving.value) return;
+  if (curatedSavedKeys.value.has(curatedStateKey(item))) return;
+  selectedKeys.value = new Set([resultKey(item)]);
+  await saveCuratedMatches();
+}
+async function saveCuratedMatches() {
+  const chosen = results.value.filter(item => selectedKeys.value.has(resultKey(item)));
+  if (!chosen.length || curatedSaving.value) return;
+  const savedReason = reasonCode();
+  const savedParentText = props.sourceText;
+  curatedSaving.value = true;
+  curatedMessage.value = '';
+  curatedError.value = false;
+  try {
+    const response = await fetch('/api/entries/curated-matches', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        parentOriginalText: props.sourceText,
+        matches: chosen.map(item => ({
+          originalText: item.text,
+          tanachContext: {
+            bookSlug: item.bookSlug,
+            chapter: item.chapter,
+            verse: item.verse,
+            start: item.start,
+            end: item.end,
+          },
+          reasonCode: savedReason,
+        })),
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || 'save');
+    const savedKeysNow = new Set(curatedSavedKeys.value);
+    chosen.forEach(item => savedKeysNow.add(curatedStateKey(item, savedReason, savedParentText)));
+    curatedSavedKeys.value = savedKeysNow;
+    curatedMessage.value = payload.parentCreated
+      ? (chosen.length > 1 ? 'החישוב וההתאמות נשמרו.' : 'החישוב וההתאמה נשמרו.')
+      : (chosen.length > 1 ? 'ההתאמות נשמרו.' : 'ההתאמה נשמרה.');
+    selectedKeys.value = new Set();
+  } catch {
+    curatedError.value = true;
+    curatedMessage.value = 'לא ניתן לשמור את ההתאמות כרגע';
+  } finally {
+    curatedSaving.value = false;
+  }
+}
 function retry() {
   refresh();
 }
@@ -458,6 +562,7 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .match-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .match-card { display: flex; flex-direction: column; min-height: 190px; padding: 14px 15px 12px; border: 1px solid var(--border, #e8e1d5); border-radius: 10px; background: #fff; box-shadow: 0 2px 10px rgba(26,39,68,.035); transition: transform .18s, box-shadow .18s; }
 .match-card:hover { transform: translateY(-2px); box-shadow: 0 7px 18px rgba(26,39,68,.08); }
+.match-card.curated-selected-card { border-color: #c09840; background: #fffdf7; box-shadow: 0 0 0 1px rgba(192,152,64,.14); }
 .card-topline, .card-actions { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .type-label { color: #8e6d2c; font-size: .68rem; font-weight: 800; }
 .match-index { color: #c9c0b1; font-size: .68rem; font-variant-numeric: tabular-nums; }
@@ -497,6 +602,15 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .card-actions button { padding: 6px 8px; border-color: transparent; background: transparent; font-size: .7rem; }
 .reader-action { color: #69727b !important; }
 .save-action { color: #98732b !important; }
+.curated-action { color: #8e6d2c !important; }
+.curated-action.saved { color: #55724b !important; cursor: default; opacity: .82; }
+.curated-action.selected, .selection-toggle.active { background: #f2e4bd !important; color: #765812 !important; border-color: #d6bd7a !important; }
+.selection-toggle { border: 1px solid transparent; border-radius: 7px; background: transparent; color: #8e6d2c; padding: 6px 9px; font: inherit; font-size: .7rem; cursor: pointer; }
+.curated-save-bar { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 14px auto 0; padding: 8px 12px; border: 1px solid #dcc58e; border-radius: 9px; background: #fbf4e6; color: #765812; font-size: .76rem; }
+.curated-save-bar button { border: 1px solid #c9a55d; border-radius: 6px; background: #fffdf8; color: #765812; padding: 5px 9px; font: inherit; cursor: pointer; }
+.curated-save-bar .cancel-curated { border-color: transparent; background: transparent; }
+.curated-message { margin: 8px 0 0; color: #55724b; font-size: .75rem; text-align: center; }
+.curated-message.error { color: #a45e46; }
 .save-action.saved { color: #388e3c !important; }
 .save-action:disabled { cursor: default; opacity: .75; }
 .state-card { min-height: 170px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; border: 1px dashed #d8cfbf; border-radius: 10px; text-align: center; color: var(--text-secondary, #74716a); font-size: .82rem; }

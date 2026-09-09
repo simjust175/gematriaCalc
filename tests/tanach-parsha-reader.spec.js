@@ -75,6 +75,7 @@ test('Torah parashah reader loads complete canonical ranges without changing Nac
   await expect(page.getByRole('combobox', { name: 'פרק', exact: true })).toBeVisible();
   await page.getByRole('combobox', { name: 'פרק', exact: true }).click();
   await page.getByRole('option', { name: 'ב', exact: true }).click();
+  await expect(page.locator('.verse-toolbar h2')).toHaveText('יהושע ב:א');
   await page.getByRole('combobox', { name: 'פסוק', exact: true }).click();
   await page.getByRole('option', { name: 'ג', exact: true }).click();
   await expect(page.locator('.verse-toolbar h2')).toHaveText('יהושע ב:ג');

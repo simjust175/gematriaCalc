@@ -29,6 +29,10 @@
           <span class="gematria-dot">·</span>
           <span>{{ entry.initials_gematria_hebrew }}</span>
         </div>
+        <div v-if="Number(entry.curated_match_count)" class="curated-count">
+          <span class="mdi mdi-star-outline" aria-hidden="true"></span>
+          {{ entry.curated_match_count }} התאמות שמורות
+        </div>
         <div class="entry-initials">
           <span>ס״ת:</span>
           <strong>{{ entry.finals }}</strong>

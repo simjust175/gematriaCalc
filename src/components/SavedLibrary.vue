@@ -135,6 +135,8 @@
                   v-if="shouldShowDetailAfter(index, item.group.entries)"
                   :entry="expandedEntry"
                   :milui-mapping="miluiMapping"
+                   @open-curated="openCurated"
+                   @remove-curated="removeCurated"
                 />
               </template>
             </div>
@@ -156,6 +158,8 @@
               v-if="item.detailEntry"
               :entry="item.detailEntry"
               :milui-mapping="miluiMapping"
+                 @open-curated="openCurated"
+                 @remove-curated="removeCurated"
             />
           </template>
         </template>
@@ -178,6 +182,8 @@
             v-if="shouldShowDetailAfter(index, entries)"
             :entry="expandedEntry"
             :milui-mapping="miluiMapping"
+               @open-curated="openCurated"
+               @remove-curated="removeCurated"
           />
         </template>
       </template>
@@ -245,6 +251,7 @@ const cancelDeleteButton = ref(null);
 const libraryHeading = ref(null);
 const deleteError = ref('');
 const copyNotice = ref('');
+const emit = defineEmits(['open-tanach']);
 const miluiMapping = ref(null);
 const offset = ref(0);
 const isWideViewport = ref(true);
@@ -422,6 +429,34 @@ function onGroupChange() {
 
 function loadMore() {
   if (!loading.value && hasMore.value) fetchEntries(false);
+}
+
+function curatedContext(match) {
+  return match.tanach_context || match.tanachContext || {
+    bookSlug: match.book_slug || match.bookSlug,
+    chapter: match.chapter,
+    verse: match.verse,
+    start: match.start,
+    end: match.end,
+  };
+}
+function openCurated(match) {
+  emit('open-tanach', curatedContext(match));
+}
+async function removeCurated({ entry, match }) {
+  try {
+    const response = await fetch(`/api/entries/${entry.id}/curated-matches/${match.id}`, { method: 'DELETE' });
+    if (!response.ok) throw new Error('remove');
+    const current = entries.value.find(item => item.id === entry.id);
+    if (current?.curated_matches) {
+      current.curated_matches = current.curated_matches.filter(item => item.id !== match.id);
+      current.curated_match_count = current.curated_matches.length;
+    }
+  } catch {
+    copyNotice.value = 'לא ניתן להסיר את ההתאמה כרגע';
+    clearTimeout(copyNoticeTimer);
+    copyNoticeTimer = setTimeout(() => { copyNotice.value = ''; }, 2200);
+  }
 }
 
 function setViewMode(mode) {

@@ -836,6 +836,154 @@ app.post('/api/entries', requireAuth, async (req, res) => {
   }
 });
 
+const CURATED_REASON_CODES = new Set([
+  'full_gematria', 'initials_text', 'initials_gematria',
+  'finals_text', 'finals_gematria', 'saved_word', 'milui_gematria',
+]);
+
+function serializeCuratedMatch(row) {
+  return {
+    id: row.id,
+    originalText: row.original_text,
+    tanachContext: {
+      bookSlug: row.tanach_book_slug,
+      bookLabel: row.tanach_book_label,
+      chapter: row.tanach_chapter,
+      verse: row.tanach_verse,
+      start: row.tanach_start,
+      end: row.tanach_end,
+    },
+    reasonCodes: row.reason_codes || [],
+  };
+}
+
+/**
+ * Save discovery results beneath a manually saved parent. Unlike ordinary
+ * entry saves, repeated coordinates are intentionally idempotent and merge
+ * their explanation codes.
+ */
+app.post('/api/entries/curated-matches', requireAuth, async (req, res) => {
+  let client;
+  try {
+    const { parentOriginalText, matches } = req.body || {};
+    if (typeof parentOriginalText !== 'string' || !parentOriginalText.trim()
+        || !Array.isArray(matches) || !matches.length) {
+      return res.status(400).json({ error: 'missing_fields' });
+    }
+    const parentCalculated = computeAll(parentOriginalText);
+    if (!parentCalculated || parentCalculated.inputMode === 'numeric') {
+      return res.status(400).json({ error: 'invalid_parent' });
+    }
+    for (const match of matches) {
+      if (!match || typeof match.originalText !== 'string'
+          || !match.tanachContext || !CURATED_REASON_CODES.has(match.reasonCode)) {
+        return res.status(400).json({ error: 'invalid_match' });
+      }
+    }
+
+    client = await pool.connect();
+    await client.query('BEGIN');
+    await acquireMiluiSaveLock(client);
+    const parentResult = await client.query(
+      `SELECT id FROM saved_entries
+       WHERE tanach_book_slug IS NULL AND normalized_text = $1
+       FOR UPDATE`,
+      [parentCalculated.normalizedText]
+    );
+    let parentId;
+    let parentCreated = false;
+    if (parentResult.rowCount) {
+      parentId = parentResult.rows[0].id;
+    } else {
+      const inserted = await client.query(
+        `INSERT INTO saved_entries
+          (original_text, normalized_text, full_gematria, full_gematria_hebrew,
+           initials, initials_gematria, initials_gematria_hebrew,
+           finals, finals_gematria, finals_gematria_hebrew)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+         ON CONFLICT (normalized_text) WHERE tanach_book_slug IS NULL DO NOTHING
+         RETURNING id`,
+        [parentOriginalText, parentCalculated.normalizedText, parentCalculated.fullGematria,
+          parentCalculated.fullHebrewNumber, parentCalculated.initials,
+          parentCalculated.initialsGematria, parentCalculated.initialsHebrewNumber,
+          parentCalculated.finals, parentCalculated.finalsGematria,
+          parentCalculated.finalsHebrewNumber]
+      );
+      if (inserted.rowCount) {
+        parentId = inserted.rows[0].id;
+        parentCreated = true;
+        for (const word of parentCalculated.words) {
+          await client.query(
+            `INSERT INTO saved_words (entry_id, word, normalized_word, gematria, position)
+             VALUES ($1,$2,$3,$4,$5)`,
+            [parentId, word.word, word.word, word.gematria, word.position]
+          );
+        }
+        await recordMiluiSaveMode(parentId, 'primary_only', ['primary'], client);
+      } else {
+        const existing = await client.query(
+          `SELECT id FROM saved_entries
+           WHERE tanach_book_slug IS NULL AND normalized_text = $1
+           FOR UPDATE`,
+          [parentCalculated.normalizedText]
+        );
+        parentId = existing.rows[0].id;
+      }
+    }
+
+    const saved = new Map();
+    for (const match of matches) {
+      let verified;
+      try {
+        verified = await verifyTanachSaveContext(match.originalText, match.tanachContext, client);
+      } catch (error) {
+        await client.query('ROLLBACK');
+        if (error.code === 'INVALID_TANACH_CONTEXT') {
+          return res.status(400).json({ error: 'invalid_tanach_context' });
+        }
+        if (error.code === 'TANACH_RANGE_MISMATCH') {
+          return res.status(400).json({ error: 'tanach_range_mismatch' });
+        }
+        throw error;
+      }
+      const context = verified.context;
+      const result = await client.query(
+        `INSERT INTO curated_matches
+          (parent_id, original_text, normalized_text, tanach_book_slug, tanach_book_label, tanach_chapter,
+           tanach_verse, tanach_start, tanach_end, reason_codes)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb)
+         ON CONFLICT (parent_id, tanach_book_slug, tanach_chapter, tanach_verse, tanach_start, tanach_end)
+         DO UPDATE SET reason_codes = (
+           SELECT jsonb_agg(DISTINCT value ORDER BY value)
+           FROM jsonb_array_elements_text(curated_matches.reason_codes || EXCLUDED.reason_codes) AS values(value)
+         )
+         RETURNING *`,
+        [parentId, verified.originalText, verified.calculated.normalizedText,
+          context.bookSlug, context.bookLabel, context.chapter, context.verse, context.start, context.end,
+          JSON.stringify([match.reasonCode])]
+      );
+      saved.set(result.rows[0].id, serializeCuratedMatch(result.rows[0]));
+    }
+    await client.query('COMMIT');
+    if (parentCreated) {
+      try {
+        await indexSavedEntryForCurrentVersions(parentId);
+      } catch (indexError) {
+        invalidateMiluiCoverageCheck();
+        console.error(`Saved entry ${parentId}, but מילוי indexing failed:`, indexError.message);
+      }
+    }
+    res.json({ success: true, parentId, parentCreated, matches: [...saved.values()] });
+  } catch (err) {
+    if (client) await client.query('ROLLBACK').catch(() => {});
+    if (err.code === '23505') return res.status(409).json({ error: 'already_saved' });
+    console.error('/api/entries/curated-matches POST error:', err.message);
+    res.status(500).json({ error: err.message });
+  } finally {
+    client?.release();
+  }
+});
+
 /**
  * GET /api/entries — list saved entries with optional search.
  */
@@ -895,7 +1043,16 @@ app.get('/api/entries', requireAuth, async (req, res) => {
               se.tanach_verse, se.tanach_start, se.tanach_end, se.parsha_id,
               (SELECT name_he FROM tanach_parshiot WHERE id = se.parsha_id) AS parsha_name,
                COUNT(*) OVER (PARTITION BY se.full_gematria)::int AS value_entry_count,
-              COALESCE(json_agg(sw ORDER BY sw.position) FILTER (WHERE sw.id IS NOT NULL), '[]') AS words
+               COALESCE(json_agg(sw ORDER BY sw.position) FILTER (WHERE sw.id IS NOT NULL), '[]') AS words,
+               (SELECT COUNT(*)::int FROM curated_matches cm WHERE cm.parent_id = se.id) AS curated_match_count,
+               COALESCE((SELECT json_agg(json_build_object(
+                 'id', cm.id, 'originalText', cm.original_text,
+                 'tanachContext', json_build_object('bookSlug', cm.tanach_book_slug,
+                   'bookLabel', cm.tanach_book_label,
+                   'chapter', cm.tanach_chapter, 'verse', cm.tanach_verse,
+                   'start', cm.tanach_start, 'end', cm.tanach_end),
+                 'reasonCodes', cm.reason_codes) ORDER BY cm.id)
+                 FROM curated_matches cm WHERE cm.parent_id = se.id), '[]') AS curated_matches
        FROM saved_entries se`;
     const paginationParams = [...searchParams, lim, off];
     const rows = grouped
@@ -967,6 +1124,28 @@ app.get('/api/entries', requireAuth, async (req, res) => {
     });
   } catch (err) {
     console.error('/api/entries GET error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * DELETE /api/entries/:parentId/curated-matches/:matchId
+ */
+app.delete('/api/entries/:parentId/curated-matches/:matchId', requireAuth, async (req, res) => {
+  const parentId = Number.parseInt(req.params.parentId, 10);
+  const matchId = Number.parseInt(req.params.matchId, 10);
+  if (!Number.isInteger(parentId) || parentId <= 0 || !Number.isInteger(matchId) || matchId <= 0) {
+    return res.status(400).json({ error: 'invalid_id' });
+  }
+  try {
+    const result = await pool.query(
+      'DELETE FROM curated_matches WHERE id = $1 AND parent_id = $2 RETURNING id',
+      [matchId, parentId]
+    );
+    if (!result.rowCount) return res.status(404).json({ error: 'not_found' });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('/api/entries curated match DELETE error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

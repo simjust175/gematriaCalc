@@ -81,6 +81,147 @@ test('GET /api/auth/check returns authenticated=false when no session', async ()
   assert.equal(res.body.authenticated, false);
 });
 
+test('curated matches auto-save, merge, persist, delete, and cascade correctly', async () => {
+  const agent = request.agent(app);
+  await agent.post('/api/auth/login').send({ password: 'correct-test-password-12345' });
+  const verseResponse = await agent.get('/api/tanach/verse')
+    .query({ book: 'Genesis', chapter: 1, verse: 1 });
+  assert.equal(verseResponse.status, 200);
+  const verseText = verseResponse.body.verse.display_text;
+  const cursor = createTanachCursor(verseText);
+  const secondVerseResponse = await agent.get('/api/tanach/verse')
+    .query({ book: 'Genesis', chapter: 1, verse: 2 });
+  const secondVerseText = secondVerseResponse.body.verse.display_text;
+  const secondCursor = createTanachCursor(secondVerseText);
+  const firstContext = { bookSlug: 'Genesis', chapter: 1, verse: 1, start: 0, end: 27 };
+  const secondContext = { bookSlug: 'Genesis', chapter: 1, verse: 2, start: 0, end: secondCursor.count - 1 };
+  const firstText = cursor.range(firstContext.start, firstContext.end).text;
+  const secondText = secondCursor.range(secondContext.start, secondContext.end).text;
+  const parentText = `א${uniqueHebrewToken()}ב`;
+  let parentId;
+  let ordinaryId;
+  try {
+    const first = await agent.post('/api/entries/curated-matches').send({
+      parentOriginalText: parentText,
+      matches: [{ originalText: firstText, tanachContext: firstContext, reasonCode: 'full_gematria' }],
+    });
+    assert.equal(first.status, 200);
+    assert.equal(first.body.parentCreated, true);
+    parentId = first.body.parentId;
+    assert.equal(first.body.matches.length, 1);
+    assert.equal(first.body.matches[0].originalText, firstText);
+    assert.deepEqual(first.body.matches[0].tanachContext, {
+      ...firstContext, bookLabel: first.body.matches[0].tanachContext.bookLabel,
+    });
+    assert.equal(first.body.matches[0].tanachContext.bookLabel, 'בראשית');
+
+    const bulk = await agent.post('/api/entries/curated-matches').send({
+      parentOriginalText: parentText,
+      matches: [
+        { originalText: firstText, tanachContext: firstContext, reasonCode: 'full_gematria' },
+        { originalText: secondText, tanachContext: secondContext, reasonCode: 'initials_text' },
+      ],
+    });
+    assert.equal(bulk.status, 200);
+    assert.equal(bulk.body.parentCreated, false);
+    assert.equal(bulk.body.matches.length, 2);
+    const duplicate = await agent.post('/api/entries/curated-matches').send({
+      parentOriginalText: parentText,
+      matches: [{ originalText: firstText, tanachContext: firstContext, reasonCode: 'full_gematria' }],
+    });
+    assert.equal(duplicate.status, 200);
+    assert.equal(duplicate.body.matches.length, 1);
+    const secondReason = await agent.post('/api/entries/curated-matches').send({
+      parentOriginalText: parentText,
+      matches: [{ originalText: firstText, tanachContext: firstContext, reasonCode: 'finals_text' }],
+    });
+    assert.equal(secondReason.status, 200);
+    assert.deepEqual(secondReason.body.matches[0].reasonCodes.sort(), ['finals_text', 'full_gematria']);
+
+    const list = await agent.get('/api/entries').query({ search: parentText });
+    const parent = list.body.entries.find(entry => entry.id === parentId);
+    assert.ok(parent);
+    assert.equal(parent.curated_match_count, 2);
+    assert.equal(parent.curated_matches.length, 2);
+    const firstChild = parent.curated_matches.find(match => match.tanachContext.end === 27);
+    const secondChild = parent.curated_matches.find(match => match.tanachContext.verse === 2);
+    assert.deepEqual(firstChild.reasonCodes.sort(), ['finals_text', 'full_gematria']);
+    assert.equal(secondChild.originalText, secondText);
+
+    const ordinary = await agent.post('/api/entries').send({
+      originalText: firstText,
+      tanachContext: firstContext,
+    });
+    assert.equal(ordinary.status, 200);
+    ordinaryId = ordinary.body.id;
+    const wrongParent = await agent.delete(`/api/entries/${ordinaryId}/curated-matches/${firstChild.id}`);
+    assert.equal(wrongParent.status, 404);
+    const removed = await agent.delete(`/api/entries/${parentId}/curated-matches/${firstChild.id}`);
+    assert.equal(removed.status, 200);
+    const afterChildDelete = await agent.get('/api/entries').query({ search: parentText });
+    const afterParent = afterChildDelete.body.entries.find(entry => entry.id === parentId);
+    assert.ok(afterParent);
+    assert.equal(afterParent.curated_match_count, 1);
+    assert.equal((await agent.get('/api/entries').query({ search: firstText })).body.entries
+      .some(entry => entry.id === ordinaryId), true);
+
+    const deletedParent = await agent.delete(`/api/entries/${parentId}`);
+    assert.equal(deletedParent.status, 200);
+    const cascaded = await pool.query('SELECT COUNT(*)::int AS count FROM curated_matches WHERE parent_id = $1', [parentId]);
+    assert.equal(cascaded.rows[0].count, 0);
+  } finally {
+    if (ordinaryId) await agent.delete(`/api/entries/${ordinaryId}`).catch(() => {});
+    if (parentId) await agent.delete(`/api/entries/${parentId}`).catch(() => {});
+  }
+});
+
+test('concurrent curated saves create one parent and one source with unioned reasons', async () => {
+  const agent = request.agent(app);
+  await agent.post('/api/auth/login').send({ password: 'correct-test-password-12345' });
+  const verseResponse = await agent.get('/api/tanach/verse')
+    .query({ book: 'Genesis', chapter: 1, verse: 1 });
+  const cursor = createTanachCursor(verseResponse.body.verse.display_text);
+  const context = { bookSlug: 'Genesis', chapter: 1, verse: 1, start: 0, end: 27 };
+  const originalText = cursor.range(context.start, context.end).text;
+  const parentText = `ג${uniqueHebrewToken()}ד`;
+  let parentId;
+  try {
+    const [full, initials] = await Promise.all([
+      agent.post('/api/entries/curated-matches').send({
+        parentOriginalText: parentText,
+        matches: [{ originalText, tanachContext: context, reasonCode: 'full_gematria' }],
+      }),
+      agent.post('/api/entries/curated-matches').send({
+        parentOriginalText: parentText,
+        matches: [{ originalText, tanachContext: context, reasonCode: 'initials_text' }],
+      }),
+    ]);
+    assert.equal(full.status, 200);
+    assert.equal(initials.status, 200);
+    assert.equal(Number(full.body.parentCreated) + Number(initials.body.parentCreated), 1);
+    assert.equal(full.body.parentId, initials.body.parentId);
+    parentId = full.body.parentId;
+
+    const parents = await pool.query(
+      `SELECT se.id, COUNT(cm.id)::int AS match_count
+       FROM saved_entries se
+       LEFT JOIN curated_matches cm ON cm.parent_id = se.id
+       WHERE se.tanach_book_slug IS NULL AND se.normalized_text = $1
+       GROUP BY se.id`,
+      [computeAll(parentText).normalizedText]
+    );
+    assert.equal(parents.rowCount, 1);
+    assert.equal(parents.rows[0].match_count, 1);
+    const reasons = await pool.query(
+      'SELECT reason_codes FROM curated_matches WHERE parent_id = $1',
+      [parentId]
+    );
+    assert.deepEqual(reasons.rows[0].reason_codes.sort(), ['full_gematria', 'initials_text']);
+  } finally {
+    if (parentId) await agent.delete(`/api/entries/${parentId}`).catch(() => {});
+  }
+});
+
 test('GET /api/matches requires authentication (401)', async () => {
   const res = await request(app).get('/api/matches?gematria=951');
   assert.equal(res.status, 401);
@@ -112,6 +253,15 @@ test('DELETE /api/entries/1 requires authentication (401)', async () => {
   const res = await request(app).delete('/api/entries/1');
   assert.equal(res.status, 401);
   assert.equal(res.body.error, 'not_authenticated');
+});
+
+test('POST /api/entries/curated-matches requires authentication (401)', async () => {
+  const response = await request(app).post('/api/entries/curated-matches').send({
+    parentOriginalText: 'אבג',
+    matches: [],
+  });
+  assert.equal(response.status, 401);
+  assert.equal(response.body.error, 'not_authenticated');
 });
 
 test('מילוי settings require authentication', async () => {

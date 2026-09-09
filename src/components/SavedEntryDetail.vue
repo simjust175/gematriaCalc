@@ -26,6 +26,23 @@
         {{ currentMilui.fullGematria }} · {{ currentMilui.fullHebrewNumber }}
       </span>
     </div>
+    <section v-if="entry.curated_matches?.length" class="curated-section" aria-label="התאמות נבחרות">
+      <h3>התאמות נבחרות</h3>
+      <article v-for="match in entry.curated_matches" :key="match.id" class="curated-match">
+        <div class="curated-match__text">{{ match.original_text || match.originalText }}</div>
+        <div class="curated-match__meta">
+          <span>{{ matchReference(match) }}</span>
+          <span v-for="reason in (match.reason_codes || match.reasonCodes || [])" :key="reason" class="reason-badge">{{ reasonLabel(reason) }}</span>
+          <button type="button" @click="$emit('open-curated', match)">פתח בקורא</button>
+          <button v-if="removingId !== match.id" type="button" class="remove-curated" @click="removingId = match.id">הסר</button>
+          <template v-else>
+            <span class="remove-confirm">להסיר?</span>
+            <button type="button" class="remove-confirm-button" @click="$emit('remove-curated', { entry, match }); removingId = null">אישור</button>
+            <button type="button" class="remove-cancel-button" @click="removingId = null">ביטול</button>
+          </template>
+        </div>
+      </article>
+    </section>
 
     <div v-if="entry.words && entry.words.length > 0" class="detail-words">
       <div class="detail-label detail-words-title">פירוט מילים:</div>
@@ -50,7 +67,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { getWordBreakdown, toHebrewNumber } from '@/composables/useGematria.js';
 import { calculateMilui } from '@/utils/milui.js';
 
@@ -58,6 +75,8 @@ const props = defineProps({
   entry: { type: Object, required: true },
   miluiMapping: { type: Object, default: null },
 });
+defineEmits(['open-curated', 'remove-curated']);
+const removingId = ref(null);
 
 const currentMilui = computed(() => (
   props.miluiMapping
@@ -77,6 +96,24 @@ function formatDate(iso) {
 function formatTanachReference(entry) {
   const reference = `${entry.tanach_book_label} ${toHebrewNumber(entry.tanach_chapter)}:${toHebrewNumber(entry.tanach_verse)}`;
   return entry.parsha_name ? `${reference} · פרשת ${entry.parsha_name}` : reference;
+}
+function reasonLabel(reason) {
+  return {
+    full_gematria: 'גימטריה',
+    initials_text: 'ראשי תיבות',
+    initials_gematria: 'גימטריית ר״ת',
+    finals_text: 'סופי תיבות',
+    finals_gematria: 'גימטריית ס״ת',
+    saved_word: 'מילה שמורה',
+    milui_gematria: 'מילוי',
+  }[reason] || reason;
+}
+function matchReference(match) {
+  const context = match.tanach_context || match.tanachContext || match;
+  const book = match.book_label || match.bookLabel || match.book_name || match.bookName
+    || context.book_label || context.bookLabel || context.book_name || context.bookName
+    || context.book_slug || context.bookSlug || '';
+  return `${book} ${toHebrewNumber(context.chapter)}:${toHebrewNumber(context.verse)}`.trim();
 }
 </script>
 
@@ -147,6 +184,17 @@ function formatTanachReference(entry) {
   font-size: .75rem;
   gap: 4px;
 }
+.curated-section { border-top: 1px solid #eee9e0; padding-top: 12px; }
+.curated-section h3 { color: var(--navy); font-size: .9rem; margin-bottom: 8px; }
+.curated-match { border-bottom: 1px solid #f0ece4; padding: 7px 0; }
+.curated-match:last-child { border-bottom: 0; }
+.curated-match__text { color: var(--navy); font-family: "Noto Serif Hebrew", serif; font-size: .95rem; }
+.curated-match__meta { align-items: center; display: flex; flex-wrap: wrap; gap: 6px; color: var(--text-secondary); font-size: .72rem; }
+.reason-badge { background: var(--gold-light); border-radius: 999px; color: #80601d; padding: 2px 7px; }
+.curated-match__meta button { border: 0; background: transparent; color: #80601d; cursor: pointer; font: inherit; }
+.curated-match__meta .remove-curated { color: #9a5b50; }
+.remove-confirm { color: #8b6a2a; }
+.remove-confirm-button, .remove-cancel-button { padding: 2px 5px; }
 
 @media (max-width: 680px) {
   .entry-detail { gap: 12px; padding: 15px 16px; }

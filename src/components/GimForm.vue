@@ -147,6 +147,7 @@
             <TanachGematriaMatches
               :target="result.fullGematria"
               :pattern="result.letterPattern"
+              :source-text="inputText"
               @open="emit('openTanach', $event)"
             />
 

@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { calculateMilui } from '../src/utils/milui.js';
 
+test.use({ serviceWorkers: 'block' });
+
 const e2ePassword = process.env.E2E_APP_PASSWORD || 'tanach-browser-test-password';
 
 async function signInAndOpenTanach(page) {
@@ -201,7 +203,8 @@ test('signed-in Tanach reader supports cursor, navigation, search, and cited sav
       response.url().endsWith('/api/auth/logout')
         && response.request().method() === 'POST'
     );
-    await page.getByTitle('יציאה').click();
+    await page.getByRole('button', { name: 'אפשרויות נוספות' }).click();
+    await page.getByRole('button', { name: 'יציאה', exact: true }).click();
     await expect((await logoutResponsePromise).status()).toBe(200);
     await expect(page.getByPlaceholder('סיסמה...')).toBeVisible();
 
