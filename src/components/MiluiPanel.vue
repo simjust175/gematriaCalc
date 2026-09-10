@@ -49,7 +49,7 @@
       <div class="milui-additional__heading">
         <div>
           <h3 id="milui-additional-title">אופנים נוספים לבחירה</h3>
-          <p>אפשר לבחור אופציה אחת או שתיים</p>
+          <p>אפשר לבחור כל מספר של אופנים</p>
         </div>
         <span v-if="selectedAdditionalIds.length" class="milui-selection-count">
           נבחרו {{ selectedAdditionalIds.length }}
@@ -64,7 +64,6 @@
           :class="{ 'milui-additional__row--selected': isAdditionalSelected(form.id) }"
           :aria-pressed="isAdditionalSelected(form.id)"
           :aria-label="`${compactMiluiLabel(form.label)}, ${form.calculation.fullGematria}`"
-          :disabled="isAdditionalDisabled(form.id)"
           @click="toggleAdditional(form.id)"
         >
           <span class="milui-additional__check" aria-hidden="true"></span>
@@ -367,18 +366,12 @@ function isAdditionalSelected(id) {
   return selectedAdditionalIds.value.includes(id);
 }
 
-function isAdditionalDisabled(id) {
-  return selectedAdditionalIds.value.length >= 2 && !isAdditionalSelected(id);
-}
-
 function toggleAdditional(id) {
   if (isAdditionalSelected(id)) {
     selectedAdditionalIds.value = selectedAdditionalIds.value.filter(selectedId => selectedId !== id);
     return;
   }
-  if (selectedAdditionalIds.value.length < 2) {
-    selectedAdditionalIds.value = [...selectedAdditionalIds.value, id];
-  }
+  selectedAdditionalIds.value = [...selectedAdditionalIds.value, id];
 }
 
 function clearSaveFeedback() {
