@@ -1349,13 +1349,16 @@ onBeforeUnmount(() => clearTimeout(feedbackTimer));
 }
 
 .milui-additional__check::after {
-  border-bottom: 1.5px solid #fffdf8;
-  border-inline-end: 1.5px solid #fffdf8;
-  content: '';
-  height: 7px;
+  color: #fffdf8;
+  content: '✓';
+  font-family: Arial, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  height: auto;
+  line-height: 1;
   opacity: 0;
-  transform: rotate(45deg) translate(-1px, -1px);
-  width: 3px;
+  transform: none;
+  width: auto;
 }
 
 .milui-additional__row--selected .milui-additional__check {
