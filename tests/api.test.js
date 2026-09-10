@@ -809,7 +809,7 @@ test('save-all creates one ordinary entry and all distinct common מילוי for
   }
 });
 
-test('save-selected persists only one or two chosen common מילוי forms with the primary', async () => {
+test('save-selected persists any chosen common מילוי forms with the primary', async () => {
   const agent = request.agent(app);
   await agent.post('/api/auth/login').send({ password: 'correct-test-password-12345' });
   const originalText = `יהוה ${uniqueHebrewToken().replace(/[הו]/g, 'א')}`;
@@ -817,7 +817,7 @@ test('save-selected persists only one or two chosen common מילוי forms with
   let savedEntryId;
 
   try {
-    for (const invalid of [[], ['av', 'sag', 'ban'], ['primary'], ['unknown']]) {
+    for (const invalid of [[], ['primary'], ['unknown']]) {
       const rejected = await agent
         .post('/api/milui-interpretations/save-selected')
         .send({ originalText, formIds: invalid });
@@ -863,6 +863,19 @@ test('save-selected persists only one or two chosen common מילוי forms with
       [savedEntryId]
     );
     assert.deepEqual(preserved.rows[0].form_ids, ['primary', 'av', 'sag']);
+
+    const all = await agent
+      .post('/api/milui-interpretations/save-selected')
+      .send({ originalText, formIds: ['av', 'sag', 'ban'] });
+    assert.equal(all.status, 201);
+    assert.deepEqual(all.body.formIds, ['primary', 'av', 'sag', 'ban']);
+    assert.equal(all.body.interpretations.length, 3);
+
+    const allPreserved = await pool.query(
+      'SELECT form_ids FROM saved_entry_milui_save_modes WHERE saved_entry_id = $1',
+      [savedEntryId]
+    );
+    assert.deepEqual(allPreserved.rows[0].form_ids, ['primary', 'av', 'sag', 'ban']);
   } finally {
     if (savedEntryId) await agent.delete(`/api/entries/${savedEntryId}`);
     await pool.query(

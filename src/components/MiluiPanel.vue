@@ -45,11 +45,16 @@
       <div class="milui-additional__heading">
         <div>
           <h3 id="milui-additional-title">אופנים נוספים לבחירה</h3>
-          <p>אפשר לבחור אופציה אחת או שתיים</p>
+          <p>אפשר לבחור אופציה אחת או יותר</p>
         </div>
-        <span v-if="selectedAdditionalIds.length" class="milui-selection-count">
-          {{ selectedAdditionalIds.length === 1 ? '1 נבחר' : '2 נבחרו' }}
-        </span>
+        <div class="milui-additional__tools">
+          <span v-if="selectedAdditionalIds.length" class="milui-selection-count">
+            נבחרו {{ selectedAdditionalIds.length }}
+          </span>
+          <button class="milui-select-all" type="button" @click="toggleAllAdditional">
+            {{ allAdditionalSelected ? 'נקה בחירה' : 'בחר הכל' }}
+          </button>
+        </div>
       </div>
       <div class="milui-additional__list">
         <button
@@ -60,7 +65,6 @@
           :class="{ 'milui-additional__row--selected': isAdditionalSelected(form.id) }"
           :aria-pressed="isAdditionalSelected(form.id)"
           :aria-label="`${compactMiluiLabel(form.label)}, ${form.calculation.fullGematria}`"
-          :disabled="isAdditionalDisabled(form.id)"
           @click="toggleAdditional(form.id)"
         >
           <span class="milui-additional__check" aria-hidden="true"></span>
@@ -334,6 +338,10 @@ const variantCalculation = computed(() => (
 const additionalForms = computed(() => (
   getCommonMiluiForms(props.sourceText, props.mapping).slice(1)
 ));
+const allAdditionalSelected = computed(() => (
+  additionalForms.value.length > 0
+  && selectedAdditionalIds.value.length === additionalForms.value.length
+));
 const saveButtonLabel = computed(() => ({
   saving: 'שומר...',
   saved: 'המילוי נשמר',
@@ -353,17 +361,18 @@ function isAdditionalSelected(id) {
   return selectedAdditionalIds.value.includes(id);
 }
 
-function isAdditionalDisabled(id) {
-  return selectedAdditionalIds.value.length >= 2 && !isAdditionalSelected(id);
-}
-
 function toggleAdditional(id) {
   if (isAdditionalSelected(id)) {
     selectedAdditionalIds.value = selectedAdditionalIds.value.filter(selectedId => selectedId !== id);
     return;
   }
-  if (selectedAdditionalIds.value.length >= 2) return;
   selectedAdditionalIds.value = [...selectedAdditionalIds.value, id];
+}
+
+function toggleAllAdditional() {
+  selectedAdditionalIds.value = allAdditionalSelected.value
+    ? []
+    : additionalForms.value.map(form => form.id);
 }
 
 function clearSaveFeedback() {
@@ -1235,6 +1244,37 @@ onBeforeUnmount(() => clearTimeout(feedbackTimer));
   color: var(--text-secondary);
   font-size: .68rem;
   margin: 3px 0 0;
+}
+
+.milui-additional__tools {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.milui-select-all {
+  background: transparent;
+  border: 0;
+  color: #74591f;
+  cursor: pointer;
+  font: inherit;
+  font-size: .66rem;
+  font-weight: 700;
+  padding: 4px 2px;
+  text-decoration: underline;
+  text-decoration-color: rgba(116, 89, 31, .35);
+  text-underline-offset: 3px;
+}
+
+.milui-select-all:hover {
+  color: var(--navy);
+  text-decoration-color: currentColor;
+}
+
+.milui-select-all:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
 }
 
 .milui-selection-count {

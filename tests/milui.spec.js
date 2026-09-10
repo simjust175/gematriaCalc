@@ -63,7 +63,7 @@ test('מילוי stays optional, updates live, persists edits, and resets safely
   await input.fill('יהוה');
   const additional = page.locator('.milui-additional');
   await expect(additional.getByRole('heading', { name: 'אופנים נוספים לבחירה' })).toBeVisible();
-  await expect(additional).toContainText('אפשר לבחור אופציה אחת או שתיים');
+  await expect(additional).toContainText('אפשר לבחור אופציה אחת או יותר');
   await expect(additional.locator('.milui-additional__row')).toHaveCount(3);
   await expect(additional).toContainText('יודי״ן');
   await expect(additional).toContainText('72');
@@ -227,7 +227,7 @@ test('מילוי variants stay compact, track repeated occurrences independently
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
 });
 
-test('selected מילוי rows enforce a two-option limit and persist only the selection', async ({ page }, testInfo) => {
+test('selected מילוי rows support select-all, clear, and persist every selection', async ({ page }, testInfo) => {
   await login(page);
   const phrase = testInfo.project.name.includes('mobile') ? 'יהוה זצק' : 'יהוה זצר';
   await page.locator('.heb-input').fill(phrase);
@@ -239,18 +239,25 @@ test('selected מילוי rows enforce a two-option limit and persist only the s
   await expect(rows).toHaveCount(3);
   await expect(saveSelected).toBeDisabled();
   await rows.nth(0).click();
-  await expect(additional).toContainText('1 נבחר');
+  await expect(additional).toContainText('נבחרו 1');
   await expect(additional.getByRole('button', { name: 'שמור נבחרים (1)' })).toBeEnabled();
   await rows.nth(1).click();
-  await expect(additional).toContainText('2 נבחרו');
+  await expect(additional).toContainText('נבחרו 2');
   await expect(rows.nth(0)).toHaveClass(/milui-additional__row--selected/);
   await expect(rows.nth(1)).toHaveClass(/milui-additional__row--selected/);
-  await expect(rows.nth(2)).toBeDisabled();
-  await rows.nth(0).click();
   await expect(rows.nth(2)).toBeEnabled();
-  await rows.nth(0).click();
-  await additional.getByRole('button', { name: 'שמור נבחרים (2)' }).click();
-  await expect(additional.getByRole('button', { name: 'נשמרו (2)' })).toBeVisible();
+  await additional.getByRole('button', { name: 'בחר הכל' }).click();
+  await expect(additional).toContainText('נבחרו 3');
+  await additional.getByRole('button', { name: 'נקה בחירה' }).click();
+  await expect(additional.getByRole('button', { name: 'שמור נבחרים (0)' })).toBeDisabled();
+  await expect(rows.nth(0)).not.toHaveClass(/milui-additional__row--selected/);
+  await additional.getByRole('button', { name: 'בחר הכל' }).click();
+  await expect(additional).toContainText('נבחרו 3');
+  await expect(rows.nth(0)).toHaveClass(/milui-additional__row--selected/);
+  await expect(rows.nth(1)).toHaveClass(/milui-additional__row--selected/);
+  await expect(rows.nth(2)).toHaveClass(/milui-additional__row--selected/);
+  await additional.getByRole('button', { name: 'שמור נבחרים (3)' }).click();
+  await expect(additional.getByRole('button', { name: 'נשמרו (3)' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'כבר שמור' })).toBeDisabled();
 
   const listed = await page.request.get(
@@ -258,8 +265,8 @@ test('selected מילוי rows enforce a two-option limit and persist only the s
   );
   expect(listed.ok()).toBe(true);
   const payload = await listed.json();
-  expect(payload.interpretations).toHaveLength(2);
-  expect(new Set(payload.interpretations.map(item => item.full_milui_gematria)).size).toBe(2);
+  expect(payload.interpretations).toHaveLength(3);
+  expect(new Set(payload.interpretations.map(item => item.full_milui_gematria)).size).toBe(3);
 
   await page.reload();
   await expect(page.locator('.heb-input')).toBeVisible();
@@ -267,5 +274,5 @@ test('selected מילוי rows enforce a two-option limit and persist only the s
     `/api/milui-interpretations?normalizedText=${encodeURIComponent(phrase)}`
   );
   expect(reloaded.ok()).toBe(true);
-  expect((await reloaded.json()).interpretations).toHaveLength(2);
+  expect((await reloaded.json()).interpretations).toHaveLength(3);
 });
