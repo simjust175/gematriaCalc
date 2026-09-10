@@ -216,11 +216,14 @@
               :primary-save-label="matches.isAlreadySaved ? 'כבר שמור' : saveStatus === 'saved' ? 'נשמר' : 'שמור טווח'"
               :selected-save-disabled="saveAllStatus !== 'idle'"
               :selected-save-label="saveAllStatus === 'saved' ? 'נשמרו' : saveAllStatus === 'loading' ? 'שומר...' : 'שמור נבחרים'"
+              :save-all-disabled="saveAllFormsStatus !== 'idle'"
+              :save-all-label="saveAllFormsStatus === 'saved' ? 'כל האופנים נשמרו' : saveAllFormsStatus === 'loading' ? 'שומר...' : 'שמור כל האופנים'"
               @open-settings="openMiluiSettings"
               @explicit-total-change="explicitMiluiTotal = $event"
               @interpretation-saved="miluiMatchRefresh += 1"
               @save-primary="saveRange"
               @save-selected="saveSelectedMiluiForms"
+              @save-all="saveAllMiluiForms"
             />
             <p v-if="miluiSettingsError && !miluiSettingsLoaded" class="milui-load-error" role="alert">
               {{ miluiSettingsError }}
@@ -356,6 +359,7 @@ const miluiSettingsSuccess = ref('');
 const explicitMiluiTotal = ref(0);
 const miluiMatchRefresh = ref(0);
 const saveAllStatus = ref('idle');
+const saveAllFormsStatus = ref('idle');
 const verseDisplay = ref(null);
 const verseList = ref(null);
 let searchTimer;
@@ -465,6 +469,7 @@ watch(selectedVerse, () => {
   miluiOpen.value = false;
   explicitMiluiTotal.value = 0;
   saveAllStatus.value = 'idle';
+  saveAllFormsStatus.value = 'idle';
   nextTick(() => verseDisplay.value?.focus());
 });
 
@@ -480,6 +485,7 @@ watch([rangeStart, rangeEnd], () => {
   saveStatus.value = 'idle';
   saveError.value = '';
   saveAllStatus.value = 'idle';
+  saveAllFormsStatus.value = 'idle';
 });
 
 async function loadBooks() {
@@ -991,6 +997,34 @@ async function saveSelectedMiluiForms(formIds) {
   } catch {
     saveAllStatus.value = 'idle';
     saveError.value = 'לא ניתן לשמור את אופני המילוי שנבחרו';
+  }
+}
+
+async function saveAllMiluiForms() {
+  if (!miluiCalculation.value || saveAllFormsStatus.value === 'loading') return;
+  saveAllFormsStatus.value = 'loading';
+  saveError.value = '';
+  try {
+    const response = await fetch('/api/milui-interpretations/save-all', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        originalText: selectedRange.value.text,
+        tanachContext: tanachContext(),
+      }),
+    });
+    if (!response.ok) throw new Error('save_failed');
+    saveAllFormsStatus.value = 'saved';
+    saveStatus.value = 'saved';
+    matches.value.isAlreadySaved = true;
+    miluiMatchRefresh.value += 1;
+    window.setTimeout(() => {
+      saveAllFormsStatus.value = 'idle';
+      saveStatus.value = 'idle';
+    }, 3000);
+  } catch {
+    saveAllFormsStatus.value = 'idle';
+    saveError.value = 'לא ניתן לשמור את כל אופני המילוי';
   }
 }
 

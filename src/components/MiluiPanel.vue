@@ -45,16 +45,11 @@
       <div class="milui-additional__heading">
         <div>
           <h3 id="milui-additional-title">אופנים נוספים לבחירה</h3>
-          <p>אפשר לבחור אופציה אחת או יותר</p>
+          <p>אפשר לבחור אופציה אחת או שתיים</p>
         </div>
-        <div class="milui-additional__tools">
-          <span v-if="selectedAdditionalIds.length" class="milui-selection-count">
-            נבחרו {{ selectedAdditionalIds.length }}
-          </span>
-          <button class="milui-select-all" type="button" @click="toggleAllAdditional">
-            {{ allAdditionalSelected ? 'נקה בחירה' : 'בחר הכל' }}
-          </button>
-        </div>
+        <span v-if="selectedAdditionalIds.length" class="milui-selection-count">
+          נבחרו {{ selectedAdditionalIds.length }}
+        </span>
       </div>
       <div class="milui-additional__list">
         <button
@@ -65,6 +60,7 @@
           :class="{ 'milui-additional__row--selected': isAdditionalSelected(form.id) }"
           :aria-pressed="isAdditionalSelected(form.id)"
           :aria-label="`${compactMiluiLabel(form.label)}, ${form.calculation.fullGematria}`"
+          :disabled="isAdditionalDisabled(form.id)"
           @click="toggleAdditional(form.id)"
         >
           <span class="milui-additional__check" aria-hidden="true"></span>
@@ -98,6 +94,14 @@
           @click="emit('save-selected', [...selectedAdditionalIds])"
         >
           {{ selectedSaveLabel }} ({{ selectedAdditionalIds.length }})
+        </button>
+        <button
+          class="milui-save-all-tertiary"
+          type="button"
+          :disabled="saveAllDisabled"
+          @click="emit('save-all')"
+        >
+          {{ saveAllLabel }}
         </button>
       </div>
     </section>
@@ -338,10 +342,6 @@ const variantCalculation = computed(() => (
 const additionalForms = computed(() => (
   getCommonMiluiForms(props.sourceText, props.mapping).slice(1)
 ));
-const allAdditionalSelected = computed(() => (
-  additionalForms.value.length > 0
-  && selectedAdditionalIds.value.length === additionalForms.value.length
-));
 const saveButtonLabel = computed(() => ({
   saving: 'שומר...',
   saved: 'המילוי נשמר',
@@ -361,18 +361,18 @@ function isAdditionalSelected(id) {
   return selectedAdditionalIds.value.includes(id);
 }
 
+function isAdditionalDisabled(id) {
+  return selectedAdditionalIds.value.length >= 2 && !isAdditionalSelected(id);
+}
+
 function toggleAdditional(id) {
   if (isAdditionalSelected(id)) {
     selectedAdditionalIds.value = selectedAdditionalIds.value.filter(selectedId => selectedId !== id);
     return;
   }
-  selectedAdditionalIds.value = [...selectedAdditionalIds.value, id];
-}
-
-function toggleAllAdditional() {
-  selectedAdditionalIds.value = allAdditionalSelected.value
-    ? []
-    : additionalForms.value.map(form => form.id);
+  if (selectedAdditionalIds.value.length < 2) {
+    selectedAdditionalIds.value = [...selectedAdditionalIds.value, id];
+  }
 }
 
 function clearSaveFeedback() {
@@ -1246,37 +1246,6 @@ onBeforeUnmount(() => clearTimeout(feedbackTimer));
   margin: 3px 0 0;
 }
 
-.milui-additional__tools {
-  align-items: center;
-  display: flex;
-  flex: 0 0 auto;
-  gap: 8px;
-}
-
-.milui-select-all {
-  background: transparent;
-  border: 0;
-  color: #74591f;
-  cursor: pointer;
-  font: inherit;
-  font-size: .66rem;
-  font-weight: 700;
-  padding: 4px 2px;
-  text-decoration: underline;
-  text-decoration-color: rgba(116, 89, 31, .35);
-  text-underline-offset: 3px;
-}
-
-.milui-select-all:hover {
-  color: var(--navy);
-  text-decoration-color: currentColor;
-}
-
-.milui-select-all:focus-visible {
-  outline: 2px solid var(--gold);
-  outline-offset: 2px;
-}
-
 .milui-selection-count {
   background: #f0e9d9;
   border: 1px solid #e1d4b9;
@@ -1423,7 +1392,7 @@ onBeforeUnmount(() => clearTimeout(feedbackTimer));
 }
 
 .milui-save-selected,
-.milui-clear-selected {
+.milui-save-all-tertiary {
   border-radius: 6px;
   cursor: pointer;
   font: inherit;
@@ -1446,26 +1415,31 @@ onBeforeUnmount(() => clearTimeout(feedbackTimer));
   border-color: #967328;
 }
 
-.milui-clear-selected {
+.milui-save-all-tertiary {
   background: transparent;
-  border: 1px solid #d8ccb5;
+  border: 0;
   color: #746c5d;
+  font-size: .66rem;
+  padding-inline: 5px;
+  text-decoration: underline;
+  text-decoration-color: rgba(116, 108, 93, .35);
+  text-underline-offset: 3px;
 }
 
-.milui-clear-selected:hover:not(:disabled) {
-  background: #f5efe3;
-  border-color: #bca97f;
+.milui-save-all-tertiary:hover:not(:disabled) {
+  background: transparent;
   color: var(--navy);
+  text-decoration-color: currentColor;
 }
 
 .milui-save-selected:focus-visible,
-.milui-clear-selected:focus-visible {
+.milui-save-all-tertiary:focus-visible {
   outline: 2px solid var(--gold);
   outline-offset: 2px;
 }
 
 .milui-save-selected:disabled,
-.milui-clear-selected:disabled {
+.milui-save-all-tertiary:disabled {
   cursor: default;
   opacity: .42;
 }

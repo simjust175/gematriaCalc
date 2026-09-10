@@ -379,9 +379,10 @@ export async function saveSelectedCommonMiluiForms(
   const selectedIds = [...new Set(Array.isArray(formIds) ? formIds : [])];
   if (
     selectedIds.length < 1
+    || selectedIds.length > 2
     || selectedIds.some(id => typeof id !== 'string' || !id || id === 'primary')
   ) {
-    const error = new Error('Select one or more additional מילוי forms');
+    const error = new Error('Select one or two additional מילוי forms');
     error.code = 'INVALID_MILUI_FORM_SELECTION';
     throw error;
   }
