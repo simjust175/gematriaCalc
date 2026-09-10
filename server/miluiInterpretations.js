@@ -172,9 +172,16 @@ export async function createMiluiInterpretation(input, db) {
 
 export async function recordMiluiSaveMode(savedEntryId, mode, formIds, db) {
   const normalizedMode = mode === 'all_forms' ? 'all_forms' : 'primary_only';
-  const normalizedFormIds = normalizedMode === 'all_forms'
-    ? [...new Set(formIds)]
-    : ['primary'];
+  const existing = await db.query(
+    'SELECT save_mode, form_ids FROM saved_entry_milui_save_modes WHERE saved_entry_id = $1',
+    [savedEntryId]
+  );
+  if (existing.rows[0]?.save_mode === 'all_forms') return;
+  const normalizedFormIds = [...new Set([
+    'primary',
+    ...(Array.isArray(existing.rows[0]?.form_ids) ? existing.rows[0].form_ids : []),
+    ...(Array.isArray(formIds) ? formIds : []),
+  ])];
   await db.query(
     `INSERT INTO saved_entry_milui_save_modes
        (saved_entry_id, save_mode, form_ids)
@@ -363,6 +370,87 @@ export async function saveAllCommonMiluiForms(originalText, db, { tanachContext 
   };
 }
 
+export async function saveSelectedCommonMiluiForms(
+  originalText,
+  formIds,
+  db,
+  { tanachContext = null } = {}
+) {
+  const selectedIds = [...new Set(Array.isArray(formIds) ? formIds : [])];
+  if (
+    selectedIds.length < 1
+    || selectedIds.length > 2
+    || selectedIds.some(id => typeof id !== 'string' || !id || id === 'primary')
+  ) {
+    const error = new Error('Select one or two additional מילוי forms');
+    error.code = 'INVALID_MILUI_FORM_SELECTION';
+    throw error;
+  }
+
+  const verified = await verifyTanachSaveContext(originalText, tanachContext, db);
+  if (verified.calculated.inputMode === 'numeric') {
+    const error = new Error('Numeric entries cannot be saved');
+    error.code = 'NUMERIC_ENTRY_NOT_SUPPORTED';
+    throw error;
+  }
+  originalText = verified.originalText;
+  const { mapping } = await getActiveMapping(db);
+  const forms = getCommonMiluiForms(originalText, mapping);
+  const selectedForms = selectedIds.map(id => forms.find(form => form.id === id));
+  if (selectedForms.some(form => !form)) {
+    const error = new Error('Unknown מילוי form');
+    error.code = 'INVALID_MILUI_FORM_SELECTION';
+    throw error;
+  }
+
+  const savedEntry = await ensureSavedEntry(verified, db);
+  const results = [];
+  for (const form of selectedForms) {
+    const result = await createMiluiInterpretation({
+      originalText,
+      selections: form.calculation.selections,
+      expectedTotal: form.calculation.fullGematria,
+    }, db);
+    results.push({ ...result, formId: form.id, label: form.label });
+    await db.query(
+      `UPDATE explicit_milui_interpretations
+       SET linked_saved_entry_id = $1
+       WHERE id = $2
+         AND (linked_saved_entry_id IS NULL OR linked_saved_entry_id = $1)`,
+      [savedEntry.id, result.interpretation.id]
+    );
+    await db.query(
+      `INSERT INTO saved_entry_milui_form_index
+         (saved_entry_id, form_id, full_milui_gematria, expanded_text, interpretation_id)
+       VALUES ($1,$2,$3,$4,$5)
+       ON CONFLICT (saved_entry_id, form_id) DO UPDATE
+         SET full_milui_gematria = EXCLUDED.full_milui_gematria,
+             expanded_text = EXCLUDED.expanded_text,
+             interpretation_id = EXCLUDED.interpretation_id`,
+      [
+        savedEntry.id,
+        form.id,
+        form.calculation.fullGematria,
+        form.calculation.expandedText,
+        result.interpretation.id,
+      ]
+    );
+  }
+  await recordMiluiSaveMode(
+    savedEntry.id,
+    'primary_only',
+    ['primary', ...selectedIds],
+    db
+  );
+  return {
+    savedEntry,
+    formIds: ['primary', ...selectedIds],
+    created: results.filter(result => result.created).length,
+    existing: results.filter(result => !result.created).length,
+    interpretations: results.map(result => result.interpretation),
+  };
+}
+
 export async function getExplicitMiluiMatches(total, db) {
   if (!Number.isInteger(total) || total <= 0) return [];
   try {
@@ -404,6 +492,49 @@ export function registerMiluiInterpretationRoutes(app, {
   indexSavedEntry = async () => {},
   invalidateCoverage = () => {},
 }) {
+  app.post('/api/milui-interpretations/save-selected', requireAuth, async (req, res) => {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await acquireSaveLock(client);
+      const result = await saveSelectedCommonMiluiForms(
+        req.body?.originalText,
+        req.body?.formIds,
+        client,
+        { tanachContext: req.body?.tanachContext }
+      );
+      await client.query('COMMIT');
+      if (result.savedEntry.created) {
+        try {
+          await indexSavedEntry(result.savedEntry.id);
+        } catch (indexError) {
+          invalidateCoverage();
+          console.error(`Saved entry ${result.savedEntry.id}, but מילוי indexing failed:`, indexError.message);
+        }
+      }
+      return res.status(result.created ? 201 : 200).json(result);
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => {});
+      if (error.code === 'MISSING_FIELDS') return res.status(400).json({ error: 'missing_fields' });
+      if (error.code === 'NUMERIC_ENTRY_NOT_SUPPORTED') {
+        return res.status(400).json({ error: 'numeric_entry_not_supported' });
+      }
+      if (error.code === 'INVALID_MILUI_FORM_SELECTION') {
+        return res.status(400).json({ error: 'invalid_milui_form_selection' });
+      }
+      if (error.code === 'INVALID_TANACH_CONTEXT') {
+        return res.status(400).json({ error: 'invalid_tanach_context' });
+      }
+      if (error.code === 'TANACH_RANGE_MISMATCH') {
+        return res.status(400).json({ error: 'tanach_range_mismatch' });
+      }
+      console.error('/api/milui-interpretations/save-selected POST error:', error.message);
+      return res.status(500).json({ error: 'milui_interpretation_save_selected_failed' });
+    } finally {
+      client.release();
+    }
+  });
+
   app.post('/api/milui-interpretations/save-all', requireAuth, async (req, res) => {
     const client = await pool.connect();
     try {

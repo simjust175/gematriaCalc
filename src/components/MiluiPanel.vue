@@ -39,7 +39,46 @@
         </div>
       </div>
 
-      <div class="milui-save-actions">
+    </div>
+
+    <section v-if="variantOccurrences.length" class="milui-additional" aria-labelledby="milui-additional-title">
+      <div class="milui-additional__heading">
+        <div>
+          <h3 id="milui-additional-title">אופנים נוספים לבחירה</h3>
+          <p>אפשר לבחור אופציה אחת או שתיים</p>
+        </div>
+        <span v-if="selectedAdditionalIds.length" class="milui-selection-count">
+          {{ selectedAdditionalIds.length === 1 ? '1 נבחר' : '2 נבחרו' }}
+        </span>
+      </div>
+      <div class="milui-additional__list">
+        <button
+          v-for="form in additionalForms"
+          :key="form.id"
+          class="milui-additional__row"
+          type="button"
+          :class="{ 'milui-additional__row--selected': isAdditionalSelected(form.id) }"
+          :aria-pressed="isAdditionalSelected(form.id)"
+          :aria-label="`${compactMiluiLabel(form.label)}, ${form.calculation.fullGematria}`"
+          :disabled="isAdditionalDisabled(form.id)"
+          @click="toggleAdditional(form.id)"
+        >
+          <span class="milui-additional__check" aria-hidden="true"></span>
+          <span class="milui-additional__name">{{ compactMiluiLabel(form.label) }}</span>
+          <span class="milui-additional__spelling">{{ form.calculation.expandedText }}</span>
+          <span class="milui-additional__values">
+            <span class="milui-additional__metric">
+              <span>סה״כ</span>
+              <strong>{{ form.calculation.fullGematria }} · {{ form.calculation.fullHebrewNumber }}</strong>
+            </span>
+            <span class="milui-additional__metric">
+              <span>מילוי בלבד</span>
+              <strong>{{ form.calculation.fillingOnlyGematria }} · {{ form.calculation.fillingOnlyHebrewNumber }}</strong>
+            </span>
+          </span>
+        </button>
+      </div>
+      <div class="milui-additional__actions">
         <button
           class="milui-save-primary"
           type="button"
@@ -49,33 +88,13 @@
           {{ primarySaveLabel }}
         </button>
         <button
-          class="milui-save-all"
+          class="milui-save-selected"
           type="button"
-          :disabled="saveAllDisabled"
-          @click="emit('save-all')"
+          :disabled="!selectedAdditionalIds.length || selectedSaveDisabled"
+          @click="emit('save-selected', [...selectedAdditionalIds])"
         >
-          {{ saveAllLabel }}
+          {{ selectedSaveLabel }} ({{ selectedAdditionalIds.length }})
         </button>
-      </div>
-    </div>
-
-    <section v-if="variantOccurrences.length" class="milui-additional" aria-labelledby="milui-additional-title">
-      <h3 id="milui-additional-title">אופנים נוספים</h3>
-      <div class="milui-additional__list">
-        <div v-for="form in additionalForms" :key="form.id" class="milui-additional__row">
-          <div class="milui-additional__name">{{ compactMiluiLabel(form.label) }}</div>
-          <div class="milui-additional__spelling">{{ form.calculation.expandedText }}</div>
-          <div class="milui-additional__values">
-            <div class="milui-additional__metric">
-              <span>סה״כ</span>
-              <strong>{{ form.calculation.fullGematria }} · {{ form.calculation.fullHebrewNumber }}</strong>
-            </div>
-            <div class="milui-additional__metric">
-              <span>מילוי בלבד</span>
-              <strong>{{ form.calculation.fillingOnlyGematria }} · {{ form.calculation.fillingOnlyHebrewNumber }}</strong>
-            </div>
-          </div>
-        </div>
       </div>
     </section>
 
@@ -258,6 +277,14 @@ const props = defineProps({
     type: String,
     default: 'שמור כל האופנים',
   },
+  selectedSaveDisabled: {
+    type: Boolean,
+    default: false,
+  },
+  selectedSaveLabel: {
+    type: String,
+    default: 'שמור נבחרים',
+  },
 });
 
 const emit = defineEmits([
@@ -266,12 +293,14 @@ const emit = defineEmits([
   'interpretation-saved',
   'save-primary',
   'save-all',
+  'save-selected',
 ]);
 const activeCanonicalId = ref(null);
 const composerRef = ref(null);
 const variantOpen = ref(false);
 const detailsOpen = ref(false);
 const variantSelections = ref([]);
+const selectedAdditionalIds = ref([]);
 const saveState = ref('idle');
 const saveMessage = ref('');
 let feedbackTimer = null;
@@ -320,6 +349,23 @@ function compactMiluiLabel(label) {
   return String(label || '').replace(/^מילוי\s+/, '');
 }
 
+function isAdditionalSelected(id) {
+  return selectedAdditionalIds.value.includes(id);
+}
+
+function isAdditionalDisabled(id) {
+  return selectedAdditionalIds.value.length >= 2 && !isAdditionalSelected(id);
+}
+
+function toggleAdditional(id) {
+  if (isAdditionalSelected(id)) {
+    selectedAdditionalIds.value = selectedAdditionalIds.value.filter(selectedId => selectedId !== id);
+    return;
+  }
+  if (selectedAdditionalIds.value.length >= 2) return;
+  selectedAdditionalIds.value = [...selectedAdditionalIds.value, id];
+}
+
 function clearSaveFeedback() {
   clearTimeout(feedbackTimer);
   saveState.value = 'idle';
@@ -328,6 +374,7 @@ function clearSaveFeedback() {
 
 function resetSelections() {
   variantOpen.value = false;
+  selectedAdditionalIds.value = [];
   variantSelections.value = variantOccurrences.value.map(occurrence => ({
     sourceIndex: occurrence.sourceIndex,
     wordIndex: occurrence.wordIndex,
@@ -421,9 +468,9 @@ watch(() => props.calculation.normalizedText, () => {
 });
 
 watch(
-  () => [
-    props.calculation.normalizedText,
-    JSON.stringify(props.mapping),
+  [
+    () => props.calculation.normalizedText,
+    () => JSON.stringify(props.mapping),
   ],
   resetSelections,
   { immediate: true }
@@ -1158,6 +1205,259 @@ onBeforeUnmount(() => clearTimeout(feedbackTimer));
     align-items: flex-start;
     grid-template-columns: 1fr;
     gap: 5px;
+  }
+}
+
+/* Approved primary-flow treatment: the common forms are quiet, tactile
+   selection rows rather than competing result cards. */
+.milui-additional {
+  background: #fbf8f0;
+  border-top-color: #e4dac6;
+  padding: 16px 18px 14px;
+}
+
+.milui-additional__heading {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.milui-additional h3 {
+  color: var(--navy);
+  font-size: .82rem;
+  letter-spacing: .015em;
+  margin: 0;
+}
+
+.milui-additional__heading p {
+  color: var(--text-secondary);
+  font-size: .68rem;
+  margin: 3px 0 0;
+}
+
+.milui-selection-count {
+  background: #f0e9d9;
+  border: 1px solid #e1d4b9;
+  border-radius: 999px;
+  color: #725821;
+  direction: ltr;
+  font-size: .65rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  line-height: 1;
+  padding: 5px 8px;
+  white-space: nowrap;
+}
+
+.milui-selection-count--full {
+  background: #eadbb8;
+  border-color: #c09840;
+}
+
+.milui-additional__list {
+  gap: 6px;
+}
+
+.milui-additional__row {
+  align-items: center;
+  background: rgba(255, 253, 248, .84);
+  border: 1px solid #e4dbca;
+  border-radius: 8px;
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  gap: 4px 10px;
+  grid-template-columns: 16px minmax(114px, .62fr) minmax(150px, 1.55fr) minmax(170px, 1fr);
+  padding: 8px 10px;
+  text-align: right;
+  transition: background .16s ease, border-color .16s ease, opacity .16s ease, transform .16s ease;
+  width: 100%;
+}
+
+.milui-additional__row:first-child {
+  border-top: 1px solid #e4dbca;
+  padding-top: 8px;
+}
+
+.milui-additional__row:hover:not(:disabled) {
+  background: #fffdf8;
+  border-color: #c6a866;
+  transform: translateY(-1px);
+}
+
+.milui-additional__row:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.milui-additional__row--selected {
+  background: #f4ecd8;
+  border-color: #b68b35;
+  box-shadow: inset 3px 0 0 #b68b35;
+}
+
+.milui-additional__row--selected:hover {
+  background: #f1e6ca;
+}
+
+.milui-additional__row:disabled:not(.milui-additional__row--selected) {
+  cursor: not-allowed;
+  opacity: .43;
+}
+
+.milui-additional__check {
+  align-items: center;
+  border: 1px solid #cdbf9f;
+  border-radius: 4px;
+  display: inline-flex;
+  height: 15px;
+  justify-content: center;
+  width: 15px;
+}
+
+.milui-additional__check::after {
+  border-bottom: 1.5px solid #fffdf8;
+  border-inline-end: 1.5px solid #fffdf8;
+  content: '';
+  height: 7px;
+  opacity: 0;
+  transform: rotate(45deg) translate(-1px, -1px);
+  width: 3px;
+}
+
+.milui-additional__row--selected .milui-additional__check {
+  background: #9a7428;
+  border-color: #9a7428;
+}
+
+.milui-additional__row--selected .milui-additional__check::after {
+  opacity: 1;
+}
+
+.milui-additional__name {
+  color: var(--navy);
+  font-size: .74rem;
+  font-weight: 700;
+}
+
+.milui-additional__spelling {
+  color: #596273;
+  font-size: .78rem;
+  line-height: 1.4;
+}
+
+.milui-additional__values {
+  align-items: center;
+  display: flex;
+  gap: 14px;
+  justify-content: flex-end;
+}
+
+.milui-additional__metric {
+  gap: 1px;
+  min-width: 64px;
+}
+
+.milui-additional__metric span {
+  font-size: .58rem;
+}
+
+.milui-additional__metric strong {
+  color: #775c25;
+  font-size: .68rem;
+}
+
+.milui-additional__actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-start;
+  margin-top: 10px;
+}
+
+.milui-additional__actions .milui-save-primary {
+  min-height: 30px;
+  width: auto;
+}
+
+.milui-save-selected,
+.milui-clear-selected {
+  border-radius: 6px;
+  cursor: pointer;
+  font: inherit;
+  font-size: .7rem;
+  font-weight: 700;
+  min-height: 29px;
+  padding: 4px 10px;
+  transition: background .16s ease, border-color .16s ease, color .16s ease, opacity .16s ease;
+}
+
+.milui-save-selected {
+  background: transparent;
+  border: 1px solid #b9a06a;
+  color: #765b21;
+  width: auto;
+}
+
+.milui-save-selected:hover:not(:disabled) {
+  background: #f4ecda;
+  border-color: #967328;
+}
+
+.milui-clear-selected {
+  background: transparent;
+  border: 1px solid #d8ccb5;
+  color: #746c5d;
+}
+
+.milui-clear-selected:hover:not(:disabled) {
+  background: #f5efe3;
+  border-color: #bca97f;
+  color: var(--navy);
+}
+
+.milui-save-selected:focus-visible,
+.milui-clear-selected:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.milui-save-selected:disabled,
+.milui-clear-selected:disabled {
+  cursor: default;
+  opacity: .42;
+}
+
+@media (max-width: 640px) {
+  .milui-additional {
+    padding-inline: 13px;
+  }
+
+  .milui-additional__row {
+    grid-template-columns: 16px 1fr auto;
+    gap: 3px 8px;
+    padding: 9px;
+  }
+
+  .milui-additional__name {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .milui-additional__spelling {
+    grid-column: 2 / -1;
+    grid-row: 2;
+  }
+
+  .milui-additional__values {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .milui-additional__metric:nth-child(2) {
+    display: none;
   }
 }
 </style>

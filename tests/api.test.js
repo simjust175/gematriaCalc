@@ -809,6 +809,69 @@ test('save-all creates one ordinary entry and all distinct common מילוי for
   }
 });
 
+test('save-selected persists only one or two chosen common מילוי forms with the primary', async () => {
+  const agent = request.agent(app);
+  await agent.post('/api/auth/login').send({ password: 'correct-test-password-12345' });
+  const originalText = `יהוה ${uniqueHebrewToken().replace(/[הו]/g, 'א')}`;
+  const normalizedText = normalize(originalText);
+  let savedEntryId;
+
+  try {
+    for (const invalid of [[], ['av', 'sag', 'ban'], ['primary'], ['unknown']]) {
+      const rejected = await agent
+        .post('/api/milui-interpretations/save-selected')
+        .send({ originalText, formIds: invalid });
+      assert.equal(rejected.status, 400);
+      assert.equal(rejected.body.error, 'invalid_milui_form_selection');
+    }
+
+    const saved = await agent
+      .post('/api/milui-interpretations/save-selected')
+      .send({ originalText, formIds: ['av', 'sag'] });
+    assert.equal(saved.status, 201);
+    savedEntryId = saved.body.savedEntry.id;
+    assert.deepEqual(saved.body.formIds, ['primary', 'av', 'sag']);
+    assert.equal(saved.body.interpretations.length, 2);
+
+    const provenance = await pool.query(
+      `SELECT save_mode, form_ids
+       FROM saved_entry_milui_save_modes
+       WHERE saved_entry_id = $1`,
+      [savedEntryId]
+    );
+    assert.equal(provenance.rows[0].save_mode, 'primary_only');
+    assert.deepEqual(provenance.rows[0].form_ids, ['primary', 'av', 'sag']);
+
+    const indexed = await pool.query(
+      `SELECT form_id
+       FROM saved_entry_milui_form_index
+       WHERE saved_entry_id = $1
+       ORDER BY form_id`,
+      [savedEntryId]
+    );
+    assert.deepEqual(indexed.rows.map(row => row.form_id), ['av', 'sag']);
+
+    const repeated = await agent
+      .post('/api/milui-interpretations/save-selected')
+      .send({ originalText, formIds: ['sag'] });
+    assert.equal(repeated.status, 200);
+    assert.deepEqual(repeated.body.formIds, ['primary', 'sag']);
+    assert.equal(repeated.body.created, 0);
+
+    const preserved = await pool.query(
+      'SELECT form_ids FROM saved_entry_milui_save_modes WHERE saved_entry_id = $1',
+      [savedEntryId]
+    );
+    assert.deepEqual(preserved.rows[0].form_ids, ['primary', 'av', 'sag']);
+  } finally {
+    if (savedEntryId) await agent.delete(`/api/entries/${savedEntryId}`);
+    await pool.query(
+      'DELETE FROM explicit_milui_interpretations WHERE normalized_text = $1',
+      [normalizedText]
+    );
+  }
+});
+
 test('regular save records primary-only מילוי provenance without explicit variants', async () => {
   const agent = request.agent(app);
   await agent.post('/api/auth/login').send({ password: 'correct-test-password-12345' });

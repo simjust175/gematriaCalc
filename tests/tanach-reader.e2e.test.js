@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { calculateMilui } from '../src/utils/milui.js';
+import { normalize } from '../src/composables/useGematria.js';
 
 test.use({ serviceWorkers: 'block' });
 
@@ -221,7 +222,7 @@ test('signed-in Tanach reader supports cursor, navigation, search, and cited sav
   }
 });
 
-test('Tanach reader מילוי follows the exact selection and save-all sends its citation', async ({ page }, testInfo) => {
+test('Tanach reader מילוי follows the exact selection and selected-save sends its citation', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-chromium');
   await signInAndOpenTanach(page);
 
@@ -250,41 +251,44 @@ test('Tanach reader מילוי follows the exact selection and save-all sends it
     `${singleLetterMilui.fillingOnlyGematria} · ${singleLetterMilui.fillingOnlyHebrewNumber}`
   );
 
-  for (let index = 0; index < 5; index += 1) {
+  for (let index = 0; index < 13; index += 1) {
     await slider.press('Shift+ArrowLeft');
   }
   const selectedText = (await Promise.all(
-    Array.from({ length: 6 }, (_, index) => letters.nth(index).textContent())
+    Array.from({ length: 14 }, (_, index) => letters.nth(index).textContent())
   )).join('');
   const wordMilui = calculateMilui(selectedText, mapping);
   await expect(summary.locator('.tanach-milui-summary__value b'))
     .toHaveText(String(wordMilui.fullGematria));
   await expect(panel).toContainText(wordMilui.expandedText);
 
-  let saveAllBody;
-  await page.route('**/api/milui-interpretations/save-all', async route => {
-    saveAllBody = route.request().postDataJSON();
+  let saveSelectedBody;
+  await page.route('**/api/milui-interpretations/save-selected', async route => {
+    saveSelectedBody = route.request().postDataJSON();
     await route.fulfill({
       status: 201,
       contentType: 'application/json',
       body: JSON.stringify({
         savedEntry: { id: 999999, created: true },
-        formIds: ['primary', 'av', 'sag', 'ban'],
-        created: 4,
+        formIds: ['primary', 'av'],
+        created: 1,
         existing: 0,
         interpretations: [],
       }),
     });
   });
-  await panel.getByRole('button', { name: 'שמור כל האופנים' }).click();
-  await expect(panel.getByRole('button', { name: 'כל האופנים נשמרו' })).toBeDisabled();
-  expect(saveAllBody.originalText).toBe(selectedText);
-  expect(saveAllBody.tanachContext).toEqual({
+  await panel.locator('.milui-additional__row').first().click();
+  await panel.getByRole('button', { name: 'שמור נבחרים (1)' }).click();
+  await expect(panel.getByRole('button', { name: 'נשמרו (1)' })).toBeDisabled();
+  expect(normalize(saveSelectedBody.originalText).replace(/\s+/g, ''))
+    .toBe(normalize(selectedText).replace(/\s+/g, ''));
+  expect(saveSelectedBody.formIds).toEqual(['av']);
+  expect(saveSelectedBody.tanachContext).toEqual({
     bookSlug: 'Genesis',
     chapter: 1,
     verse: 1,
     start: 0,
-    end: 5,
+    end: 13,
   });
 });
 

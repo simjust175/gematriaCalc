@@ -62,7 +62,8 @@ test('מילוי stays optional, updates live, persists edits, and resets safely
   await expect(page.locator('.milui-expanded-text')).toHaveText('ויו');
   await input.fill('יהוה');
   const additional = page.locator('.milui-additional');
-  await expect(additional.getByRole('heading', { name: 'אופנים נוספים' })).toBeVisible();
+  await expect(additional.getByRole('heading', { name: 'אופנים נוספים לבחירה' })).toBeVisible();
+  await expect(additional).toContainText('אפשר לבחור אופציה אחת או שתיים');
   await expect(additional.locator('.milui-additional__row')).toHaveCount(3);
   await expect(additional).toContainText('יודי״ן');
   await expect(additional).toContainText('72');
@@ -226,17 +227,30 @@ test('מילוי variants stay compact, track repeated occurrences independently
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
 });
 
-test('save all keeps the primary action dominant and persists every common form', async ({ page }, testInfo) => {
+test('selected מילוי rows enforce a two-option limit and persist only the selection', async ({ page }, testInfo) => {
   await login(page);
   const phrase = testInfo.project.name.includes('mobile') ? 'יהוה זצק' : 'יהוה זצר';
   await page.locator('.heb-input').fill(phrase);
   await page.locator('.milui-toggle').click();
 
-  const saveAll = page.getByRole('button', { name: 'שמור כל האופנים' });
-  await expect(saveAll).toBeVisible();
-  await expect(page.locator('.milui-additional__row')).toHaveCount(3);
-  await saveAll.click();
-  await expect(page.getByRole('button', { name: 'כל האופנים נשמרו' })).toBeVisible();
+  const additional = page.locator('.milui-additional');
+  const rows = additional.locator('.milui-additional__row');
+  const saveSelected = additional.getByRole('button', { name: 'שמור נבחרים (0)' });
+  await expect(rows).toHaveCount(3);
+  await expect(saveSelected).toBeDisabled();
+  await rows.nth(0).click();
+  await expect(additional).toContainText('1 נבחר');
+  await expect(additional.getByRole('button', { name: 'שמור נבחרים (1)' })).toBeEnabled();
+  await rows.nth(1).click();
+  await expect(additional).toContainText('2 נבחרו');
+  await expect(rows.nth(0)).toHaveClass(/milui-additional__row--selected/);
+  await expect(rows.nth(1)).toHaveClass(/milui-additional__row--selected/);
+  await expect(rows.nth(2)).toBeDisabled();
+  await rows.nth(0).click();
+  await expect(rows.nth(2)).toBeEnabled();
+  await rows.nth(0).click();
+  await additional.getByRole('button', { name: 'שמור נבחרים (2)' }).click();
+  await expect(additional.getByRole('button', { name: 'נשמרו (2)' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'כבר שמור' })).toBeDisabled();
 
   const listed = await page.request.get(
@@ -244,12 +258,14 @@ test('save all keeps the primary action dominant and persists every common form'
   );
   expect(listed.ok()).toBe(true);
   const payload = await listed.json();
-  expect(payload.interpretations).toHaveLength(4);
-  expect(new Set(payload.interpretations.map(item => item.full_milui_gematria)).size).toBe(4);
+  expect(payload.interpretations).toHaveLength(2);
+  expect(new Set(payload.interpretations.map(item => item.full_milui_gematria)).size).toBe(2);
 
   await page.reload();
   await expect(page.locator('.heb-input')).toBeVisible();
-  await page.locator('.heb-input').fill(phrase);
-  await page.locator('.milui-toggle').click();
-  await expect(page.getByRole('button', { name: 'כל האופנים נשמרו' })).toBeDisabled();
+  const reloaded = await page.request.get(
+    `/api/milui-interpretations?normalizedText=${encodeURIComponent(phrase)}`
+  );
+  expect(reloaded.ok()).toBe(true);
+  expect((await reloaded.json()).interpretations).toHaveLength(2);
 });

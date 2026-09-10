@@ -214,13 +214,13 @@
               :settings-disabled="!miluiSettingsLoaded"
               :primary-save-disabled="saveStatus !== 'idle' || matches.isAlreadySaved"
               :primary-save-label="matches.isAlreadySaved ? 'כבר שמור' : saveStatus === 'saved' ? 'נשמר' : 'שמור טווח'"
-              :save-all-disabled="saveAllStatus !== 'idle' || matches.allMiluiFormsSaved"
-              :save-all-label="matches.allMiluiFormsSaved || saveAllStatus === 'saved' ? 'כל האופנים נשמרו' : saveAllStatus === 'loading' ? 'שומר...' : 'שמור כל האופנים'"
+              :selected-save-disabled="saveAllStatus !== 'idle'"
+              :selected-save-label="saveAllStatus === 'saved' ? 'נשמרו' : saveAllStatus === 'loading' ? 'שומר...' : 'שמור נבחרים'"
               @open-settings="openMiluiSettings"
               @explicit-total-change="explicitMiluiTotal = $event"
               @interpretation-saved="miluiMatchRefresh += 1"
               @save-primary="saveRange"
-              @save-all="saveAllMiluiForms"
+              @save-selected="saveSelectedMiluiForms"
             />
             <p v-if="miluiSettingsError && !miluiSettingsLoaded" class="milui-load-error" role="alert">
               {{ miluiSettingsError }}
@@ -965,16 +965,17 @@ async function saveRange() {
   }
 }
 
-async function saveAllMiluiForms() {
+async function saveSelectedMiluiForms(formIds) {
   if (!miluiCalculation.value || saveAllStatus.value === 'loading') return;
   saveAllStatus.value = 'loading';
   saveError.value = '';
   try {
-    const response = await fetch('/api/milui-interpretations/save-all', {
+    const response = await fetch('/api/milui-interpretations/save-selected', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         originalText: selectedRange.value.text,
+        formIds,
         tanachContext: tanachContext(),
       }),
     });
@@ -982,7 +983,6 @@ async function saveAllMiluiForms() {
     saveAllStatus.value = 'saved';
     saveStatus.value = 'saved';
     matches.value.isAlreadySaved = true;
-    matches.value.allMiluiFormsSaved = true;
     miluiMatchRefresh.value += 1;
     window.setTimeout(() => {
       saveAllStatus.value = 'idle';
@@ -990,7 +990,7 @@ async function saveAllMiluiForms() {
     }, 3000);
   } catch {
     saveAllStatus.value = 'idle';
-    saveError.value = 'לא ניתן לשמור את כל אופני המילוי';
+    saveError.value = 'לא ניתן לשמור את אופני המילוי שנבחרו';
   }
 }
 
