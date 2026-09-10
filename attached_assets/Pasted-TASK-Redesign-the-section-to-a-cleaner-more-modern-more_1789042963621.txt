@@ -1,0 +1,318 @@
+TASK: Redesign the “אופנים נוספים לבחירה” section to a cleaner, more modern, more polished UI
+
+You are working on the existing Gematria app.
+
+I want you to redesign only the UI/UX of the “אופנים נוספים לבחירה” block (the alternatives selection area inside the מילוי section), so it looks cleaner, more modern, tighter, and more intentional.
+
+IMPORTANT
+
+This is not a logic rewrite.
+
+Do not change:
+
+saved data structure
+selection logic
+save logic
+database schema
+backend contracts
+the surrounding calculator behavior
+
+Only improve the visual design, layout, spacing, hierarchy, and interaction polish of this specific block.
+
+Current problem
+
+The current section still feels old and visually heavy:
+
+selected rows have a heavy left gold stripe
+cards feel bulky
+spacing is not elegant
+action buttons feel disconnected from the content
+“נבחרו 2” floats awkwardly
+selection affordance feels clumsy
+visual hierarchy is not refined enough
+the section does not yet match the cleaner UI direction we discussed
+
+I want this area to feel lighter, neater, more premium, and more deliberate.
+
+Design direction
+
+Think:
+
+clean modern Hebrew dashboard UI
+soft ivory / warm off-white background
+navy primary text
+muted blue-gray secondary text
+restrained warm gold accents
+subtle borders
+compact but breathable spacing
+clear hierarchy
+elegant, not flashy
+selection feels obvious but not loud
+
+This section should feel like a polished product UI, not a rough prototype.
+
+What the section should look like
+1) Section header row
+
+At the top of this block keep:
+
+title: אופנים נוספים לבחירה
+subtitle: אפשר לבחור כל מספר של אופנים
+
+But make it cleaner:
+
+right aligned in Hebrew layout
+title slightly stronger and larger than subtitle
+subtitle softer and smaller
+on the opposite side show a compact selected-count badge like:
+נבחרו 2
+this badge should feel integrated, not floating awkwardly
+Selected-count badge styling
+pill / capsule
+subtle warm background
+thin gold border
+medium weight text
+compact size
+vertically aligned with the heading area
+2) Replace the current bulky alternative rows with cleaner selectable rows
+
+Each option row should become a compact horizontal selection card.
+
+Each row should have 4 visual zones in RTL order:
+
+Zone A — selection control
+
+At the far right:
+
+a small clean checkbox or rounded selection chip
+when selected:
+filled warm gold background
+white or very dark icon/check
+when unselected:
+white background
+thin muted border
+no giant heavy treatment
+Zone B — option label
+
+Next to that:
+
+bold option label, e.g.:
+יודי״ן
+יודי״ן-אל״ף
+ההי״ן
+primary dark navy text
+strong but not oversized
+Zone C — expanded spelling
+
+Next:
+
+e.g. יוד הי ויו
+secondary text
+medium emphasis
+should be readable but not compete with the label
+Zone D — values
+
+At the opposite side of the row:
+show the two values in a clean compact metric group:
+
+סה״כ 57 נז
+מילוי בלבד 36 לו
+
+This should be visually neat:
+
+small labels above or beside values
+values slightly emphasized
+compact stacked or inline micro-metrics
+consistent alignment across all rows
+Row styling requirements
+Unselected row
+white or near-white background
+thin soft border
+medium rounded corners
+compact height
+no gold stripe
+calm appearance
+Selected row
+very light warm-gold tinted background
+thin gold border
+maybe slightly stronger shadow or elevation than unselected
+NO thick left stripe
+selected state should feel elegant and obvious, not heavy
+Hover state
+slightly elevated border contrast
+faint shadow or slightly warmer background
+subtle only
+Spacing
+reduce wasted vertical space
+enough padding for comfort
+rows should feel crisp and intentional
+3) Remove the heavy left gold stripe entirely
+
+This is important.
+
+Do not use the current visual pattern where selected cards have that thick vertical gold strip.
+
+That is one of the main reasons the section still feels clunky.
+
+Selection should instead be communicated by:
+
+checkbox/chip state
+pale selected background
+fine gold border
+subtle elevation difference
+4) Improve the actions area at the bottom
+
+Current bottom actions feel too detached.
+
+Create a cleaner footer action row.
+
+Desired hierarchy
+
+From strongest to weakest action:
+
+שמור
+primary dark navy filled button
+שמור נבחרים (2)
+secondary outlined button
+שמור כל האופנים
+quiet text action / subtle link-style action
+Layout
+
+Put the main action buttons together in a clean aligned row.
+
+For RTL layout, use:
+
+primary button closest to the main interaction zone
+secondary next to it
+subtle text action below or aligned quietly nearby
+Styling
+Primary button — שמור
+dark navy background
+white text
+rounded
+medium height
+strong but not huge
+Secondary button — שמור נבחרים (2)
+outlined gold or muted border
+white / ivory background
+dark text
+same height as primary
+visually subordinate but still clear
+Quiet action — שמור כל האופנים
+text only or minimal underline
+soft color
+should not visually compete with the buttons
+Important
+
+Do not leave a lot of dead empty space around the buttons.
+The footer should feel integrated with the section.
+
+5) Visual hierarchy of the whole block
+
+The whole “אופנים נוספים לבחירה” area should read like this:
+
+section title + subtitle + selected-count badge
+clean list of selectable alternatives
+tidy action row
+optional divider before the next section if needed
+
+The eye should immediately understand:
+
+what this section is
+how many are selected
+what each alternative is
+how to save
+6) Match the rest of the app better
+
+This redesign should harmonize with the app’s existing visual language:
+
+rounded panels
+ivory backgrounds
+navy typography
+warm gold accent
+refined, soft borders
+
+But this block should look more polished than it does now.
+
+7) Functional behavior to preserve
+
+Preserve all existing behavior:
+
+user can select none / one / many / all
+selected count updates correctly
+save actions still work exactly as before
+“שמור” keeps default / primary save logic
+“שמור נבחרים” saves only selected options
+“שמור כל האופנים” saves all alternatives
+
+Do not break anything.
+
+8) Implementation guidance
+
+Please:
+
+identify the component that renders this alternatives-selection block
+refactor its markup/classes for cleaner structure
+improve spacing, typography, and visual states
+remove old heavy selection styling
+replace it with refined checkbox/chip based selection
+make sure RTL alignment is correct
+make sure it looks good at desktop widths
+keep it responsive and stable
+
+If needed, create small reusable UI primitives for:
+
+selected-count badge
+alternative row
+compact metric pair
+footer action row
+
+But do not overengineer.
+
+9) Acceptance criteria
+
+The task is complete only if all of the following are true:
+
+Visual
+the section looks clearly cleaner and more modern
+the heavy gold stripe is gone
+selection looks elegant and obvious
+rows are tighter and more premium
+“נבחרו X” is positioned cleanly and intentionally
+footer buttons feel structured and integrated
+the block looks noticeably improved from before
+Functional
+all existing selection logic still works
+all save actions still work
+no backend changes were introduced
+no schema/db changes were introduced
+no unrelated UI areas were broken
+10) Output required from you
+
+After implementing, report back with:
+
+what component/file(s) you changed
+what visual changes you made
+confirmation that:
+no DB changes were made
+no backend logic was changed
+save behavior remains intact
+a short before/after summary of the UI improvement
+Final instruction
+
+Do this with taste.
+
+I do not want a louder UI.
+I want a cleaner, more restrained, more refined UI.
+
+The result should feel:
+
+modern
+elegant
+intentional
+easy to scan
+visually lighter
+more beautiful
+
+Do not stop at “slightly better.”
+Polish this section until it genuinely feels product-level.
