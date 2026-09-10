@@ -17,6 +17,10 @@
 
     <div class="milui-primary-result">
       <div class="milui-primary-content">
+        <div class="milui-primary-result__eyebrow">
+          <span>מילוי ברירת מחדל</span>
+          <span class="milui-primary-result__badge">הבסיס</span>
+        </div>
         <div class="milui-expanded-text">{{ calculation.expandedText }}</div>
 
         <div class="milui-total-row">
@@ -79,22 +83,24 @@
         </button>
       </div>
       <div class="milui-additional__actions">
-        <button
-          class="milui-save-primary"
-          type="button"
-          :disabled="primarySaveDisabled"
-          @click="emit('save-primary')"
-        >
-          {{ primarySaveLabel }}
-        </button>
-        <button
-          class="milui-save-selected"
-          type="button"
-          :disabled="!selectedAdditionalIds.length || selectedSaveDisabled"
-          @click="emit('save-selected', [...selectedAdditionalIds])"
-        >
-          {{ selectedSaveLabel }} ({{ selectedAdditionalIds.length }})
-        </button>
+        <div class="milui-additional__primary-actions">
+          <button
+            class="milui-save-primary"
+            type="button"
+            :disabled="primarySaveDisabled"
+            @click="emit('save-primary')"
+          >
+            {{ primarySaveLabel }}
+          </button>
+          <button
+            class="milui-save-selected"
+            type="button"
+            :disabled="!selectedAdditionalIds.length || selectedSaveDisabled"
+            @click="emit('save-selected', [...selectedAdditionalIds])"
+          >
+            {{ selectedSaveLabel }} ({{ selectedAdditionalIds.length }})
+          </button>
+        </div>
         <button
           class="milui-save-all-tertiary"
           type="button"
@@ -552,49 +558,72 @@ onBeforeUnmount(() => clearTimeout(feedbackTimer));
 }
 
 .milui-primary-result {
-  align-items: center;
-  display: flex;
-  gap: 28px;
-  justify-content: space-between;
-  padding: 0 18px 14px;
+  background: linear-gradient(135deg, #fffdf8 0%, #fbf7ed 100%);
+  border: 1px solid #e6dcc8;
+  border-radius: 14px;
+  box-shadow: 0 5px 16px rgba(38, 48, 68, .055);
+  margin: 0 14px 12px;
+  padding: 14px 17px 15px;
 }
 
 .milui-primary-content {
-  flex: 1 1 auto;
   min-width: 0;
+}
+
+.milui-primary-result__eyebrow {
+  align-items: center;
+  color: #8d6d29;
+  display: flex;
+  font-size: .64rem;
+  font-weight: 750;
+  gap: 8px;
+  letter-spacing: .05em;
+  margin-bottom: 3px;
+}
+
+.milui-primary-result__badge {
+  background: #f1e8d2;
+  border: 1px solid #e2d2ac;
+  border-radius: 999px;
+  color: #856726;
+  font-size: .57rem;
+  letter-spacing: 0;
+  padding: 2px 6px;
 }
 
 .milui-expanded-text {
   color: var(--navy);
   font-family: "Noto Serif Hebrew", "Times New Roman", serif;
-  font-size: clamp(1.35rem, 2.5vw, 1.8rem);
-  font-weight: 600;
-  line-height: 1.65;
-  padding: 1px 0 11px;
+  font-size: clamp(1.28rem, 2.35vw, 1.68rem);
+  font-weight: 650;
+  line-height: 1.5;
+  padding: 0 0 12px;
   overflow-wrap: anywhere;
 }
 
 .milui-total-row {
   align-items: stretch;
-  display: flex;
+  border-top: 1px solid #eadfca;
+  display: grid;
   gap: 0;
-  justify-content: flex-start;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr);
+  padding-top: 10px;
 }
 
 .milui-total-block {
-  min-width: 132px;
-  padding-block: 4px;
+  min-width: 0;
+  padding-block: 0;
 }
 
 .milui-total-block--primary {
-  padding-inline-end: 26px;
+  padding-inline-end: 18px;
 }
 
 .milui-value {
   align-items: baseline;
   color: var(--navy);
   display: flex;
-  font-size: 1.5rem;
+  font-size: 1.45rem;
   font-weight: 700;
   gap: 6px;
   margin-top: 1px;
@@ -611,8 +640,8 @@ onBeforeUnmount(() => clearTimeout(feedbackTimer));
 }
 
 .milui-secondary-total {
-  border-inline-start: 1px solid #e7decc;
-  padding-inline-start: 26px;
+  border-inline-start: 1px solid #eadfca;
+  padding-inline-start: 18px;
 }
 
 .milui-secondary-value {
@@ -1220,22 +1249,22 @@ onBeforeUnmount(() => clearTimeout(feedbackTimer));
 /* Approved primary-flow treatment: the common forms are quiet, tactile
    selection rows rather than competing result cards. */
 .milui-additional {
-  background: #fbf8f0;
-  border-top-color: #e4dac6;
-  padding: 16px 18px 14px;
+  background: #faf7ef;
+  border-top: 1px solid #e8deca;
+  padding: 13px 14px 12px;
 }
 
 .milui-additional__heading {
   align-items: flex-start;
   display: flex;
-  gap: 12px;
+  gap: 10px;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .milui-additional h3 {
   color: var(--navy);
-  font-size: .82rem;
+  font-size: .8rem;
   letter-spacing: .015em;
   margin: 0;
 }
@@ -1271,15 +1300,17 @@ onBeforeUnmount(() => clearTimeout(feedbackTimer));
 
 .milui-additional__row {
   align-items: center;
-  background: rgba(255, 253, 248, .84);
-  border: 1px solid #e4dbca;
-  border-radius: 8px;
+  background: rgba(255, 255, 252, .88);
+  border: 1px solid #e1d7c4;
+  border-radius: 11px;
+  box-shadow: 0 1px 2px rgba(47, 55, 67, .035);
   color: inherit;
   cursor: pointer;
   display: grid;
-  gap: 4px 10px;
-  grid-template-columns: 16px minmax(114px, .62fr) minmax(150px, 1.55fr) minmax(170px, 1fr);
-  padding: 8px 10px;
+  gap: 5px 11px;
+  grid-template-columns: 17px minmax(104px, .62fr) minmax(150px, 1.55fr) minmax(168px, 1fr);
+  min-height: 61px;
+  padding: 9px 11px;
   text-align: right;
   transition: background .16s ease, border-color .16s ease, opacity .16s ease, transform .16s ease;
   width: 100%;
@@ -1287,7 +1318,7 @@ onBeforeUnmount(() => clearTimeout(feedbackTimer));
 
 .milui-additional__row:first-child {
   border-top: 1px solid #e4dbca;
-  padding-top: 8px;
+  padding-top: 9px;
 }
 
 .milui-additional__row:hover:not(:disabled) {
@@ -1302,9 +1333,9 @@ onBeforeUnmount(() => clearTimeout(feedbackTimer));
 }
 
 .milui-additional__row--selected {
-  background: #f4ecd8;
-  border-color: #b68b35;
-  box-shadow: inset 3px 0 0 #b68b35;
+  background: #f7efde;
+  border-color: #b99756;
+  box-shadow: inset 3px 0 0 #b99756, 0 2px 5px rgba(142, 106, 38, .06);
 }
 
 .milui-additional__row--selected:hover {
@@ -1379,15 +1410,23 @@ onBeforeUnmount(() => clearTimeout(feedbackTimer));
 }
 
 .milui-additional__actions {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  justify-content: flex-start;
+  margin-top: 9px;
+}
+
+.milui-additional__primary-actions {
   align-items: center;
   display: flex;
-  gap: 8px;
-  justify-content: flex-start;
-  margin-top: 10px;
+  flex-wrap: wrap;
+  gap: 7px;
 }
 
 .milui-additional__actions .milui-save-primary {
-  min-height: 30px;
+  min-height: 31px;
   width: auto;
 }
 
@@ -1420,7 +1459,8 @@ onBeforeUnmount(() => clearTimeout(feedbackTimer));
   border: 0;
   color: #746c5d;
   font-size: .66rem;
-  padding-inline: 5px;
+  margin-inline-start: 2px;
+  padding: 2px 4px;
   text-decoration: underline;
   text-decoration-color: rgba(116, 108, 93, .35);
   text-underline-offset: 3px;
@@ -1449,10 +1489,16 @@ onBeforeUnmount(() => clearTimeout(feedbackTimer));
     padding-inline: 13px;
   }
 
+  .milui-primary-result {
+    margin-inline: 11px;
+    padding-inline: 13px;
+  }
+
   .milui-additional__row {
     grid-template-columns: 16px 1fr auto;
     gap: 3px 8px;
-    padding: 9px;
+    min-height: 59px;
+    padding: 8px 9px;
   }
 
   .milui-additional__name {
@@ -1472,6 +1518,15 @@ onBeforeUnmount(() => clearTimeout(feedbackTimer));
 
   .milui-additional__metric:nth-child(2) {
     display: none;
+  }
+
+  .milui-additional__primary-actions {
+    width: 100%;
+  }
+
+  .milui-additional__primary-actions .milui-save-primary,
+  .milui-additional__primary-actions .milui-save-selected {
+    flex: 1 1 auto;
   }
 }
 </style>
