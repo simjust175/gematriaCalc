@@ -72,12 +72,30 @@ export function ensureMiluiPreferences(db = pool) {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `);
-    await db.query(
-      `INSERT INTO milui_preferences (id, preset_name, mapping)
-       VALUES ('private-default', $1, $2::jsonb)
-       ON CONFLICT (id) DO NOTHING`,
-      [MILUI_PRESET_NAME, JSON.stringify(MILUI_DEFAULT_MAPPING)]
+    const ownership = await db.query(
+      `SELECT EXISTS (
+         SELECT 1 FROM information_schema.columns
+         WHERE table_schema = 'public' AND table_name = 'milui_preferences'
+           AND column_name = 'owner_id'
+       ) AS available`
     );
+    if (ownership.rows[0].available) {
+      await db.query(
+        `INSERT INTO milui_preferences (id, owner_id, preset_name, mapping)
+         SELECT 'private-default', id, $1, $2::jsonb
+         FROM app_accounts
+         WHERE account_key = 'legacy-private-client'
+         ON CONFLICT (id) DO NOTHING`,
+        [MILUI_PRESET_NAME, JSON.stringify(MILUI_DEFAULT_MAPPING)]
+      );
+    } else {
+      await db.query(
+        `INSERT INTO milui_preferences (id, preset_name, mapping)
+         VALUES ('private-default', $1, $2::jsonb)
+         ON CONFLICT (id) DO NOTHING`,
+        [MILUI_PRESET_NAME, JSON.stringify(MILUI_DEFAULT_MAPPING)]
+      );
+    }
     const after = await db.query(`
       SELECT
         (SELECT COUNT(*)::int FROM saved_entries) AS saved_entries,
