@@ -3,6 +3,7 @@ import { MILUI_DEFAULT_MAPPING, MILUI_PRESET_NAME } from '../src/utils/milui.js'
 import { TANACH_PARSHIOT } from './tanachParshiot.js';
 import { UXLC_REPRESENTATION_VERSION } from './uxlcText.js';
 import { computeAll } from '../src/composables/useGematria.js';
+import { ensureMultiUserFoundation } from './accounts.js';
 const { Pool } = pg;
 
 export const pool = new Pool({
@@ -270,13 +271,19 @@ export async function initDb() {
     `);
     const { ensureMiluiInterpretationSchema } = await import('./miluiInterpretations.js');
     await ensureMiluiInterpretationSchema(pool);
+    const { ensureMiluiMatchingSchema } = await import('./miluiIndex.js');
+    await ensureMiluiMatchingSchema(pool);
   }
 
+  const ownership = await ensureMultiUserFoundation(pool, {
+    allowSchemaChanges: process.env.NODE_ENV !== 'production',
+  });
   const { initializeMiluiMatching } = await import('./miluiIndex.js');
   const miluiIndex = await initializeMiluiMatching({
     // Development owns the candidate schema. Replit Publish compares it with
     // production and applies the reviewed additive diff before production starts.
     allowSchemaChanges: process.env.NODE_ENV !== 'production',
+    ownerId: ownership.legacyAccount.id,
   });
   if (miluiIndex.schemaAvailable) {
     console.log(

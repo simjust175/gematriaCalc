@@ -32,6 +32,10 @@ process.env.APP_PASSWORD    = 'correct-test-password-12345';
 // Import app AFTER env vars are set
 const { app } = await import('../server/app.js');
 const { pool } = await import('../server/db.js');
+const legacyOwnerId = Number((await pool.query(
+  `SELECT id FROM app_accounts
+   WHERE account_key = 'legacy-private-client' AND account_type = 'legacy_client'`
+)).rows[0].id);
 const {
   ensureActiveMiluiCoverage,
   getMiluiIndexReport,
@@ -507,9 +511,10 @@ test('saved multiple discovery validates input and consolidates approved sources
     );
     await pool.query('DELETE FROM saved_words WHERE entry_id = ANY($1::int[])', [savedIds]);
     await pool.query(
-      `INSERT INTO saved_words (entry_id, word, normalized_word, gematria, position)
-       VALUES ($1, 'א', 'א', 1, 0), ($1, 'ב', 'ב', 2, 1), ($2, 'ס', 'ס', 60, 0)`,
-      savedIds
+      `INSERT INTO saved_words (owner_id, entry_id, word, normalized_word, gematria, position)
+       VALUES ($3, $1, 'א', 'א', 1, 0), ($3, $1, 'ב', 'ב', 2, 1),
+              ($3, $2, 'ס', 'ס', 60, 0)`,
+      [...savedIds, legacyOwnerId]
     );
     await pool.query(
       `UPDATE saved_entry_milui_index idx
@@ -1021,7 +1026,7 @@ test('active full מילוי values participate in live matching and repair miss
     assert.ok(rows[0].matchTypes.includes('milui_gematria'));
     assert.equal(rows[0].full_milui_gematria, expectedMilui.fullGematria);
 
-    const active = await getMiluiIndexReport();
+    const active = await getMiluiIndexReport(pool, legacyOwnerId);
     await pool.query(
       `DELETE FROM saved_entry_milui_index
        WHERE saved_entry_id = $1 AND mapping_version = $2`,
@@ -1110,7 +1115,7 @@ test('mapping cutover is atomic, versioned, and deduplicates מילוי with sta
     const newValue = calculateMilui(originalText, custom).fullGematria;
     assert.notEqual(newValue, oldValue);
 
-    const before = await getMiluiIndexReport();
+    const before = await getMiluiIndexReport(pool, legacyOwnerId);
     const oldMatch = await agent.get('/api/matches').query({ normalizedText: oldMatchingInput });
     assert.equal(oldMatch.status, 200);
     const oldEntry = oldMatch.body.matches.find(entry => entry.id === save.body.id);
@@ -1121,7 +1126,7 @@ test('mapping cutover is atomic, versioned, and deduplicates מילוי with sta
     assert.equal(changed.status, 200);
     assert.ok(Number(changed.body.mappingVersion) > Number(before.activeVersion));
 
-    const after = await getMiluiIndexReport();
+    const after = await getMiluiIndexReport(pool, legacyOwnerId);
     assert.equal(after.indexedEntries, after.savedEntries);
     assert.equal(String(after.activeVersion), String(changed.body.mappingVersion));
 
@@ -1184,6 +1189,7 @@ test('a save committed during a pending rebuild is present at activation', async
     oldWindowId = oldWindowSave.body.id;
 
     const activated = await rebuildAndActivateMiluiMapping(custom, {
+      ownerId: legacyOwnerId,
       afterPendingCreated: async () => {
         const oldWindow = await agent
           .get('/api/matches')
@@ -1206,7 +1212,7 @@ test('a save committed during a pending rebuild is present at activation', async
     assert.ok(savedId);
     assert.equal(activated.coverage.missing, 0);
 
-    const report = await getMiluiIndexReport();
+    const report = await getMiluiIndexReport(pool, legacyOwnerId);
     assert.equal(report.indexedEntries, report.savedEntries);
     const match = await agent
       .get('/api/matches')
@@ -1257,19 +1263,20 @@ test('failed derived work leaves the previous active version and canonical save 
   const agent = request.agent(app);
   await agent.post('/api/auth/login').send({ password: 'correct-test-password-12345' });
   const settings = await agent.get('/api/settings/milui');
-  const before = await getMiluiIndexReport();
+  const before = await getMiluiIndexReport(pool, legacyOwnerId);
   const custom = cloneMiluiMapping(settings.body.mapping);
   custom.ו = custom.ו === 'ויו' ? 'ואו' : 'ויו';
 
   await assert.rejects(
     rebuildAndActivateMiluiMapping(custom, {
+      ownerId: legacyOwnerId,
       afterInitialBuild: async () => {
         throw new Error('intentional derived build failure');
       },
     }),
     /intentional derived build failure/
   );
-  const afterFailure = await getMiluiIndexReport();
+  const afterFailure = await getMiluiIndexReport(pool, legacyOwnerId);
   assert.equal(String(afterFailure.activeVersion), String(before.activeVersion));
   assert.equal(afterFailure.matchingEnabled, true);
   const unchangedSettings = await agent.get('/api/settings/milui');
@@ -1299,8 +1306,8 @@ test('failed derived work leaves the previous active version and canonical save 
       'UPDATE milui_mapping_versions SET mapping = $2::jsonb WHERE version = $1',
       [activeVersion, JSON.stringify(activeMapping.rows[0].mapping)]
     );
-    invalidateMiluiCoverageCheck();
-    await ensureActiveMiluiCoverage(pool, { force: true });
+    invalidateMiluiCoverageCheck(legacyOwnerId);
+    await ensureActiveMiluiCoverage(pool, legacyOwnerId, { force: true });
     if (savedId) {
       const indexed = await pool.query(
         `SELECT COUNT(*)::int AS count
@@ -1317,7 +1324,7 @@ test('failed derived work leaves the previous active version and canonical save 
 test('incomplete מילוי coverage suppresses only מילוי while preserving normal matches', async () => {
   const agent = request.agent(app);
   await agent.post('/api/auth/login').send({ password: 'correct-test-password-12345' });
-  const report = await getMiluiIndexReport();
+  const report = await getMiluiIndexReport(pool, legacyOwnerId);
   const activeMapping = await pool.query(
     'SELECT mapping FROM milui_mapping_versions WHERE version = $1',
     [report.activeVersion]
@@ -1338,7 +1345,7 @@ test('incomplete מילוי coverage suppresses only מילוי while preserving
        WHERE version = $1`,
       [report.activeVersion]
     );
-    invalidateMiluiCoverageCheck();
+    invalidateMiluiCoverageCheck(legacyOwnerId);
     const unavailable = await agent
       .get('/api/matches')
       .query({ normalizedText: originalText });
@@ -1351,8 +1358,8 @@ test('incomplete מילוי coverage suppresses only מילוי while preserving
       'UPDATE milui_mapping_versions SET mapping = $2::jsonb WHERE version = $1',
       [report.activeVersion, JSON.stringify(activeMapping.rows[0].mapping)]
     );
-    invalidateMiluiCoverageCheck();
-    await ensureActiveMiluiCoverage(pool, { force: true });
+    invalidateMiluiCoverageCheck(legacyOwnerId);
+    await ensureActiveMiluiCoverage(pool, legacyOwnerId, { force: true });
     await agent.delete(`/api/entries/${savedId}`);
   }
 });
