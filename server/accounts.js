@@ -4,6 +4,7 @@ import {
   timingSafeEqual,
 } from 'node:crypto';
 import { promisify } from 'node:util';
+import { assertMultiUserPool } from './databaseRouter.js';
 
 const scrypt = promisify(scryptCallback);
 export const LEGACY_ACCOUNT_KEY = 'legacy-private-client';
@@ -97,6 +98,7 @@ export async function getAccountById(db, accountId) {
 }
 
 export async function ensureMultiUserFoundation(db, { allowSchemaChanges = false } = {}) {
+  assertMultiUserPool(db);
   if (!allowSchemaChanges) {
     const required = await db.query(
       `SELECT to_regclass('app_accounts') IS NOT NULL AS accounts,
