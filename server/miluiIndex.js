@@ -50,6 +50,45 @@ export async function acquireMiluiSaveLock(client) {
 }
 
 export async function ensureMiluiMatchingSchema(db = pool) {
+  if (db?.databaseRole !== 'multi-user') {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS milui_mapping_versions (
+        version BIGSERIAL PRIMARY KEY,
+        preset_name TEXT NOT NULL,
+        mapping JSONB NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('pending', 'active', 'inactive', 'failed')),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        activated_at TIMESTAMPTZ
+      );
+
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_milui_mapping_one_active
+        ON milui_mapping_versions(status) WHERE status = 'active';
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_milui_mapping_one_pending
+        ON milui_mapping_versions(status) WHERE status = 'pending';
+
+      CREATE TABLE IF NOT EXISTS milui_index_state (
+        id TEXT PRIMARY KEY CHECK (id = 'private-default'),
+        active_version BIGINT REFERENCES milui_mapping_versions(version) ON DELETE RESTRICT,
+        matching_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS saved_entry_milui_index (
+        saved_entry_id INTEGER NOT NULL REFERENCES saved_entries(id) ON DELETE RESTRICT,
+        mapping_version BIGINT NOT NULL REFERENCES milui_mapping_versions(version) ON DELETE RESTRICT,
+        full_milui_gematria INTEGER NOT NULL CHECK (full_milui_gematria > 0),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (saved_entry_id, mapping_version)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_saved_entry_milui_lookup
+        ON saved_entry_milui_index(mapping_version, full_milui_gematria);
+    `);
+    schemaAvailable = true;
+    return;
+  }
+
   await db.query(`
     CREATE TABLE IF NOT EXISTS milui_mapping_versions (
       version BIGSERIAL PRIMARY KEY,
