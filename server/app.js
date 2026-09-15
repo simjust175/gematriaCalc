@@ -60,6 +60,9 @@ import {
 } from './derivedLetterMatching.js';
 
 export const app = express();
+// Private CRUD remains on the legacy path in this authentication/session-only
+// step. Route-level database selection is intentionally deferred.
+const pool = legacyPool;
 
 // ── Middleware ───────────────────────────────────────────────────────────────
 
