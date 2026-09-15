@@ -263,13 +263,13 @@ export async function initDb() {
       WHERE tanach_book_slug IS NOT NULL;
   `);
 
-  await ensureFinalsDerived(db);
-  await seedTanachParshiot(db);
+  await ensureFinalsDerived();
+  await seedTanachParshiot();
 
-  await ensureMiluiPreferences(db);
+  await ensureMiluiPreferences();
 
-  if (initializeMultiUser) {
-    await db.query(`
+  if (process.env.NODE_ENV !== 'production') {
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS curated_matches (
         id SERIAL PRIMARY KEY,
         parent_id INTEGER NOT NULL REFERENCES saved_entries(id) ON DELETE CASCADE,
@@ -288,25 +288,24 @@ export async function initDb() {
       CREATE INDEX IF NOT EXISTS idx_curated_matches_parent ON curated_matches(parent_id);
     `);
     const { ensureMiluiInterpretationSchema } = await import('./miluiInterpretations.js');
-    await ensureMiluiInterpretationSchema(db);
+    await ensureMiluiInterpretationSchema(pool);
     const { ensureMiluiMatchingSchema } = await import('./miluiIndex.js');
-    await ensureMiluiMatchingSchema(db);
+    await ensureMiluiMatchingSchema(pool);
+  }
 
-    const ownership = await ensureMultiUserFoundation(db, {
-      allowSchemaChanges: process.env.NODE_ENV !== 'production',
-    });
-    const { initializeMiluiMatching } = await import('./miluiIndex.js');
-    const miluiIndex = await initializeMiluiMatching({
-      allowSchemaChanges: process.env.NODE_ENV !== 'production',
-      ownerId: ownership.legacyAccount.id,
-      db,
-    });
-    if (miluiIndex.schemaAvailable) {
-      console.log(
-        `Milui matching index ready: version ${miluiIndex.version}, `
-        + `${miluiIndex.coverage.indexedEntries}/${miluiIndex.coverage.savedEntries} entries`
-      );
-    }
+  const ownership = await ensureMultiUserFoundation(pool, {
+    allowSchemaChanges: process.env.NODE_ENV !== 'production',
+  });
+  const { initializeMiluiMatching } = await import('./miluiIndex.js');
+  const miluiIndex = await initializeMiluiMatching({
+    allowSchemaChanges: process.env.NODE_ENV !== 'production',
+    ownerId: ownership.legacyAccount.id,
+  });
+  if (miluiIndex.schemaAvailable) {
+    console.log(
+      `Milui matching index ready: version ${miluiIndex.version}, `
+      + `${miluiIndex.coverage.indexedEntries}/${miluiIndex.coverage.savedEntries} entries`
+    );
   }
 
   console.log('Database initialized');
