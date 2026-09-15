@@ -25,7 +25,7 @@ test('legacy מילוי initializers preserve the pre-multi-user global schema',
   const sql = legacy.queries.join('\n').toLowerCase();
   assert.match(sql, /unique\(normalized_text, calculation_mode/);
   assert.match(sql, /primary key \(saved_entry_id, form_id\)/);
-  assert.match(sql, /primary key \(id\)/);
+  assert.match(sql, /\bid\s+bigserial\s+primary key/);
   assert.match(sql, /on milui_mapping_versions\(status\)/);
   assert.doesNotMatch(sql, /\bowner_id\b/);
   assert.doesNotMatch(sql, /\bapp_accounts\b/);
