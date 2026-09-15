@@ -72,6 +72,25 @@ export function ensureMiluiPreferences(db = pool) {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `);
+    const ownerColumn = await db.query(`
+      SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'milui_preferences'
+          AND column_name = 'owner_id'
+      ) AS present
+    `);
+    // A development database may already contain the owner-aware table from
+    // an interrupted multi-user migration. Do not try to write the legacy
+    // global row into that incompatible shape. The legacy application keeps
+    // its original default behavior through its existing data/fallback, while
+    // the multi-user path initializes owner-aware preferences later.
+    if (ownerColumn.rows[0]?.present === true && db.databaseRole !== 'multi-user') {
+      console.warn('Skipping legacy global מילוי preference seed for an existing owner-aware table');
+      return;
+    }
+    if (ownerColumn.rows[0]?.present === true) return;
     await db.query(
       `INSERT INTO milui_preferences (id, preset_name, mapping)
        VALUES ('private-default', $1, $2::jsonb)
@@ -255,7 +274,7 @@ export async function initDb({
   await ensureFinalsDerived(db);
   await seedTanachParshiot(db);
 
-  await ensureMiluiPreferences(db);
+  if (!initializeMultiUser) await ensureMiluiPreferences(db);
 
   if (process.env.NODE_ENV !== 'production') {
     await db.query(`

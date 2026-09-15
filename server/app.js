@@ -6,7 +6,7 @@ import express from 'express';
 import session from 'express-session';
 import { timingSafeEqual } from 'node:crypto';
 import { randomUUID } from 'node:crypto';
-import { legacyPool, multiUserPool } from './databaseRouter.js';
+import { multiUserPool, routedPool } from './databaseRouter.js';
 import { setRequestDatabase } from './requestDatabase.js';
 import { RoleRoutedSessionStore, LEGACY_PREFIX, MULTI_USER_PREFIX } from './sessionStore.js';
 import {
@@ -62,7 +62,9 @@ import {
 export const app = express();
 // Private CRUD remains on the legacy path in this authentication/session-only
 // step. Route-level database selection is intentionally deferred.
-const pool = legacyPool;
+// Every authenticated route receives its database through AsyncLocalStorage.
+// This alias is request-routed and never falls back across account roles.
+const pool = routedPool;
 
 // ── Middleware ───────────────────────────────────────────────────────────────
 

@@ -25,6 +25,9 @@ export const multiUserPool = createPool(
 );
 
 export const routedPool = {
+  get databaseRole() {
+    return getRequestDatabase()?.databaseRole || LEGACY_DATABASE_ROLE;
+  },
   query(...args) {
     const db = getRequestDatabase() || legacyPool;
     if (!db) throw new Error('No request database is configured');
