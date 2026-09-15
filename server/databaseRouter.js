@@ -1,4 +1,5 @@
 import pg from 'pg';
+import { getRequestDatabase } from './requestDatabase.js';
 
 const { Pool } = pg;
 
@@ -22,6 +23,19 @@ export const multiUserPool = createPool(
   process.env.MULTI_USER_DATABASE_URL,
   MULTI_USER_DATABASE_ROLE
 );
+
+export const routedPool = {
+  query(...args) {
+    const db = getRequestDatabase() || legacyPool;
+    if (!db) throw new Error('No request database is configured');
+    return db.query(...args);
+  },
+  connect(...args) {
+    const db = getRequestDatabase() || legacyPool;
+    if (!db) throw new Error('No request database is configured');
+    return db.connect(...args);
+  },
+};
 
 export function assertMultiUserPool(db) {
   if (!db || db.databaseRole !== MULTI_USER_DATABASE_ROLE) {

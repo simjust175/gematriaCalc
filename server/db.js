@@ -11,7 +11,7 @@ const { Pool } = pg;
 // foundation step. Multi-user initialization receives an explicit pool.
 export const pool = legacyPool;
 
-let miluiPreferencesReady = null;
+const miluiPreferencesReady = new WeakMap();
 
 export async function ensureFinalsDerived(db = pool) {
   const before = await db.query(
@@ -57,8 +57,8 @@ export async function ensureFinalsDerived(db = pool) {
 }
 
 export function ensureMiluiPreferences(db = pool) {
-  if (miluiPreferencesReady) return miluiPreferencesReady;
-  miluiPreferencesReady = (async () => {
+  if (miluiPreferencesReady.has(db)) return miluiPreferencesReady.get(db);
+  const ready = (async () => {
     const before = await db.query(`
       SELECT
         (SELECT COUNT(*)::int FROM saved_entries) AS saved_entries,
@@ -72,30 +72,12 @@ export function ensureMiluiPreferences(db = pool) {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `);
-    const ownership = await db.query(
-      `SELECT EXISTS (
-         SELECT 1 FROM information_schema.columns
-         WHERE table_schema = 'public' AND table_name = 'milui_preferences'
-           AND column_name = 'owner_id'
-       ) AS available`
+    await db.query(
+      `INSERT INTO milui_preferences (id, preset_name, mapping)
+       VALUES ('private-default', $1, $2::jsonb)
+       ON CONFLICT (id) DO NOTHING`,
+      [MILUI_PRESET_NAME, JSON.stringify(MILUI_DEFAULT_MAPPING)]
     );
-    if (ownership.rows[0].available) {
-      await db.query(
-        `INSERT INTO milui_preferences (id, owner_id, preset_name, mapping)
-         SELECT 'private-default', id, $1, $2::jsonb
-         FROM app_accounts
-         WHERE account_key = 'legacy-private-client'
-         ON CONFLICT (id) DO NOTHING`,
-        [MILUI_PRESET_NAME, JSON.stringify(MILUI_DEFAULT_MAPPING)]
-      );
-    } else {
-      await db.query(
-        `INSERT INTO milui_preferences (id, preset_name, mapping)
-         VALUES ('private-default', $1, $2::jsonb)
-         ON CONFLICT (id) DO NOTHING`,
-        [MILUI_PRESET_NAME, JSON.stringify(MILUI_DEFAULT_MAPPING)]
-      );
-    }
     const after = await db.query(`
       SELECT
         (SELECT COUNT(*)::int FROM saved_entries) AS saved_entries,
@@ -112,10 +94,11 @@ export function ensureMiluiPreferences(db = pool) {
       + `saved_words ${before.rows[0].saved_words}; deleted 0, modified 0`
     );
   })().catch(error => {
-    miluiPreferencesReady = null;
+    miluiPreferencesReady.delete(db);
     throw error;
   });
-  return miluiPreferencesReady;
+  miluiPreferencesReady.set(db, ready);
+  return ready;
 }
 
 export async function seedTanachParshiot(db = pool) {
