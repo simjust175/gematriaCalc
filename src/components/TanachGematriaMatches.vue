@@ -68,6 +68,16 @@
             </span>
           </span>
         </button>
+        <button
+          v-if="method === 'gematria'"
+          type="button"
+          class="kollel-toggle"
+          :class="{ active: includeKollel }"
+          :aria-pressed="includeKollel"
+          @click="setIncludeKollel(!includeKollel)"
+        >
+          {{ includeKollel ? 'עם הכולל' : 'בלי הכולל' }}
+        </button>
       </div>
       <div class="controls-secondary-row">
         <button type="button" class="selection-toggle" :class="{ active: selectionMode }" @click="toggleSelectionMode">
@@ -249,8 +259,8 @@ const methodOptions = [
   { value: 'finals', label: 'סופי תיבות' },
 ];
 const {
-  results, counts, total, loading, error, filter, bookOrder, parshaId, chapterBook, chapter, verse, currentParshah, weeklyParshah,
-  hasMore, setFilter, setBookOrder, setParshaId, setChapter, setVerse, toggleCurrentParshah, loadMore, refresh,
+  results, counts, total, loading, error, filter, includeKollel, bookOrder, parshaId, chapterBook, chapter, verse, currentParshah, weeklyParshah,
+  hasMore, setFilter, setIncludeKollel, setBookOrder, setParshaId, setChapter, setVerse, toggleCurrentParshah, loadMore, refresh,
 } =
   useTanachGematriaMatches(computed(() => props.target), {
     methodRef: method,

@@ -581,6 +581,47 @@ test('Tanach discovery clears stale targets, filters server-side, and appends pa
   }
 });
 
+test('Tanach discovery כולל toggle searches target plus one and toggles back to the exact target', async () => {
+  const urls = [];
+  const fetchImpl = async url => {
+    urls.push(String(url));
+    return {
+      ok: true,
+      json: async () => ({
+        results: [],
+        counts: { all: 0, whole_word: 0, whole_phrase: 0, partial: 0 },
+        total: 0,
+        page: 1,
+        limit: 12,
+        hasMore: false,
+      }),
+    };
+  };
+  const flush = () => new Promise(resolve => setTimeout(resolve, 0));
+  const live = useTanachGematriaMatches(ref(304), { fetchImpl, debounceMs: 0 });
+
+  try {
+    await flush();
+    let params = new URL(urls.at(-1), 'http://example.test').searchParams;
+    assert.equal(params.get('value'), '304');
+    assert.equal(live.includeKollel.value, false);
+
+    live.setIncludeKollel(true);
+    await flush();
+    params = new URL(urls.at(-1), 'http://example.test').searchParams;
+    assert.equal(params.get('value'), '305');
+    assert.equal(live.includeKollel.value, true);
+
+    live.setIncludeKollel(false);
+    await flush();
+    params = new URL(urls.at(-1), 'http://example.test').searchParams;
+    assert.equal(params.get('value'), '304');
+    assert.equal(live.includeKollel.value, false);
+  } finally {
+    live.stop();
+  }
+});
+
 test('Tanach discovery scopes normalized search and weekly filters to its current target', async () => {
   const urls = [];
   const fetchImpl = async url => {
