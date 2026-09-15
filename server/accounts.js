@@ -4,6 +4,7 @@ import {
   timingSafeEqual,
 } from 'node:crypto';
 import { promisify } from 'node:util';
+import { assertMultiUserPool } from './databaseRouter.js';
 
 const scrypt = promisify(scryptCallback);
 export const LEGACY_ACCOUNT_KEY = 'legacy-private-client';
@@ -69,6 +70,20 @@ async function setOwnerNotNull(db, tableName) {
 }
 
 export async function getLegacyAccount(db) {
+  if (db?.databaseRole === 'legacy') {
+    return {
+      id: 0,
+      account_key: LEGACY_ACCOUNT_KEY,
+      account_type: 'legacy_client',
+      email: null,
+      is_hidden: true,
+      plan_code: 'legacy_unlimited',
+      entitlement_status: 'active',
+      is_unlimited: true,
+      billing_exempt: true,
+    };
+  }
+  assertMultiUserPool(db);
   const result = await db.query(
     `SELECT account.id, account.account_key, account.account_type, account.is_hidden,
             entitlement.plan_code, entitlement.status AS entitlement_status,
@@ -83,6 +98,7 @@ export async function getLegacyAccount(db) {
 }
 
 export async function getAccountById(db, accountId) {
+  assertMultiUserPool(db);
   const result = await db.query(
     `SELECT account.id, account.account_key, account.account_type, account.email,
             account.is_hidden, entitlement.plan_code,
@@ -97,6 +113,7 @@ export async function getAccountById(db, accountId) {
 }
 
 export async function ensureMultiUserFoundation(db, { allowSchemaChanges = false } = {}) {
+  assertMultiUserPool(db);
   if (!allowSchemaChanges) {
     const required = await db.query(
       `SELECT to_regclass('app_accounts') IS NOT NULL AS accounts,
@@ -293,6 +310,7 @@ export async function verifyPassword(password, encoded) {
 }
 
 export async function createStandardAccount(db, { email, password }) {
+  assertMultiUserPool(db);
   const normalizedEmail = String(email || '').trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
     const error = new Error('Invalid email');
@@ -333,6 +351,7 @@ export async function createStandardAccount(db, { email, password }) {
 }
 
 export async function authenticateStandardAccount(db, { email, password }) {
+  assertMultiUserPool(db);
   const normalizedEmail = String(email || '').trim().toLowerCase();
   const result = await db.query(
     `SELECT id, password_hash

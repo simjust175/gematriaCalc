@@ -1,15 +1,16 @@
-import pg from 'pg';
 import { MILUI_DEFAULT_MAPPING, MILUI_PRESET_NAME } from '../src/utils/milui.js';
 import { TANACH_PARSHIOT } from './tanachParshiot.js';
 import { UXLC_REPRESENTATION_VERSION } from './uxlcText.js';
 import { computeAll } from '../src/composables/useGematria.js';
 import { ensureMultiUserFoundation } from './accounts.js';
-const { Pool } = pg;
-
-export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-});
+import {
+  assertMultiUserPool,
+  legacyPool,
+  multiUserPool,
+} from './databaseRouter.js';
+// Kept as the legacy alias for existing client-only helpers. Multi-user code
+// must receive multiUserPool explicitly and must never use this alias.
+export const pool = legacyPool;
 
 let miluiPreferencesReady = null;
 
@@ -159,8 +160,12 @@ export async function seedTanachParshiot(db = pool) {
   return true;
 }
 
-export async function initDb() {
-  await pool.query(`
+export async function initDb({
+  db = legacyPool,
+  initializeMultiUser = false,
+} = {}) {
+  if (!db) throw new Error('Database connection is not configured');
+  await db.query(`
     CREATE TABLE IF NOT EXISTS saved_entries (
       id SERIAL PRIMARY KEY,
       original_text TEXT NOT NULL,
@@ -263,13 +268,13 @@ export async function initDb() {
       WHERE tanach_book_slug IS NOT NULL;
   `);
 
-  await ensureFinalsDerived();
-  await seedTanachParshiot();
+  await ensureFinalsDerived(db);
+  await seedTanachParshiot(db);
 
-  await ensureMiluiPreferences();
+  await ensureMiluiPreferences(db);
 
-  if (process.env.NODE_ENV !== 'production') {
-    await pool.query(`
+  if (initializeMultiUser) {
+    await db.query(`
       CREATE TABLE IF NOT EXISTS curated_matches (
         id SERIAL PRIMARY KEY,
         parent_id INTEGER NOT NULL REFERENCES saved_entries(id) ON DELETE CASCADE,
@@ -288,26 +293,25 @@ export async function initDb() {
       CREATE INDEX IF NOT EXISTS idx_curated_matches_parent ON curated_matches(parent_id);
     `);
     const { ensureMiluiInterpretationSchema } = await import('./miluiInterpretations.js');
-    await ensureMiluiInterpretationSchema(pool);
+    await ensureMiluiInterpretationSchema(db);
     const { ensureMiluiMatchingSchema } = await import('./miluiIndex.js');
-    await ensureMiluiMatchingSchema(pool);
-  }
+    await ensureMiluiMatchingSchema(db);
 
-  const ownership = await ensureMultiUserFoundation(pool, {
-    allowSchemaChanges: process.env.NODE_ENV !== 'production',
-  });
-  const { initializeMiluiMatching } = await import('./miluiIndex.js');
-  const miluiIndex = await initializeMiluiMatching({
-    // Development owns the candidate schema. Replit Publish compares it with
-    // production and applies the reviewed additive diff before production starts.
-    allowSchemaChanges: process.env.NODE_ENV !== 'production',
-    ownerId: ownership.legacyAccount.id,
-  });
-  if (miluiIndex.schemaAvailable) {
-    console.log(
-      `Milui matching index ready: version ${miluiIndex.version}, `
-      + `${miluiIndex.coverage.indexedEntries}/${miluiIndex.coverage.savedEntries} entries`
-    );
+    const ownership = await ensureMultiUserFoundation(db, {
+      allowSchemaChanges: process.env.NODE_ENV !== 'production',
+    });
+    const { initializeMiluiMatching } = await import('./miluiIndex.js');
+    const miluiIndex = await initializeMiluiMatching({
+      allowSchemaChanges: process.env.NODE_ENV !== 'production',
+      ownerId: ownership.legacyAccount.id,
+      db,
+    });
+    if (miluiIndex.schemaAvailable) {
+      console.log(
+        `Milui matching index ready: version ${miluiIndex.version}, `
+        + `${miluiIndex.coverage.indexedEntries}/${miluiIndex.coverage.savedEntries} entries`
+      );
+    }
   }
 
   console.log('Database initialized');
