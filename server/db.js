@@ -1,16 +1,15 @@
+import pg from 'pg';
 import { MILUI_DEFAULT_MAPPING, MILUI_PRESET_NAME } from '../src/utils/milui.js';
 import { TANACH_PARSHIOT } from './tanachParshiot.js';
 import { UXLC_REPRESENTATION_VERSION } from './uxlcText.js';
 import { computeAll } from '../src/composables/useGematria.js';
 import { ensureMultiUserFoundation } from './accounts.js';
-import {
-  assertMultiUserPool,
-  legacyPool,
-  multiUserPool,
-} from './databaseRouter.js';
-// Kept as the legacy alias for existing client-only helpers. Multi-user code
-// must receive multiUserPool explicitly and must never use this alias.
-export const pool = legacyPool;
+const { Pool } = pg;
+
+export const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+});
 
 let miluiPreferencesReady = null;
 
@@ -160,12 +159,8 @@ export async function seedTanachParshiot(db = pool) {
   return true;
 }
 
-export async function initDb({
-  db = legacyPool,
-  initializeMultiUser = false,
-} = {}) {
-  if (!db) throw new Error('Database connection is not configured');
-  await db.query(`
+export async function initDb() {
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS saved_entries (
       id SERIAL PRIMARY KEY,
       original_text TEXT NOT NULL,
