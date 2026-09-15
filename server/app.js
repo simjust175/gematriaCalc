@@ -4,9 +4,11 @@
  */
 import express from 'express';
 import session from 'express-session';
-import connectPgSimple from 'connect-pg-simple';
 import { timingSafeEqual } from 'node:crypto';
-import { pool } from './db.js';
+import { randomUUID } from 'node:crypto';
+import { legacyPool, multiUserPool } from './databaseRouter.js';
+import { setRequestDatabase } from './requestDatabase.js';
+import { RoleRoutedSessionStore, LEGACY_PREFIX, MULTI_USER_PREFIX } from './sessionStore.js';
 import {
   SIGNUP_ENABLED,
   authenticateStandardAccount,
@@ -58,7 +60,6 @@ import {
 } from './derivedLetterMatching.js';
 
 export const app = express();
-const PostgresSessionStore = connectPgSimple(session);
 
 // ── Middleware ───────────────────────────────────────────────────────────────
 
@@ -68,16 +69,38 @@ app.set('trust proxy', 1);
 app.use(express.json());
 app.use(requireApplicationReady);
 
+function sessionIdFromRequest(req) {
+  const cookie = req.headers.cookie?.match(/(?:^|;\s*)connect\.sid=([^;]+)/)?.[1];
+  if (!cookie) return null;
+  try {
+    return decodeURIComponent(cookie).replace(/^s:/, '').split('.')[0];
+  } catch {
+    return null;
+  }
+}
+
+app.use((req, res, next) => {
+  const sid = sessionIdFromRequest(req);
+  if (sid?.startsWith(MULTI_USER_PREFIX) && !multiUserPool) {
+    return res.status(503).json({ error: 'multi_user_unavailable' });
+  }
+  next();
+});
+
 // Sessions live in PostgreSQL so autoscaled instances share the same login
 // state. No external CORS headers: all API access is same-origin through Vite.
 app.use(session({
   secret: process.env.SESSION_SECRET || (() => {
     throw new Error('SESSION_SECRET environment variable must be set');
   })(),
-  store: new PostgresSessionStore({
-    pool,
-    createTableIfMissing: true,
-  }),
+  genid: req => (
+    req.session?.databaseRole === 'multi-user'
+      || req.path === '/api/auth/account-login'
+      || req.path === '/api/auth/signup'
+      ? `${MULTI_USER_PREFIX}${randomUUID()}`
+      : `${LEGACY_PREFIX}${randomUUID()}`
+  ),
+  store: new RoleRoutedSessionStore({ legacyPool, multiUserPool }),
   resave: false,
   saveUninitialized: false,
   rolling: true,
@@ -115,10 +138,11 @@ app.post('/api/auth/login', async (req, res) => {
   }
 
   try {
-    const account = await getLegacyAccount(pool);
+      const account = await getLegacyAccount(legacyPool);
     req.session.regenerate(error => {
       if (error) return res.status(500).json({ error: 'session_error' });
       req.session.authenticated = true;
+        req.session.databaseRole = 'legacy';
       req.session.accountId = Number(account.id);
       req.session.save(err => {
         if (err) return res.status(500).json({ error: 'session_error' });
@@ -133,13 +157,22 @@ app.post('/api/auth/login', async (req, res) => {
 
 async function resolveSessionAccount(req) {
   if (req.session?.authenticated !== true) return null;
-  let account = req.session.accountId
-    ? await getAccountById(pool, req.session.accountId)
-    : null;
+  const role = req.session.databaseRole || 'legacy';
+  if (role === 'multi-user' && !multiUserPool) {
+    const error = new Error('Multi-user database is unavailable');
+    error.code = 'MULTI_USER_DATABASE_UNAVAILABLE';
+    throw error;
+  }
+  let account = role === 'multi-user'
+    ? (req.session.accountId
+      ? await getAccountById(multiUserPool, req.session.accountId)
+      : null)
+    : await getLegacyAccount(legacyPool);
   // Preserve existing authenticated client sessions created before account
   // identity was introduced by resolving them once to the hidden legacy account.
   if (!account && !req.session.accountId) {
-    account = await getLegacyAccount(pool);
+    account = await getLegacyAccount(legacyPool);
+    req.session.databaseRole = 'legacy';
     req.session.accountId = Number(account.id);
     await new Promise((resolve, reject) => req.session.save(error => (
       error ? reject(error) : resolve()
@@ -164,11 +197,13 @@ app.get('/api/auth/check', async (req, res) => {
 
 app.post('/api/auth/signup', async (req, res) => {
   if (!SIGNUP_ENABLED) return res.status(404).json({ error: 'not_found' });
+  if (!multiUserPool) return res.status(503).json({ error: 'multi_user_unavailable' });
   try {
-    const account = await createStandardAccount(pool, req.body || {});
+    const account = await createStandardAccount(multiUserPool, req.body || {});
     req.session.regenerate(error => {
       if (error) return res.status(500).json({ error: 'session_error' });
       req.session.authenticated = true;
+      req.session.databaseRole = 'multi-user';
       req.session.accountId = Number(account.id);
       req.session.save(err => {
         if (err) return res.status(500).json({ error: 'session_error' });
@@ -188,12 +223,14 @@ app.post('/api/auth/signup', async (req, res) => {
 });
 
 app.post('/api/auth/account-login', async (req, res) => {
+  if (!multiUserPool) return res.status(503).json({ error: 'multi_user_unavailable' });
   try {
-    const account = await authenticateStandardAccount(pool, req.body || {});
+    const account = await authenticateStandardAccount(multiUserPool, req.body || {});
     if (!account) return res.status(401).json({ error: 'invalid_credentials' });
     req.session.regenerate(error => {
       if (error) return res.status(500).json({ error: 'session_error' });
       req.session.authenticated = true;
+      req.session.databaseRole = 'multi-user';
       req.session.accountId = Number(account.id);
       req.session.save(err => {
         if (err) return res.status(500).json({ error: 'session_error' });
@@ -222,6 +259,10 @@ async function requireAuth(req, res, next) {
     const account = await resolveSessionAccount(req);
     if (!account) return res.status(401).json({ error: 'not_authenticated' });
     req.account = account;
+    req.databaseRole = req.session.databaseRole || 'legacy';
+    req.database = req.databaseRole === 'multi-user' ? multiUserPool : legacyPool;
+    if (!req.database) return res.status(503).json({ error: 'multi_user_unavailable' });
+    setRequestDatabase(req.database);
     next();
   } catch (error) {
     next(error);
