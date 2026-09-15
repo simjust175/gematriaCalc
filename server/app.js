@@ -6,8 +6,8 @@ import express from 'express';
 import session from 'express-session';
 import { timingSafeEqual } from 'node:crypto';
 import { randomUUID } from 'node:crypto';
-import { multiUserPool, routedPool } from './databaseRouter.js';
-import { setRequestDatabase } from './requestDatabase.js';
+import { legacyPool, multiUserPool, routedPool } from './databaseRouter.js';
+import { runWithRequestDatabase } from './requestDatabase.js';
 import { RoleRoutedSessionStore, LEGACY_PREFIX, MULTI_USER_PREFIX } from './sessionStore.js';
 import {
   SIGNUP_ENABLED,
@@ -60,8 +60,6 @@ import {
 } from './derivedLetterMatching.js';
 
 export const app = express();
-// Private CRUD remains on the legacy path in this authentication/session-only
-// step. Route-level database selection is intentionally deferred.
 // Every authenticated route receives its database through AsyncLocalStorage.
 // This alias is request-routed and never falls back across account roles.
 const pool = routedPool;
@@ -267,8 +265,7 @@ async function requireAuth(req, res, next) {
     req.databaseRole = req.session.databaseRole || 'legacy';
     req.database = req.databaseRole === 'multi-user' ? multiUserPool : legacyPool;
     if (!req.database) return res.status(503).json({ error: 'multi_user_unavailable' });
-    setRequestDatabase(req.database);
-    next();
+    runWithRequestDatabase(req.database, next);
   } catch (error) {
     next(error);
   }
@@ -282,7 +279,7 @@ registerMiluiInterpretationRoutes(app, {
   requireAuth,
   acquireSaveLock: acquireMiluiSaveLock,
   indexSavedEntry: indexSavedEntryForCurrentVersions,
-  invalidateCoverage: invalidateMiluiCoverageCheck,
+  invalidateCoverage: ownerId => invalidateMiluiCoverageCheck(ownerId, pool),
 });
 
 /** GET /api/settings/milui — retrieve the current private מילוי preference. */

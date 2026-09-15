@@ -26,17 +26,19 @@ export const multiUserPool = createPool(
 
 export const routedPool = {
   get databaseRole() {
-    return getRequestDatabase()?.databaseRole || LEGACY_DATABASE_ROLE;
+    return getRequestDatabase()?.databaseRole;
   },
   query(...args) {
-    const db = getRequestDatabase() || legacyPool;
-    if (!db) throw new Error('No request database is configured');
+    const db = getRequestDatabase();
+    if (!db) throw new Error('No authenticated request database is configured');
     return db.query(...args);
   },
-  connect(...args) {
-    const db = getRequestDatabase() || legacyPool;
-    if (!db) throw new Error('No request database is configured');
-    return db.connect(...args);
+  async connect(...args) {
+    const db = getRequestDatabase();
+    if (!db) throw new Error('No authenticated request database is configured');
+    const client = await db.connect(...args);
+    client.databaseRole = db.databaseRole;
+    return client;
   },
 };
 

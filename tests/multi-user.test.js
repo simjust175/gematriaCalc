@@ -16,6 +16,7 @@ const {
   ensureMultiUserFoundation,
   getLegacyAccount,
 } = await import('../server/accounts.js');
+const { computeAll } = await import('../src/composables/useGematria.js');
 
 function sessionIdFromResponse(response) {
   const cookie = response.headers['set-cookie']?.find(value => value.startsWith('connect.sid='));
@@ -23,6 +24,14 @@ function sessionIdFromResponse(response) {
   return decodeURIComponent(cookie.split(';', 1)[0].slice('connect.sid='.length))
     .replace(/^s:/, '')
     .split('.')[0];
+}
+
+function uniqueHebrew(prefix) {
+  const alphabet = [...'אבגדהוזחטיכלמנסעפצקרשת'];
+  const suffix = randomUUID().replaceAll('-', '').split('')
+    .map(character => alphabet[Number.parseInt(character, 16) % alphabet.length])
+    .join('');
+  return `${prefix} ${suffix}`;
 }
 
 test(
@@ -41,17 +50,21 @@ test(
     const password = 'multi-user-test-password-123';
     let standardAccount;
     let sessionId;
+    let legacyEntryId;
+    let standardEntryId;
+    let legacyAgent;
+    let standardAgent;
 
     try {
       standardAccount = await createStandardAccount(multiUserPool, { email, password });
-      const agent = request.agent(app);
-      const login = await agent.post('/api/auth/account-login').send({ email, password });
+      standardAgent = request.agent(app);
+      const login = await standardAgent.post('/api/auth/account-login').send({ email, password });
       assert.equal(login.status, 200);
       assert.equal(login.body.account.id, standardAccount.id);
       assert.equal(login.body.account.accountType, 'standard');
       sessionId = sessionIdFromResponse(login);
 
-      const check = await agent.get('/api/auth/check');
+      const check = await standardAgent.get('/api/auth/check');
       assert.equal(check.status, 200);
       assert.equal(check.body.authenticated, true);
       assert.equal(check.body.account.id, standardAccount.id);
@@ -83,7 +96,55 @@ test(
         [sessionId]
       );
       assert.equal(legacySession.rowCount, 0);
+
+      legacyAgent = request.agent(app);
+      const legacyLogin = await legacyAgent.post('/api/auth/login').send({
+        password: process.env.APP_PASSWORD,
+      });
+      assert.equal(legacyLogin.status, 200);
+
+      const sharedText = uniqueHebrew('בדיקת הפרדה');
+      const legacySave = await legacyAgent.post('/api/entries').send({ originalText: sharedText });
+      const standardSave = await standardAgent.post('/api/entries').send({ originalText: sharedText });
+      assert.equal(legacySave.status, 200);
+      assert.equal(standardSave.status, 200);
+      legacyEntryId = legacySave.body.id;
+      standardEntryId = standardSave.body.id;
+
+      const legacyList = await legacyAgent.get('/api/entries').query({ search: sharedText });
+      const standardList = await standardAgent.get('/api/entries').query({ search: sharedText });
+      assert.deepEqual(legacyList.body.entries.map(entry => entry.id), [legacyEntryId]);
+      assert.deepEqual(standardList.body.entries.map(entry => entry.id), [standardEntryId]);
+
+      const calculated = computeAll(sharedText);
+      const legacyRows = await legacyPool.query(
+        'SELECT id, owner_id FROM saved_entries WHERE normalized_text = $1',
+        [calculated.normalizedText]
+      );
+      const multiRows = await multiUserPool.query(
+        'SELECT id, owner_id FROM saved_entries WHERE normalized_text = $1',
+        [calculated.normalizedText]
+      );
+      assert.deepEqual(legacyRows.rows.map(row => row.id), [legacyEntryId]);
+      assert.deepEqual(multiRows.rows.map(row => row.id), [standardEntryId]);
+
+      assert.equal(
+        (await legacyAgent.delete(`/api/entries/${standardEntryId}`)).status,
+        legacyEntryId === standardEntryId ? 200 : 404
+      );
+      if (legacyEntryId === standardEntryId) legacyEntryId = null;
+      assert.equal(
+        (await standardAgent.delete(`/api/entries/${legacyEntryId || legacySave.body.id}`)).status,
+        standardEntryId === legacySave.body.id ? 200 : 404
+      );
+      if (standardEntryId === legacySave.body.id) standardEntryId = null;
     } finally {
+      if (legacyEntryId && legacyAgent) {
+        await legacyAgent.delete(`/api/entries/${legacyEntryId}`);
+      }
+      if (standardEntryId && standardAgent) {
+        await standardAgent.delete(`/api/entries/${standardEntryId}`);
+      }
       if (sessionId) {
         await multiUserPool.query('DELETE FROM "session" WHERE sid = $1', [sessionId]);
       }

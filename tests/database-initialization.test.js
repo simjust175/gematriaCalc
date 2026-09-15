@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { ensureMiluiInterpretationSchema } from '../server/miluiInterpretations.js';
 import { ensureMiluiMatchingSchema } from '../server/miluiIndex.js';
 import { initializeDatabaseRoles } from '../server/databaseStartup.js';
+import { ensureMiluiPreferences } from '../server/db.js';
 
 function recordingDatabase(databaseRole) {
   const queries = [];
@@ -83,4 +84,27 @@ test('missing multi-user database leaves legacy initialization independent', asy
   assert.equal(calls.length, 1);
   assert.equal(calls[0].db, legacy);
   assert.equal(calls[0].initializeMultiUser, false);
+});
+
+test('legacy startup does not seed a global preference into an existing owner-aware table', async () => {
+  const queries = [];
+  const legacy = {
+    databaseRole: 'legacy',
+    async query(sql) {
+      queries.push(sql);
+      if (sql.includes('AS saved_entries')) {
+        return { rows: [{ saved_entries: 25, saved_words: 44 }], rowCount: 1 };
+      }
+      if (sql.includes('information_schema.columns')) {
+        return { rows: [{ present: true }], rowCount: 1 };
+      }
+      return { rows: [], rowCount: 0 };
+    },
+  };
+
+  await ensureMiluiPreferences(legacy);
+
+  const sql = queries.join('\n').toLowerCase();
+  assert.doesNotMatch(sql, /insert into milui_preferences/);
+  assert.doesNotMatch(sql, /drop\\s+(table|index|constraint)|truncate|delete from/);
 });

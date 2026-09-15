@@ -11,9 +11,21 @@ const MILUI_INDEX_LOCK_KEY = 73194211;
 const COVERAGE_CHECK_INTERVAL_MS = 30_000;
 const runtimeMatchingEnabled = process.env.MILUI_MATCHING_ENABLED !== 'false';
 
-let schemaAvailable = false;
+const schemaAvailability = new Map();
 const coverageCheckPromises = new Map();
 const lastCoverageCheckAt = new Map();
+
+function databaseRole(db) {
+  return db?.databaseRole || 'legacy';
+}
+
+function ownerStateKey(db, ownerId) {
+  return `${databaseRole(db)}:${ownerId}`;
+}
+
+function isSchemaAvailable(db) {
+  return schemaAvailability.get(databaseRole(db)) === true;
+}
 
 function requireOwnerId(ownerId) {
   if (!Number.isSafeInteger(Number(ownerId)) || Number(ownerId) <= 0) {
@@ -85,7 +97,7 @@ export async function ensureMiluiMatchingSchema(db = pool) {
       CREATE INDEX IF NOT EXISTS idx_saved_entry_milui_lookup
         ON saved_entry_milui_index(mapping_version, full_milui_gematria);
     `);
-    schemaAvailable = true;
+    schemaAvailability.set(databaseRole(db), true);
     return;
   }
 
@@ -132,15 +144,16 @@ export async function ensureMiluiMatchingSchema(db = pool) {
     CREATE INDEX IF NOT EXISTS idx_saved_entry_milui_lookup
       ON saved_entry_milui_index(owner_id, mapping_version, full_milui_gematria);
   `);
-  schemaAvailable = true;
+  schemaAvailability.set(databaseRole(db), true);
 }
 
 async function detectSchema(db = pool) {
   const result = await db.query(
     `SELECT to_regclass('saved_entry_milui_index') IS NOT NULL AS available`
   );
-  schemaAvailable = result.rows[0]?.available === true;
-  return schemaAvailable;
+  const available = result.rows[0]?.available === true;
+  schemaAvailability.set(databaseRole(db), available);
+  return available;
 }
 
 async function getPreference(db, ownerId) {
@@ -402,7 +415,7 @@ export async function initializeMiluiMatching({
 
   const initial = await createInitialVersion(db, ownerId);
   const repaired = initial || await repairActiveVersion(db, ownerId);
-  lastCoverageCheckAt.set(ownerId, Date.now());
+  lastCoverageCheckAt.set(ownerStateKey(db, ownerId), Date.now());
   return {
     schemaAvailable: true,
     matchingEnabled: runtimeMatchingEnabled && repaired?.coverage.complete === true,
@@ -507,7 +520,7 @@ export async function rebuildAndActivateMiluiMapping(
   } = {}
 ) {
   ownerId = requireOwnerId(ownerId);
-  if (!schemaAvailable && !(await detectSchema(db))) {
+  if (!isSchemaAvailable(db) && !(await detectSchema(db))) {
     throw new Error('Milui matching schema is unavailable');
   }
   const checked = normalizeMiluiMapping(mapping);
@@ -538,7 +551,7 @@ export async function rebuildAndActivateMiluiMapping(
        );
       return { catchUp, coverage };
     });
-    lastCoverageCheckAt.set(ownerId, Date.now());
+    lastCoverageCheckAt.set(ownerStateKey(db, ownerId), Date.now());
     return {
       version,
       initialBuild,
@@ -560,7 +573,7 @@ export async function indexSavedEntryForCurrentVersions(entryId, ownerId, db = p
     [db, ownerId] = [ownerId, arguments[2]];
   }
   ownerId = requireOwnerId(ownerId);
-  if (!schemaAvailable && !(await detectSchema(db))) return { indexed: 0, skipped: true };
+  if (!isSchemaAvailable(db) && !(await detectSchema(db))) return { indexed: 0, skipped: true };
   const entryResult = await db.query(
       `SELECT id, original_text FROM saved_entries WHERE id = $1 AND owner_id = $2`,
     [entryId, ownerId]
@@ -590,32 +603,33 @@ export async function indexSavedEntryForCurrentVersions(entryId, ownerId, db = p
     );
     indexed += result.rowCount;
   }
-  lastCoverageCheckAt.set(ownerId, 0);
+  lastCoverageCheckAt.set(ownerStateKey(db, ownerId), 0);
   return { indexed, skipped: false };
 }
 
-export function invalidateMiluiCoverageCheck(ownerId) {
+export function invalidateMiluiCoverageCheck(ownerId, db = pool) {
   ownerId = requireOwnerId(ownerId);
-  lastCoverageCheckAt.set(ownerId, 0);
+  lastCoverageCheckAt.set(ownerStateKey(db, ownerId), 0);
 }
 
 export async function ensureActiveMiluiCoverage(db = pool, ownerId, { force = false } = {}) {
   ownerId = requireOwnerId(ownerId);
   if (!runtimeMatchingEnabled) return null;
-  if (!schemaAvailable && !(await detectSchema(db))) return null;
+  if (!isSchemaAvailable(db) && !(await detectSchema(db))) return null;
   await ensureMiluiOwnerState(db, ownerId);
-  const checkedAt = lastCoverageCheckAt.get(ownerId) || 0;
+  const key = ownerStateKey(db, ownerId);
+  const checkedAt = lastCoverageCheckAt.get(key) || 0;
   if (!force && Date.now() - checkedAt < COVERAGE_CHECK_INTERVAL_MS) return null;
-  if (coverageCheckPromises.has(ownerId)) return coverageCheckPromises.get(ownerId);
+  if (coverageCheckPromises.has(key)) return coverageCheckPromises.get(key);
   const coverageCheckPromise = repairActiveVersion(db, ownerId)
     .then(result => {
-      lastCoverageCheckAt.set(ownerId, Date.now());
+      lastCoverageCheckAt.set(key, Date.now());
       return result;
     })
     .finally(() => {
-      coverageCheckPromises.delete(ownerId);
+      coverageCheckPromises.delete(key);
     });
-  coverageCheckPromises.set(ownerId, coverageCheckPromise);
+  coverageCheckPromises.set(key, coverageCheckPromise);
   return coverageCheckPromise;
 }
 
@@ -625,7 +639,7 @@ export async function getActiveMiluiMatches(currentValue, ownerId, db = pool) {
   }
   ownerId = requireOwnerId(ownerId);
   if (!runtimeMatchingEnabled || !Number.isInteger(currentValue) || currentValue <= 0) return [];
-  if (!schemaAvailable && !(await detectSchema(db))) return [];
+  if (!isSchemaAvailable(db) && !(await detectSchema(db))) return [];
   await ensureActiveMiluiCoverage(db, ownerId);
   const readHealth = () => db.query(
     `SELECT state.matching_enabled,
@@ -744,7 +758,7 @@ export async function getActiveMiluiMultipleSources(currentValue, ownerId, db = 
   }
   ownerId = requireOwnerId(ownerId);
   if (!runtimeMatchingEnabled || currentValue <= 0) return [];
-  if (!schemaAvailable && !(await detectSchema(db))) return [];
+  if (!isSchemaAvailable(db) && !(await detectSchema(db))) return [];
   await ensureActiveMiluiCoverage(db, ownerId);
 
   const readHealth = () => db.query(
@@ -798,18 +812,18 @@ export async function getActiveMiluiMultipleSources(currentValue, ownerId, db = 
 
 export async function deleteMiluiIndexRows(client, entryId, ownerId) {
   ownerId = requireOwnerId(ownerId);
-  if (!schemaAvailable && !(await detectSchema(client))) return;
+  if (!isSchemaAvailable(client) && !(await detectSchema(client))) return;
   await client.query(
     `DELETE FROM saved_entry_milui_index
      WHERE saved_entry_id = $1 AND owner_id = $2`,
     [entryId, ownerId]
   );
-  lastCoverageCheckAt.set(ownerId, 0);
+  lastCoverageCheckAt.set(ownerStateKey(client, ownerId), 0);
 }
 
 export async function getMiluiIndexReport(db = pool, ownerId) {
   ownerId = requireOwnerId(ownerId);
-  if (!schemaAvailable && !(await detectSchema(db))) {
+  if (!isSchemaAvailable(db) && !(await detectSchema(db))) {
     return { schemaAvailable: false };
   }
   const result = await db.query(
