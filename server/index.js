@@ -1,6 +1,5 @@
 import { app } from './app.js';
 import { initDb, needsTanachRepresentationImport } from './db.js';
-import { legacyPool, multiUserPool } from './databaseRouter.js';
 import { setApplicationReady } from './readiness.js';
 import { execFile } from 'node:child_process';
 import express from 'express';
@@ -14,8 +13,8 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 const exec = promisify(execFile);
 
 async function initializeApplication() {
-  await initDb({ db: legacyPool, initializeMultiUser: false });
-  if (await needsTanachRepresentationImport(legacyPool)) {
+  await initDb();
+  if (await needsTanachRepresentationImport()) {
     console.log('Upgrading the imported UXLC text representation...');
     const importer = path.join(projectRoot, 'scripts', 'import-tanach.js');
     const { stdout, stderr } = await exec(process.execPath, [importer], {
@@ -25,23 +24,6 @@ async function initializeApplication() {
     });
     if (stdout.trim()) console.log(stdout.trim());
     if (stderr.trim()) console.error(stderr.trim());
-  }
-
-  if (multiUserPool) {
-    await initDb({ db: multiUserPool, initializeMultiUser: true });
-    if (await needsTanachRepresentationImport(multiUserPool)) {
-      console.log('Upgrading the multi-user UXLC text representation...');
-      const importer = path.join(projectRoot, 'scripts', 'import-tanach.js');
-      const { stdout, stderr } = await exec(process.execPath, [importer], {
-        cwd: projectRoot,
-        env: { ...process.env, DATABASE_URL: process.env.MULTI_USER_DATABASE_URL },
-        maxBuffer: 1024 * 1024,
-      });
-      if (stdout.trim()) console.log(stdout.trim());
-      if (stderr.trim()) console.error(stderr.trim());
-    }
-  } else {
-    console.warn('Multi-user database is not configured; multi-user features are disabled.');
   }
 }
 
