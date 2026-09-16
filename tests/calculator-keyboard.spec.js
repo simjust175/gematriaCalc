@@ -22,6 +22,18 @@ async function loginAndOpenCalculator(page) {
   await expect(page.locator('.heb-input')).toBeVisible();
 }
 
+test('calculator input survives navigation away and back', async ({ page }) => {
+  await loginAndOpenCalculator(page);
+
+  const textarea = page.locator('.heb-input');
+  await textarea.fill('שלום');
+  await page.getByRole('button', { name: 'שמורים' }).click();
+  await expect(page.locator('.heb-input')).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'מחשבון' }).click();
+  await expect(textarea).toHaveValue('שלום');
+});
+
 test('automatic Hebrew keyboard maps physical keys and preserves calculator editing', async ({ page, context }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await loginAndOpenCalculator(page);
