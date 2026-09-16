@@ -1,4 +1,4 @@
-modules = ["vue-node-20", "nodejs-20", "web", "postgresql-16", "python-base-3.13"]
+modules = ["vue-node-20", "nodejs-20", "web", "postgresql-16"]
 
 [nix]
 channel = "stable-25_05"
@@ -52,6 +52,10 @@ externalPort = 3001
 
 [[ports]]
 localPort = 4173
+externalPort = 3001
+
+[[ports]]
+localPort = 4174
 externalPort = 3002
 
 [[ports]]
