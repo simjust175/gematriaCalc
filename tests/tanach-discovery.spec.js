@@ -347,7 +347,7 @@ test('curated multi-select shows gold cards, supports cancel, and submits a bulk
   });
   await page.locator('.heb-input').fill('שלום');
   const discovery = page.locator('.gematria-discovery');
-  await discovery.getByRole('button', { name: 'בחירה מרובה' }).click();
+  await discovery.getByRole('button', { name: 'כולל' }).click();
   const cards = discovery.locator('.match-card');
   await cards.nth(0).getByRole('button', { name: 'שמור התאמה' }).click();
   await cards.nth(1).getByRole('button', { name: 'שמור התאמה' }).click();

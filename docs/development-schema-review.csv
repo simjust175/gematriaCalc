@@ -1,0 +1,276 @@
+kind,object_table,name,definition
+column,account_entitlements,account_id,bigint|NO
+column,account_entitlements,billing_exempt,boolean|NO|false
+column,account_entitlements,created_at,timestamp with time zone|NO|now()
+column,account_entitlements,current_period_end,timestamp with time zone|YES
+column,account_entitlements,is_unlimited,boolean|NO|false
+column,account_entitlements,plan_code,text|NO
+column,account_entitlements,status,text|NO
+column,account_entitlements,subscription_customer_id,text|YES
+column,account_entitlements,subscription_id,text|YES
+column,account_entitlements,subscription_provider,text|YES
+column,account_entitlements,updated_at,timestamp with time zone|NO|now()
+column,app_accounts,account_key,text|NO
+column,app_accounts,account_type,text|NO
+column,app_accounts,created_at,timestamp with time zone|NO|now()
+column,app_accounts,disabled_at,timestamp with time zone|YES
+column,app_accounts,email,text|YES
+column,app_accounts,id,bigint|NO|nextval('app_accounts_id_seq'::regclass)
+column,app_accounts,is_hidden,boolean|NO|false
+column,app_accounts,password_hash,text|YES
+column,app_accounts,updated_at,timestamp with time zone|NO|now()
+column,base_words,created_at,timestamp with time zone|NO|now()
+column,base_words,full_gematria,integer|NO
+column,base_words,id,integer|NO|nextval('base_words_id_seq'::regclass)
+column,base_words,normalized_text,text|NO
+column,base_words,original_text,text|NO
+column,base_words,owner_id,bigint|NO
+column,base_words,source_type,text|NO|'manual'::text
+column,base_words,updated_at,timestamp with time zone|NO|now()
+column,curated_matches,created_at,timestamp with time zone|NO|now()
+column,curated_matches,id,integer|NO|nextval('curated_matches_id_seq'::regclass)
+column,curated_matches,normalized_text,text|NO
+column,curated_matches,original_text,text|NO
+column,curated_matches,owner_id,bigint|NO
+column,curated_matches,parent_id,integer|NO
+column,curated_matches,reason_codes,jsonb|NO|'[]'::jsonb
+column,curated_matches,tanach_book_label,text|NO
+column,curated_matches,tanach_book_slug,text|NO
+column,curated_matches,tanach_chapter,integer|NO
+column,curated_matches,tanach_end,integer|NO
+column,curated_matches,tanach_start,integer|NO
+column,curated_matches,tanach_verse,integer|NO
+column,explicit_milui_interpretations,calculation_mode,text|NO|'full_milui'::text
+column,explicit_milui_interpretations,created_at,timestamp with time zone|NO|now()
+column,explicit_milui_interpretations,expanded_text,text|NO
+column,explicit_milui_interpretations,filling_only_gematria,integer|NO
+column,explicit_milui_interpretations,full_milui_gematria,integer|NO
+column,explicit_milui_interpretations,id,bigint|NO|nextval('explicit_milui_interpretations_id_seq'::regclass)
+column,explicit_milui_interpretations,linked_saved_entry_id,integer|YES
+column,explicit_milui_interpretations,mapping_snapshot,jsonb|NO
+column,explicit_milui_interpretations,mapping_version,bigint|YES
+column,explicit_milui_interpretations,normalized_text,text|NO
+column,explicit_milui_interpretations,original_text,text|NO
+column,explicit_milui_interpretations,owner_id,bigint|NO
+column,explicit_milui_interpretations,registry_version,text|NO
+column,explicit_milui_interpretations,selection_fingerprint,text|NO
+column,explicit_milui_interpretations,selections,jsonb|NO
+column,milui_index_state,active_version,bigint|YES
+column,milui_index_state,id,text|NO
+column,milui_index_state,matching_enabled,boolean|NO|false
+column,milui_index_state,owner_id,bigint|NO
+column,milui_index_state,updated_at,timestamp with time zone|NO|now()
+column,milui_mapping_versions,activated_at,timestamp with time zone|YES
+column,milui_mapping_versions,created_at,timestamp with time zone|NO|now()
+column,milui_mapping_versions,mapping,jsonb|NO
+column,milui_mapping_versions,owner_id,bigint|NO
+column,milui_mapping_versions,preset_name,text|NO
+column,milui_mapping_versions,status,text|NO
+column,milui_mapping_versions,version,bigint|NO|nextval('milui_mapping_versions_version_seq'::regclass)
+column,milui_preferences,id,text|NO
+column,milui_preferences,mapping,jsonb|NO
+column,milui_preferences,owner_id,bigint|NO
+column,milui_preferences,preset_name,text|NO
+column,milui_preferences,updated_at,timestamp with time zone|NO|now()
+column,saved_entries,created_at,timestamp with time zone|YES|now()
+column,saved_entries,finals,text|YES
+column,saved_entries,finals_gematria,integer|YES
+column,saved_entries,finals_gematria_hebrew,text|YES
+column,saved_entries,full_gematria,integer|NO
+column,saved_entries,full_gematria_hebrew,text|NO
+column,saved_entries,id,integer|NO|nextval('saved_entries_id_seq'::regclass)
+column,saved_entries,initials,text|NO
+column,saved_entries,initials_gematria,integer|NO
+column,saved_entries,initials_gematria_hebrew,text|NO
+column,saved_entries,normalized_text,text|NO
+column,saved_entries,original_text,text|NO
+column,saved_entries,owner_id,bigint|NO
+column,saved_entries,parsha_id,text|YES
+column,saved_entries,tanach_book_label,text|YES
+column,saved_entries,tanach_book_slug,text|YES
+column,saved_entries,tanach_chapter,integer|YES
+column,saved_entries,tanach_end,integer|YES
+column,saved_entries,tanach_start,integer|YES
+column,saved_entries,tanach_verse,integer|YES
+column,saved_entry_milui_form_index,created_at,timestamp with time zone|NO|now()
+column,saved_entry_milui_form_index,expanded_text,text|NO
+column,saved_entry_milui_form_index,form_id,text|NO
+column,saved_entry_milui_form_index,full_milui_gematria,integer|NO
+column,saved_entry_milui_form_index,interpretation_id,bigint|YES
+column,saved_entry_milui_form_index,owner_id,bigint|NO
+column,saved_entry_milui_form_index,saved_entry_id,integer|NO
+column,saved_entry_milui_index,created_at,timestamp with time zone|NO|now()
+column,saved_entry_milui_index,full_milui_gematria,integer|NO
+column,saved_entry_milui_index,mapping_version,bigint|NO
+column,saved_entry_milui_index,owner_id,bigint|NO
+column,saved_entry_milui_index,saved_entry_id,integer|NO
+column,saved_entry_milui_index,updated_at,timestamp with time zone|NO|now()
+column,saved_entry_milui_save_modes,created_at,timestamp with time zone|NO|now()
+column,saved_entry_milui_save_modes,form_ids,"jsonb|NO|'[""primary""]'::jsonb"
+column,saved_entry_milui_save_modes,owner_id,bigint|NO
+column,saved_entry_milui_save_modes,save_mode,text|NO
+column,saved_entry_milui_save_modes,saved_entry_id,integer|NO
+column,saved_entry_milui_save_modes,updated_at,timestamp with time zone|NO|now()
+column,saved_words,entry_id,integer|NO
+column,saved_words,gematria,integer|NO
+column,saved_words,id,integer|NO|nextval('saved_words_id_seq'::regclass)
+column,saved_words,normalized_word,text|NO
+column,saved_words,owner_id,bigint|NO
+column,saved_words,position,integer|NO
+column,saved_words,word,text|NO
+column,session,expire,timestamp without time zone|NO
+column,session,sess,json|NO
+column,session,sid,character varying|NO
+column,tanach_books,canonical_name,text|NO
+column,tanach_books,canonical_order,integer|NO
+column,tanach_books,chapter_count,integer|NO
+column,tanach_books,english_name,text|NO
+column,tanach_books,hebrew_name,text|NO
+column,tanach_books,segment_order,integer|NO
+column,tanach_books,slug,text|NO
+column,tanach_books,source_filename,text|NO
+column,tanach_parshiot,canonical_order,integer|NO
+column,tanach_parshiot,end_book_slug,text|NO
+column,tanach_parshiot,end_chapter,integer|NO
+column,tanach_parshiot,end_verse,integer|NO
+column,tanach_parshiot,id,text|NO
+column,tanach_parshiot,name_he,text|NO
+column,tanach_parshiot,start_book_slug,text|NO
+column,tanach_parshiot,start_chapter,integer|NO
+column,tanach_parshiot,start_verse,integer|NO
+column,tanach_sources,attribution,text|NO
+column,tanach_sources,build,text|NO
+column,tanach_sources,id,text|NO
+column,tanach_sources,imported_at,timestamp with time zone|NO|now()
+column,tanach_sources,license,text|NO
+column,tanach_sources,name,text|NO
+column,tanach_sources,published_at,text|NO
+column,tanach_sources,representation_version,integer|NO|1
+column,tanach_sources,source_url,text|NO
+column,tanach_sources,version,text|NO
+column,tanach_verses,book_slug,text|NO
+column,tanach_verses,chapter,integer|NO
+column,tanach_verses,display_text,text|NO
+column,tanach_verses,id,bigint|NO|nextval('tanach_verses_id_seq'::regclass)
+column,tanach_verses,normalized_text,text|NO
+column,tanach_verses,source_id,text|NO
+column,tanach_verses,verse,integer|NO
+constraint,account_entitlements,account_entitlements_account_id_fkey,FOREIGN KEY (account_id) REFERENCES app_accounts(id) ON DELETE CASCADE
+constraint,account_entitlements,account_entitlements_pkey,PRIMARY KEY (account_id)
+constraint,account_entitlements,account_entitlements_plan_code_check,"CHECK ((plan_code = ANY (ARRAY['legacy_unlimited'::text, 'free'::text, 'premium'::text])))"
+constraint,account_entitlements,account_entitlements_status_check,"CHECK ((status = ANY (ARRAY['active'::text, 'inactive'::text, 'past_due'::text, 'cancelled'::text])))"
+constraint,app_accounts,app_accounts_account_key_key,UNIQUE (account_key)
+constraint,app_accounts,app_accounts_account_type_check,"CHECK ((account_type = ANY (ARRAY['legacy_client'::text, 'standard'::text])))"
+constraint,app_accounts,app_accounts_check,CHECK ((((account_type = 'legacy_client'::text) AND (email IS NULL) AND (password_hash IS NULL)) OR ((account_type = 'standard'::text) AND (email IS NOT NULL) AND (password_hash IS NOT NULL))))
+constraint,app_accounts,app_accounts_pkey,PRIMARY KEY (id)
+constraint,base_words,base_words_full_gematria_check,CHECK ((full_gematria > 0))
+constraint,base_words,base_words_owner_id_fkey,FOREIGN KEY (owner_id) REFERENCES app_accounts(id) ON DELETE CASCADE
+constraint,base_words,base_words_pkey,PRIMARY KEY (id)
+constraint,curated_matches,curated_matches_owner_id_fkey,FOREIGN KEY (owner_id) REFERENCES app_accounts(id) ON DELETE CASCADE
+constraint,curated_matches,curated_matches_parent_id_fkey,FOREIGN KEY (parent_id) REFERENCES saved_entries(id) ON DELETE CASCADE
+constraint,curated_matches,curated_matches_parent_id_tanach_book_slug_tanach_chapter_t_key,"UNIQUE (parent_id, tanach_book_slug, tanach_chapter, tanach_verse, tanach_start, tanach_end)"
+constraint,curated_matches,curated_matches_pkey,PRIMARY KEY (id)
+constraint,explicit_milui_interpretations,explicit_milui_interpretation_normalized_text_calculation_m_key,"UNIQUE (normalized_text, calculation_mode, selection_fingerprint, full_milui_gematria)"
+constraint,explicit_milui_interpretations,explicit_milui_interpretations_calculation_mode_check,CHECK ((calculation_mode = 'full_milui'::text))
+constraint,explicit_milui_interpretations,explicit_milui_interpretations_filling_only_gematria_check,CHECK ((filling_only_gematria >= 0))
+constraint,explicit_milui_interpretations,explicit_milui_interpretations_full_milui_gematria_check,CHECK ((full_milui_gematria > 0))
+constraint,explicit_milui_interpretations,explicit_milui_interpretations_linked_saved_entry_id_fkey,FOREIGN KEY (linked_saved_entry_id) REFERENCES saved_entries(id) ON DELETE SET NULL
+constraint,explicit_milui_interpretations,explicit_milui_interpretations_owner_id_fkey,FOREIGN KEY (owner_id) REFERENCES app_accounts(id) ON DELETE CASCADE
+constraint,explicit_milui_interpretations,explicit_milui_interpretations_pkey,PRIMARY KEY (id)
+constraint,milui_index_state,milui_index_state_active_version_fkey,FOREIGN KEY (active_version) REFERENCES milui_mapping_versions(version) ON DELETE RESTRICT
+constraint,milui_index_state,milui_index_state_id_check,CHECK ((id = 'private-default'::text))
+constraint,milui_index_state,milui_index_state_pkey,"PRIMARY KEY (id, owner_id)"
+constraint,milui_mapping_versions,milui_mapping_versions_pkey,PRIMARY KEY (version)
+constraint,milui_mapping_versions,milui_mapping_versions_status_check,"CHECK ((status = ANY (ARRAY['pending'::text, 'active'::text, 'inactive'::text, 'failed'::text])))"
+constraint,milui_preferences,milui_preferences_owner_id_fkey,FOREIGN KEY (owner_id) REFERENCES app_accounts(id) ON DELETE CASCADE
+constraint,milui_preferences,milui_preferences_pkey,PRIMARY KEY (id)
+constraint,saved_entries,saved_entries_owner_id_fkey,FOREIGN KEY (owner_id) REFERENCES app_accounts(id) ON DELETE CASCADE
+constraint,saved_entries,saved_entries_parsha_id_fkey,FOREIGN KEY (parsha_id) REFERENCES tanach_parshiot(id)
+constraint,saved_entries,saved_entries_pkey,PRIMARY KEY (id)
+constraint,saved_entry_milui_form_index,saved_entry_milui_form_index_full_milui_gematria_check,CHECK ((full_milui_gematria > 0))
+constraint,saved_entry_milui_form_index,saved_entry_milui_form_index_interpretation_id_fkey,FOREIGN KEY (interpretation_id) REFERENCES explicit_milui_interpretations(id) ON DELETE SET NULL
+constraint,saved_entry_milui_form_index,saved_entry_milui_form_index_owner_id_fkey,FOREIGN KEY (owner_id) REFERENCES app_accounts(id) ON DELETE CASCADE
+constraint,saved_entry_milui_form_index,saved_entry_milui_form_index_pkey,"PRIMARY KEY (saved_entry_id, form_id)"
+constraint,saved_entry_milui_form_index,saved_entry_milui_form_index_saved_entry_id_fkey,FOREIGN KEY (saved_entry_id) REFERENCES saved_entries(id) ON DELETE CASCADE
+constraint,saved_entry_milui_index,saved_entry_milui_index_full_milui_gematria_check,CHECK ((full_milui_gematria > 0))
+constraint,saved_entry_milui_index,saved_entry_milui_index_mapping_version_fkey,FOREIGN KEY (mapping_version) REFERENCES milui_mapping_versions(version) ON DELETE RESTRICT
+constraint,saved_entry_milui_index,saved_entry_milui_index_pkey,"PRIMARY KEY (saved_entry_id, mapping_version)"
+constraint,saved_entry_milui_index,saved_entry_milui_index_saved_entry_id_fkey,FOREIGN KEY (saved_entry_id) REFERENCES saved_entries(id) ON DELETE RESTRICT
+constraint,saved_entry_milui_save_modes,saved_entry_milui_save_modes_owner_id_fkey,FOREIGN KEY (owner_id) REFERENCES app_accounts(id) ON DELETE CASCADE
+constraint,saved_entry_milui_save_modes,saved_entry_milui_save_modes_pkey,PRIMARY KEY (saved_entry_id)
+constraint,saved_entry_milui_save_modes,saved_entry_milui_save_modes_save_mode_check,"CHECK ((save_mode = ANY (ARRAY['primary_only'::text, 'all_forms'::text])))"
+constraint,saved_entry_milui_save_modes,saved_entry_milui_save_modes_saved_entry_id_fkey,FOREIGN KEY (saved_entry_id) REFERENCES saved_entries(id) ON DELETE CASCADE
+constraint,saved_words,saved_words_entry_id_fkey,FOREIGN KEY (entry_id) REFERENCES saved_entries(id) ON DELETE CASCADE
+constraint,saved_words,saved_words_owner_id_fkey,FOREIGN KEY (owner_id) REFERENCES app_accounts(id) ON DELETE CASCADE
+constraint,saved_words,saved_words_pkey,PRIMARY KEY (id)
+constraint,session,session_pkey,PRIMARY KEY (sid)
+constraint,tanach_books,tanach_books_canonical_order_check,CHECK (((canonical_order >= 1) AND (canonical_order <= 24)))
+constraint,tanach_books,tanach_books_pkey,PRIMARY KEY (slug)
+constraint,tanach_parshiot,tanach_parshiot_canonical_order_check,CHECK (((canonical_order >= 1) AND (canonical_order <= 54)))
+constraint,tanach_parshiot,tanach_parshiot_canonical_order_key,UNIQUE (canonical_order)
+constraint,tanach_parshiot,tanach_parshiot_end_book_slug_fkey,FOREIGN KEY (end_book_slug) REFERENCES tanach_books(slug)
+constraint,tanach_parshiot,tanach_parshiot_end_chapter_check,CHECK ((end_chapter > 0))
+constraint,tanach_parshiot,tanach_parshiot_end_verse_check,CHECK ((end_verse > 0))
+constraint,tanach_parshiot,tanach_parshiot_name_he_key,UNIQUE (name_he)
+constraint,tanach_parshiot,tanach_parshiot_pkey,PRIMARY KEY (id)
+constraint,tanach_parshiot,tanach_parshiot_start_book_slug_fkey,FOREIGN KEY (start_book_slug) REFERENCES tanach_books(slug)
+constraint,tanach_parshiot,tanach_parshiot_start_chapter_check,CHECK ((start_chapter > 0))
+constraint,tanach_parshiot,tanach_parshiot_start_verse_check,CHECK ((start_verse > 0))
+constraint,tanach_sources,tanach_sources_pkey,PRIMARY KEY (id)
+constraint,tanach_verses,tanach_verses_book_slug_chapter_verse_key,"UNIQUE (book_slug, chapter, verse)"
+constraint,tanach_verses,tanach_verses_book_slug_fkey,FOREIGN KEY (book_slug) REFERENCES tanach_books(slug) ON DELETE CASCADE
+constraint,tanach_verses,tanach_verses_chapter_check,CHECK ((chapter > 0))
+constraint,tanach_verses,tanach_verses_pkey,PRIMARY KEY (id)
+constraint,tanach_verses,tanach_verses_source_id_fkey,FOREIGN KEY (source_id) REFERENCES tanach_sources(id)
+constraint,tanach_verses,tanach_verses_verse_check,CHECK ((verse > 0))
+index,account_entitlements,account_entitlements_pkey,CREATE UNIQUE INDEX account_entitlements_pkey ON public.account_entitlements USING btree (account_id)
+index,app_accounts,app_accounts_account_key_key,CREATE UNIQUE INDEX app_accounts_account_key_key ON public.app_accounts USING btree (account_key)
+index,app_accounts,app_accounts_pkey,CREATE UNIQUE INDEX app_accounts_pkey ON public.app_accounts USING btree (id)
+index,app_accounts,idx_app_accounts_email_unique,CREATE UNIQUE INDEX idx_app_accounts_email_unique ON public.app_accounts USING btree (lower(email)) WHERE (email IS NOT NULL)
+index,base_words,base_words_pkey,CREATE UNIQUE INDEX base_words_pkey ON public.base_words USING btree (id)
+index,base_words,idx_base_words_created_at,"CREATE INDEX idx_base_words_created_at ON public.base_words USING btree (created_at, id)"
+index,base_words,idx_base_words_owner_text_unique,"CREATE UNIQUE INDEX idx_base_words_owner_text_unique ON public.base_words USING btree (owner_id, normalized_text)"
+index,curated_matches,curated_matches_parent_id_tanach_book_slug_tanach_chapter_t_key,"CREATE UNIQUE INDEX curated_matches_parent_id_tanach_book_slug_tanach_chapter_t_key ON public.curated_matches USING btree (parent_id, tanach_book_slug, tanach_chapter, tanach_verse, tanach_start, tanach_end)"
+index,curated_matches,curated_matches_pkey,CREATE UNIQUE INDEX curated_matches_pkey ON public.curated_matches USING btree (id)
+index,curated_matches,idx_curated_matches_parent,CREATE INDEX idx_curated_matches_parent ON public.curated_matches USING btree (parent_id)
+index,explicit_milui_interpretations,explicit_milui_interpretation_normalized_text_calculation_m_key,"CREATE UNIQUE INDEX explicit_milui_interpretation_normalized_text_calculation_m_key ON public.explicit_milui_interpretations USING btree (normalized_text, calculation_mode, selection_fingerprint, full_milui_gematria)"
+index,explicit_milui_interpretations,explicit_milui_interpretations_pkey,CREATE UNIQUE INDEX explicit_milui_interpretations_pkey ON public.explicit_milui_interpretations USING btree (id)
+index,explicit_milui_interpretations,idx_explicit_milui_normalized,"CREATE INDEX idx_explicit_milui_normalized ON public.explicit_milui_interpretations USING btree (normalized_text, created_at DESC)"
+index,explicit_milui_interpretations,idx_explicit_milui_owner_selection_unique,"CREATE UNIQUE INDEX idx_explicit_milui_owner_selection_unique ON public.explicit_milui_interpretations USING btree (owner_id, normalized_text, calculation_mode, selection_fingerprint, full_milui_gematria)"
+index,explicit_milui_interpretations,idx_explicit_milui_total,"CREATE INDEX idx_explicit_milui_total ON public.explicit_milui_interpretations USING btree (calculation_mode, full_milui_gematria, created_at DESC)"
+index,milui_index_state,idx_milui_state_owner_unique,CREATE UNIQUE INDEX idx_milui_state_owner_unique ON public.milui_index_state USING btree (owner_id)
+index,milui_index_state,milui_index_state_pkey,"CREATE UNIQUE INDEX milui_index_state_pkey ON public.milui_index_state USING btree (id, owner_id)"
+index,milui_mapping_versions,idx_milui_mapping_owner_one_active,CREATE UNIQUE INDEX idx_milui_mapping_owner_one_active ON public.milui_mapping_versions USING btree (owner_id) WHERE (status = 'active'::text)
+index,milui_mapping_versions,idx_milui_mapping_owner_one_pending,CREATE UNIQUE INDEX idx_milui_mapping_owner_one_pending ON public.milui_mapping_versions USING btree (owner_id) WHERE (status = 'pending'::text)
+index,milui_mapping_versions,milui_mapping_versions_pkey,CREATE UNIQUE INDEX milui_mapping_versions_pkey ON public.milui_mapping_versions USING btree (version)
+index,milui_preferences,idx_milui_preferences_owner_unique,CREATE UNIQUE INDEX idx_milui_preferences_owner_unique ON public.milui_preferences USING btree (owner_id)
+index,milui_preferences,milui_preferences_pkey,CREATE UNIQUE INDEX milui_preferences_pkey ON public.milui_preferences USING btree (id)
+index,saved_entries,idx_entries_finals,CREATE INDEX idx_entries_finals ON public.saved_entries USING btree (finals)
+index,saved_entries,idx_entries_finals_gematria,CREATE INDEX idx_entries_finals_gematria ON public.saved_entries USING btree (finals_gematria)
+index,saved_entries,idx_entries_gematria,CREATE INDEX idx_entries_gematria ON public.saved_entries USING btree (full_gematria)
+index,saved_entries,idx_entries_initials_gematria,CREATE INDEX idx_entries_initials_gematria ON public.saved_entries USING btree (initials_gematria)
+index,saved_entries,idx_saved_entries_owner_created,"CREATE INDEX idx_saved_entries_owner_created ON public.saved_entries USING btree (owner_id, created_at DESC, id DESC)"
+index,saved_entries,idx_saved_entries_owner_manual_text_unique,"CREATE UNIQUE INDEX idx_saved_entries_owner_manual_text_unique ON public.saved_entries USING btree (owner_id, normalized_text) WHERE (tanach_book_slug IS NULL)"
+index,saved_entries,idx_saved_entries_owner_tanach_occurrence_unique,"CREATE UNIQUE INDEX idx_saved_entries_owner_tanach_occurrence_unique ON public.saved_entries USING btree (owner_id, tanach_book_slug, tanach_chapter, tanach_verse, tanach_start, tanach_end) WHERE (tanach_book_slug IS NOT NULL)"
+index,saved_entries,saved_entries_pkey,CREATE UNIQUE INDEX saved_entries_pkey ON public.saved_entries USING btree (id)
+index,saved_entry_milui_form_index,idx_saved_entry_milui_form_total,"CREATE INDEX idx_saved_entry_milui_form_total ON public.saved_entry_milui_form_index USING btree (full_milui_gematria, saved_entry_id)"
+index,saved_entry_milui_form_index,saved_entry_milui_form_index_pkey,"CREATE UNIQUE INDEX saved_entry_milui_form_index_pkey ON public.saved_entry_milui_form_index USING btree (saved_entry_id, form_id)"
+index,saved_entry_milui_index,idx_saved_entry_milui_lookup,"CREATE INDEX idx_saved_entry_milui_lookup ON public.saved_entry_milui_index USING btree (mapping_version, full_milui_gematria)"
+index,saved_entry_milui_index,idx_saved_entry_milui_owner_lookup,"CREATE INDEX idx_saved_entry_milui_owner_lookup ON public.saved_entry_milui_index USING btree (owner_id, mapping_version, full_milui_gematria)"
+index,saved_entry_milui_index,saved_entry_milui_index_pkey,"CREATE UNIQUE INDEX saved_entry_milui_index_pkey ON public.saved_entry_milui_index USING btree (saved_entry_id, mapping_version)"
+index,saved_entry_milui_save_modes,saved_entry_milui_save_modes_pkey,CREATE UNIQUE INDEX saved_entry_milui_save_modes_pkey ON public.saved_entry_milui_save_modes USING btree (saved_entry_id)
+index,saved_words,idx_words_gematria,CREATE INDEX idx_words_gematria ON public.saved_words USING btree (gematria)
+index,saved_words,saved_words_pkey,CREATE UNIQUE INDEX saved_words_pkey ON public.saved_words USING btree (id)
+index,session,IDX_session_expire,"CREATE INDEX ""IDX_session_expire"" ON public.session USING btree (expire)"
+index,session,session_pkey,CREATE UNIQUE INDEX session_pkey ON public.session USING btree (sid)
+index,tanach_books,idx_tanach_books_canonical,"CREATE INDEX idx_tanach_books_canonical ON public.tanach_books USING btree (canonical_order, segment_order)"
+index,tanach_books,tanach_books_pkey,CREATE UNIQUE INDEX tanach_books_pkey ON public.tanach_books USING btree (slug)
+index,tanach_parshiot,idx_tanach_parshiot_order,CREATE INDEX idx_tanach_parshiot_order ON public.tanach_parshiot USING btree (canonical_order)
+index,tanach_parshiot,tanach_parshiot_canonical_order_key,CREATE UNIQUE INDEX tanach_parshiot_canonical_order_key ON public.tanach_parshiot USING btree (canonical_order)
+index,tanach_parshiot,tanach_parshiot_name_he_key,CREATE UNIQUE INDEX tanach_parshiot_name_he_key ON public.tanach_parshiot USING btree (name_he)
+index,tanach_parshiot,tanach_parshiot_pkey,CREATE UNIQUE INDEX tanach_parshiot_pkey ON public.tanach_parshiot USING btree (id)
+index,tanach_sources,tanach_sources_pkey,CREATE UNIQUE INDEX tanach_sources_pkey ON public.tanach_sources USING btree (id)
+index,tanach_verses,idx_tanach_verses_book_chapter,"CREATE INDEX idx_tanach_verses_book_chapter ON public.tanach_verses USING btree (book_slug, chapter, verse)"
+index,tanach_verses,idx_tanach_verses_search,"CREATE INDEX idx_tanach_verses_search ON public.tanach_verses USING gin (to_tsvector('simple'::regconfig, normalized_text))"
+index,tanach_verses,tanach_verses_book_slug_chapter_verse_key,"CREATE UNIQUE INDEX tanach_verses_book_slug_chapter_verse_key ON public.tanach_verses USING btree (book_slug, chapter, verse)"
+index,tanach_verses,tanach_verses_pkey,CREATE UNIQUE INDEX tanach_verses_pkey ON public.tanach_verses USING btree (id)
