@@ -21,6 +21,7 @@
           :open-reference="pendingTanachReference"
           @reference-consumed="consumeTanachReference"
         />
+        <TefillotReader v-else-if="currentPage === 'tefillot'" />
       </main>
     </template>
   </div>
@@ -32,6 +33,7 @@ import AppBar        from '@/components/AppBar.vue';
 import GimForm       from '@/components/GimForm.vue';
 import SavedLibrary  from '@/components/SavedLibrary.vue';
 import TanachReader   from '@/components/TanachReader.vue';
+import TefillotReader from '@/components/TefillotReader.vue';
 import LoginScreen   from '@/components/LoginScreen.vue';
 import BaseWords     from '@/components/BaseWords.vue';
 import { resolveAuthentication } from '@/composables/useAuthentication.js';

@@ -31,6 +31,7 @@ import {
   searchSavedMultiples,
 } from './multipleDiscovery.js';
 import { registerBaseWordRoutes } from './baseWords.js';
+import { registerTefillotRoutes } from './tefillot.js';
 import {
   getExplicitMiluiMatches,
   recordMiluiSaveMode,
@@ -274,6 +275,7 @@ async function requireAuth(req, res, next) {
 // ── Protected API routes ─────────────────────────────────────────────────────
 
 registerBaseWordRoutes(app, { pool, requireAuth });
+registerTefillotRoutes(app, { pool, requireAuth });
 registerMiluiInterpretationRoutes(app, {
   pool,
   requireAuth,

@@ -252,6 +252,47 @@ export async function initDb({
     );
     CREATE INDEX IF NOT EXISTS idx_tanach_parshiot_order ON tanach_parshiot(canonical_order);
 
+    CREATE TABLE IF NOT EXISTS tefillot_sources (
+      id TEXT PRIMARY KEY,
+      source_work TEXT NOT NULL,
+      source_version TEXT NOT NULL,
+      version_source TEXT NOT NULL,
+      license TEXT NOT NULL,
+      source_url TEXT NOT NULL,
+      imported_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(source_work, source_version)
+    );
+
+    CREATE TABLE IF NOT EXISTS tefillot_units (
+      id BIGSERIAL PRIMARY KEY,
+      source_id TEXT NOT NULL REFERENCES tefillot_sources(id),
+      nusach TEXT NOT NULL,
+      occasion_slug TEXT NOT NULL,
+      occasion_label TEXT NOT NULL,
+      occasion_order INTEGER NOT NULL,
+      service_slug TEXT NOT NULL,
+      service_label TEXT NOT NULL,
+      service_order INTEGER NOT NULL,
+      section_key TEXT NOT NULL,
+      section_label TEXT NOT NULL,
+      section_order INTEGER NOT NULL,
+      subsection TEXT,
+      sequence INTEGER NOT NULL,
+      hebrew_text TEXT NOT NULL,
+      normalized_hebrew_text TEXT NOT NULL,
+      source_reference TEXT NOT NULL,
+      source_work TEXT NOT NULL,
+      source_version TEXT NOT NULL,
+      license TEXT NOT NULL,
+      UNIQUE(occasion_slug, service_slug, section_key, sequence, source_reference)
+    );
+    CREATE INDEX IF NOT EXISTS idx_tefillot_navigation
+      ON tefillot_units(occasion_order, service_order, section_order, sequence);
+    CREATE INDEX IF NOT EXISTS idx_tefillot_identity
+      ON tefillot_units(occasion_slug, service_slug, section_key);
+    CREATE INDEX IF NOT EXISTS idx_tefillot_search
+      ON tefillot_units USING GIN (to_tsvector('simple', normalized_hebrew_text));
+
     ALTER TABLE saved_entries ADD COLUMN IF NOT EXISTS tanach_book_slug TEXT;
     ALTER TABLE saved_entries ADD COLUMN IF NOT EXISTS tanach_book_label TEXT;
     ALTER TABLE saved_entries ADD COLUMN IF NOT EXISTS tanach_chapter INTEGER;
@@ -331,4 +372,9 @@ export async function needsTanachRepresentationImport(db = pool) {
   );
   const row = result.rows[0];
   return row.verse_count === 0 || row.representation_version < UXLC_REPRESENTATION_VERSION;
+}
+
+export async function needsTefillotImport(db = pool) {
+  const result = await db.query('SELECT COUNT(*)::int AS unit_count FROM tefillot_units');
+  return result.rows[0].unit_count === 0;
 }
