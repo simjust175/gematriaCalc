@@ -92,7 +92,7 @@ export function useLiveMatching(result, options = {}) {
         if (requestId === latestRequestId) activeController = null;
       }
     }, debounceMs);
-  }, { flush: 'sync' });
+  }, { flush: 'sync', immediate: true });
 
   function stop() {
     latestRequestId += 1;

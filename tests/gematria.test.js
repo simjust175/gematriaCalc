@@ -489,6 +489,30 @@ test('live matching clears old reasons and ignores stale A → B → A responses
   }
 });
 
+test('live matching loads an initial persisted calculator result', async () => {
+  const requests = [];
+  const result = ref(computeAll('חוג'));
+  const live = useLiveMatching(result, {
+    debounceMs: 0,
+    fetchImpl: async url => {
+      requests.push(url);
+      return {
+        ok: true,
+        json: async () => ({ matches: [{ id: 17 }], isAlreadySaved: false }),
+      };
+    },
+  });
+
+  try {
+    await new Promise(resolve => setTimeout(resolve, 10));
+    assert.equal(requests.length, 1);
+    assert.match(requests[0], /normalizedText=%D7%97%D7%95%D7%92/u);
+    assert.equal(live.matches.value.matches[0].id, 17);
+  } finally {
+    live.stop();
+  }
+});
+
 test('live matching exposes request failures instead of a valid empty state', async () => {
   const result = ref(null);
   const fetchImpl = async () => ({ ok: false, status: 500 });
