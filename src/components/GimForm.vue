@@ -261,7 +261,24 @@ import {
 
 const emit = defineEmits(['openTanach']);
 
-const inputText   = ref('');
+const CALCULATOR_INPUT_STORAGE_KEY = 'gematria-calculator-input';
+function readPersistedInput() {
+  try {
+    return window.localStorage.getItem(CALCULATOR_INPUT_STORAGE_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+function persistInput(value) {
+  try {
+    if (value) window.localStorage.setItem(CALCULATOR_INPUT_STORAGE_KEY, value);
+    else window.localStorage.removeItem(CALCULATOR_INPUT_STORAGE_KEY);
+  } catch {
+    // Calculator behavior remains available if browser storage is unavailable.
+  }
+}
+
+const inputText   = ref(readPersistedInput());
 const textareaRef = ref(null);
 const { automaticHebrewKeyboard, onHebrewKeydown } = useAutomaticHebrewKeyboard();
 const expandedWords = ref({});
@@ -306,6 +323,7 @@ const havayahMiluiPresets = computed(() => (
 
 // Reset expanded words when text changes; restore min-height when cleared
 watch(inputText, (val) => {
+  persistInput(val);
   expandedWords.value = {};
   saveStatus.value = 'idle';
   saveError.value = '';

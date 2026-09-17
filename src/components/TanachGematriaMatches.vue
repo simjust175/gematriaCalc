@@ -68,6 +68,22 @@
             </span>
           </span>
         </button>
+        <button
+          v-if="method === 'gematria'"
+          type="button"
+          class="kollel-toggle"
+          :class="{ active: includeKollel }"
+          role="switch"
+          :aria-checked="includeKollel"
+          :aria-busy="loading"
+          @click="setIncludeKollel(!includeKollel)"
+        >
+          <span>כולל</span>
+          <span class="kollel-indicator" aria-hidden="true">
+            <span v-if="loading" class="mdi mdi-loading mdi-spin"></span>
+            <span v-else-if="includeKollel" class="mdi mdi-check"></span>
+          </span>
+        </button>
       </div>
       <div class="controls-secondary-row">
         <button type="button" class="selection-toggle" :class="{ active: selectionMode }" @click="toggleSelectionMode">
@@ -249,8 +265,8 @@ const methodOptions = [
   { value: 'finals', label: 'סופי תיבות' },
 ];
 const {
-  results, counts, total, loading, error, filter, bookOrder, parshaId, chapterBook, chapter, verse, currentParshah, weeklyParshah,
-  hasMore, setFilter, setBookOrder, setParshaId, setChapter, setVerse, toggleCurrentParshah, loadMore, refresh,
+  results, counts, total, loading, error, filter, includeKollel, bookOrder, parshaId, chapterBook, chapter, verse, currentParshah, weeklyParshah,
+  hasMore, setFilter, setIncludeKollel, setBookOrder, setParshaId, setChapter, setVerse, toggleCurrentParshah, loadMore, refresh,
 } =
   useTanachGematriaMatches(computed(() => props.target), {
     methodRef: method,
@@ -570,6 +586,12 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .parshah-filter-label { font-size: .75rem; font-weight: 800; line-height: 1.1; }
 .parshah-filter-name { color: #98752a; font-size: .69rem; font-weight: 600; line-height: 1.15; }
 .parshah-filter.active .parshah-filter-name { color: #775a18; }
+.kollel-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 34px; padding: 5px 9px 5px 12px; border: 1px solid #d8bf7b; border-radius: 999px; background: #fffdf8; color: var(--navy, #1a2744); font: inherit; font-size: .72rem; font-weight: 800; line-height: 1; white-space: nowrap; cursor: pointer; transition: border-color .18s ease, background .18s ease, color .18s ease; }
+.kollel-toggle:hover { border-color: #be9847; background: #fbf5e8; }
+.kollel-toggle.active { border-color: #c59c43; background: #f7edd5; color: #654d16; }
+.kollel-indicator { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 20px; height: 20px; border: 1px solid #cdbd99; border-radius: 50%; background: #fff; color: #fff; transition: border-color .18s ease, background .18s ease; }
+.kollel-indicator .mdi { font-size: .78rem; line-height: 1; }
+.kollel-toggle.active .kollel-indicator { border-color: #b88a2c; background: #b88a2c; }
 .controls-secondary-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding-top: 10px; border-top: 1px solid #efe7d9; }
 .controls-secondary-row > .method-selector:only-child { margin-inline-start: auto; }
 .filter-list { display: flex; flex-wrap: wrap; gap: 7px; }

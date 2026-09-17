@@ -15,6 +15,7 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
   const page = ref(1);
   const filter = ref('all');
   const search = ref('');
+  const includeKollel = ref(false);
   const bookOrder = ref(0);
   const parshaId = ref('');
   const chapterBook = ref('');
@@ -34,6 +35,11 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
     const raw = typeof targetRef === 'function' ? targetRef() : targetRef?.value ?? targetRef;
     const value = Number(raw);
     return Number.isInteger(value) && value > 0 ? value : null;
+  }
+  function targetForRequest() {
+    const target = valueOfTarget();
+    if (target === null) return null;
+    return target + (currentMethod() === 'gematria' && includeKollel.value ? 1 : 0);
   }
   function valueOf(refOrValue) {
     return typeof refOrValue === 'function' ? refOrValue() : refOrValue?.value ?? refOrValue;
@@ -80,7 +86,7 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
         limit: String(limit),
       });
       if (method === 'gematria') {
-        params.set('value', String(target));
+        params.set('value', String(targetForRequest()));
         params.set('type', filter.value);
       } else {
         params.set('sequence', currentSequence());
@@ -146,6 +152,13 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
     const nextValue = String(nextSearch ?? '');
     if (search.value === nextValue) return;
     search.value = nextValue;
+    schedule();
+  }
+
+  function setIncludeKollel(nextValue) {
+    const next = nextValue === true;
+    if (includeKollel.value === next) return;
+    includeKollel.value = next;
     schedule();
   }
 
@@ -219,6 +232,7 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
       currentSequence(),
       currentWordCount(),
       currentOrderIndependent(),
+      includeKollel.value,
     ],
     schedule,
     { immediate: true, flush: 'sync' },
@@ -232,7 +246,7 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
   if (getCurrentScope()) onScopeDispose(dispose);
 
   return {
-    results, counts, total, loading, error, filter, search, bookOrder, parshaId, chapterBook, chapter, verse, currentParshah, weeklyParshah,
-    page, hasMore, setFilter, setSearch, setBookOrder, setParshaId, setChapter, setVerse, toggleCurrentParshah, loadMore, refresh, stop: dispose,
+    results, counts, total, loading, error, filter, search, includeKollel, bookOrder, parshaId, chapterBook, chapter, verse, currentParshah, weeklyParshah,
+    page, hasMore, setFilter, setSearch, setIncludeKollel, setBookOrder, setParshaId, setChapter, setVerse, toggleCurrentParshah, loadMore, refresh, stop: dispose,
   };
 }

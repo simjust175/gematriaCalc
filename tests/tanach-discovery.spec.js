@@ -62,6 +62,35 @@ test('changing target clears stale cards immediately and load more appends serve
   await expect(discovery.locator('.match-card:not(.skeleton-card)')).toHaveCount(24);
 });
 
+test('Kollel switch keeps its effective target and active state synchronized', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-chromium');
+  await login(page);
+
+  const discovery = page.locator('.gematria-discovery');
+  const kollel = discovery.locator('.kollel-toggle');
+  const rawResponsePromise = page.waitForResponse(response => (
+    response.url().includes('/api/tanach/gematria-matches')
+    && new URL(response.url()).searchParams.get('value') === '44'
+  ));
+  await page.locator('.heb-input').fill('44');
+  const rawResponse = await rawResponsePromise;
+  expect((await rawResponse.json()).target).toBe(44);
+  await expect(kollel).toHaveAttribute('aria-checked', 'false');
+
+  const plusOneResponsePromise = page.waitForResponse(response => (
+    response.url().includes('/api/tanach/gematria-matches')
+    && new URL(response.url()).searchParams.get('value') === '45'
+  ));
+  await kollel.click();
+  await expect(kollel).toHaveAttribute('aria-checked', 'true');
+  await expect(kollel).toHaveAttribute('aria-busy', 'true');
+  await expect(kollel.locator('.mdi-loading')).toBeVisible();
+  const plusOneResponse = await plusOneResponsePromise;
+  expect((await plusOneResponse.json()).target).toBe(45);
+  await expect(kollel).toHaveAttribute('aria-busy', 'false');
+  await expect(kollel.locator('.mdi-check')).toBeVisible();
+});
+
 test('calculator discovery switches intentionally between gematria and letter sequences', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-chromium');
   await login(page);
