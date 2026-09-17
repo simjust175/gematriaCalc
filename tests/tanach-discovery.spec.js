@@ -62,7 +62,7 @@ test('changing target clears stale cards immediately and load more appends serve
   await expect(discovery.locator('.match-card:not(.skeleton-card)')).toHaveCount(24);
 });
 
-test('Kollel keeps its label, effective target, active state, and corpus counts synchronized', async ({ page }, testInfo) => {
+test('Kollel switch keeps its effective target, active state, and corpus counts synchronized', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-chromium');
   await login(page);
 
@@ -88,8 +88,9 @@ test('Kollel keeps its label, effective target, active state, and corpus counts 
   const rawResponse = await rawResponsePromise;
   expect((await rawResponse.json()).target).toBe(44);
   await expect(discovery.getByRole('heading')).toContainText('44');
-  await expect(kollel).toContainText('בלי הכולל');
-  await expect(kollel).toHaveAttribute('aria-pressed', 'false');
+  await expect(kollel).toHaveText('כולל');
+  await expect(kollel).toHaveAttribute('aria-checked', 'false');
+  await expect(discovery.locator('.selection-toggle')).toHaveText('בחירה');
   await expect(discovery.locator('.total-mark strong')).toHaveText('697');
   await expect(filterCounts).toHaveText(['697', '497', '200']);
 
@@ -98,8 +99,8 @@ test('Kollel keeps its label, effective target, active state, and corpus counts 
     && new URL(response.url()).searchParams.get('value') === '45'
   ));
   await kollel.click();
-  await expect(kollel).toContainText('עם הכולל');
-  await expect(kollel).toHaveAttribute('aria-pressed', 'true');
+  await expect(kollel).toContainText('כולל');
+  await expect(kollel).toHaveAttribute('aria-checked', 'true');
   await expect(kollel).toHaveAttribute('aria-busy', 'true');
   await expect(kollel.locator('.mdi-loading')).toBeVisible();
   const plusOneResponse = await plusOneResponsePromise;
@@ -114,8 +115,8 @@ test('Kollel keeps its label, effective target, active state, and corpus counts 
     && new URL(response.url()).searchParams.get('value') === '44'
   ));
   await kollel.click();
-  await expect(kollel).toContainText('בלי הכולל');
-  await expect(kollel).toHaveAttribute('aria-pressed', 'false');
+  await expect(kollel).toHaveText('כולל');
+  await expect(kollel).toHaveAttribute('aria-checked', 'false');
   const restoredResponse = await restoredResponsePromise;
   expect((await restoredResponse.json()).target).toBe(44);
   await expect(discovery.getByRole('heading')).toContainText('44');
