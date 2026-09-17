@@ -1,0 +1,180 @@
+FINAL TOOLBAR LAYOUT — ALWAYS 2 ROWS, NEVER 3
+
+Implement the discovery/search toolbar to match the attached approved mockup as closely as possible.
+
+This is a layout/UI refinement only. Do not change search logic, database logic, matching logic, authentication, or publishing.
+
+Core requirement
+
+The toolbar must always be exactly 2 rows on desktop.
+
+Never 3 rows.
+
+Remove the visible text:
+
+מקור החיפוש
+
+Do not replace it with another heading.
+
+The source selector itself is enough.
+
+ROW 1 — SOURCE + CONTEXT FILTERS
+
+Put all source-selection and contextual dropdown controls on the top row.
+
+The top row should contain:
+
+source selector:
+הכל
+תנ״ך
+תפילות
+Parshat Hashavua button
+relevant dynamic dropdowns
+
+The exact dropdowns shown should depend on the selected source.
+
+If source = תנ״ך
+
+Show:
+
+פרשת השבוע button
+ספר dropdown
+
+Keep them all on the same top row.
+
+If source = תפילות
+
+Replace the Tanach-specific dropdowns with prayer-specific filters such as:
+
+מועד
+תפילה
+
+Keep them all on the same top row.
+
+If source = הכל
+
+Keep the row visually compact.
+
+Show the source selector plus only the minimum combined-search controls needed.
+
+Do not create an extra row just to hold filters.
+
+ROW 2 — MATCHING CONTROLS
+
+The second row should contain only the existing matching controls:
+
+גימטריה
+ראשי תיבות
+סופי תיבות
+result filter pills:
+הכול
+מילה שלמה
+מילים שלימות
+כולל control on the far right
+
+Keep the current polished Kollel pill design.
+
+Do not convert it back into a traditional slider.
+
+PARSHAT HASHAVUA
+
+Do not remove the existing Parshat Hashavua control.
+
+When Tanach is relevant, it should remain visible in the top row.
+
+Preserve its current functionality.
+
+SOURCE SELECTOR
+
+Keep the source selector visually integrated into the first row.
+
+Do not give it a standalone heading.
+
+The three options should be:
+
+הכל
+תנ״ך
+תפילות
+
+Use the existing cream / navy / muted-gold segmented-control style.
+
+For תפילות, use a Jewish-appropriate icon such as a simple tallis-inspired icon—not praying hands or Christian-associated imagery.
+
+DESIGN GOAL
+
+The toolbar should feel:
+
+compact
+premium
+balanced
+tablet-friendly
+visually calm
+consistent with the current cream/navy/gold UI
+
+The top row should feel like one clean horizontal control bar, not several small floating widgets.
+
+The second row should feel like one clean matching/filter bar.
+
+Keep spacing even.
+
+Keep control heights aligned.
+
+Avoid unnecessary helper text.
+
+Avoid empty bordered boxes.
+
+Avoid duplicate labels.
+
+IMPORTANT RESPONSIVE RULE
+
+On normal desktop/tablet widths:
+
+2 rows maximum.
+
+On very small mobile widths only, controls may wrap naturally for usability.
+
+Do not force a third toolbar row on desktop.
+
+DO NOT TOUCH
+
+Do not change:
+
+Tanach search logic
+Tefillot search logic
+combined-search logic
+gematria calculations
+ראשי תיבות / סופי תיבות logic
+כולל logic
+saved data
+database
+authentication
+multi-user migration
+result cards
+publishing
+
+Make the smallest clean UI/layout change required.
+
+MANDATORY BROWSER VERIFICATION
+
+Before declaring completion, verify in the rendered development Preview:
+
+מקור החיפוש text is completely gone.
+Source selector is still present.
+Parshat Hashavua remains present where relevant.
+All search/context dropdowns are on the top row.
+Matching-method tabs, result filters, and כולל are on the second row.
+Desktop toolbar never becomes 3 rows.
+Switching תנ״ך / תפילות / הכל changes only the relevant top-row filters.
+No search behavior regressed.
+RTL alignment remains correct.
+The rendered result closely matches the attached approved mockup.
+
+Do not publish.
+
+At the end, report only:
+
+what moved into row 1
+what remains in row 2
+confirmation that מקור החיפוש text was removed
+confirmation that desktop toolbar is exactly 2 rows
+browser verification result

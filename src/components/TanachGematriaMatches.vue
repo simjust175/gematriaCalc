@@ -21,8 +21,78 @@
     </header>
 
     <div class="controls" role="toolbar" aria-label="סינון התאמות">
-      <div class="source-control-row">
-        <span class="source-control-label">מקור החיפוש</span>
+      <div class="source-context-row">
+        <Transition name="filter-swap" mode="out-in">
+          <div v-if="source === 'tanach'" key="tanach" class="controls-primary-row">
+            <div class="manual-range">
+              <TanachScopeSelect
+                :model-value="bookOrder"
+                label="ספר"
+                :groups="bookGroups"
+                :empty-label="rangeMetadataLoading ? 'טוען…' : 'כל התנ״ך'"
+                :disabled="rangeMetadataLoading || !!rangeMetadataError"
+                @update:model-value="selectBook"
+              />
+              <TanachScopeSelect
+                v-if="isTorahBook"
+                :model-value="parshaId"
+                label="פרשה"
+                :groups="[{ options: parshaOptions }]"
+                empty-label="כל הפרשיות"
+                @update:model-value="setParshaId"
+              />
+              <TanachScopeSelect
+                v-else-if="isNachBook"
+                :model-value="chapterValue"
+                label="פרק"
+                :groups="[{ options: chapterOptions }]"
+                empty-label="כל הפרקים"
+                @update:model-value="selectChapter"
+              />
+              <TanachScopeSelect
+                v-if="isNachBook && chapter"
+                :model-value="verse"
+                label="פסוק"
+                :groups="[{ options: verseOptions }]"
+                :empty-label="chapterVersesLoading ? 'טוען…' : 'כל הפסוקים'"
+                :disabled="chapterVersesLoading"
+                @update:model-value="setVerse"
+              />
+            </div>
+            <button
+              type="button"
+              class="parshah-filter"
+              :class="{ active: currentParshah }"
+              :aria-pressed="currentParshah"
+              @click="toggleCurrentParshah"
+            >
+              <span class="mdi mdi-book-open-page-variant-outline" aria-hidden="true"></span>
+              <span class="parshah-filter-copy">
+                <span class="parshah-filter-label">פרשת השבוע</span>
+                <span v-if="weeklyParshah" class="parshah-filter-name">
+                  {{ weeklyParshah.nameHe }}<template v-if="currentParshah"> · {{ total.toLocaleString('he-IL') }} התאמות</template>
+                </span>
+              </span>
+            </button>
+          </div>
+          <div v-else-if="source === 'tefillot'" key="tefillot" class="tefillot-filter-row">
+            <TanachScopeSelect
+              :model-value="tefillotOccasion"
+              label="מועד"
+              :groups="[{ options: tefillotOccasionOptions }]"
+              empty-label="כל המועדים"
+              @update:model-value="tefillotOccasion = $event"
+            />
+            <TanachScopeSelect
+              :model-value="tefillotService"
+              label="תפילה"
+              :groups="[{ options: tefillotServiceOptions }]"
+              empty-label="כל התפילות"
+              @update:model-value="tefillotService = $event"
+            />
+          </div>
+          <div v-else key="all" class="combined-context-spacer"></div>
+        </Transition>
         <div class="source-selector" role="group" aria-label="מקור החיפוש">
           <button
             v-for="item in sourceOptions"
@@ -37,76 +107,6 @@
           </button>
         </div>
       </div>
-      <Transition name="filter-swap" mode="out-in">
-      <div v-if="source === 'tanach'" key="tanach" class="controls-primary-row">
-        <div class="manual-range">
-          <TanachScopeSelect
-            :model-value="bookOrder"
-            label="ספר"
-            :groups="bookGroups"
-            :empty-label="rangeMetadataLoading ? 'טוען…' : 'כל התנ״ך'"
-            :disabled="rangeMetadataLoading || !!rangeMetadataError"
-            @update:model-value="selectBook"
-          />
-          <TanachScopeSelect
-            v-if="isTorahBook"
-            :model-value="parshaId"
-            label="פרשה"
-            :groups="[{ options: parshaOptions }]"
-            empty-label="כל הפרשיות"
-            @update:model-value="setParshaId"
-          />
-          <TanachScopeSelect
-            v-else-if="isNachBook"
-            :model-value="chapterValue"
-            label="פרק"
-            :groups="[{ options: chapterOptions }]"
-            empty-label="כל הפרקים"
-            @update:model-value="selectChapter"
-          />
-          <TanachScopeSelect
-            v-if="isNachBook && chapter"
-            :model-value="verse"
-            label="פסוק"
-            :groups="[{ options: verseOptions }]"
-            :empty-label="chapterVersesLoading ? 'טוען…' : 'כל הפסוקים'"
-            :disabled="chapterVersesLoading"
-            @update:model-value="setVerse"
-          />
-        </div>
-        <button
-          type="button"
-          class="parshah-filter"
-          :class="{ active: currentParshah }"
-          :aria-pressed="currentParshah"
-          @click="toggleCurrentParshah"
-        >
-          <span class="mdi mdi-book-open-page-variant-outline" aria-hidden="true"></span>
-          <span class="parshah-filter-copy">
-            <span class="parshah-filter-label">פרשת השבוע</span>
-            <span v-if="weeklyParshah" class="parshah-filter-name">
-              {{ weeklyParshah.nameHe }}<template v-if="currentParshah"> · {{ total.toLocaleString('he-IL') }} התאמות</template>
-            </span>
-          </span>
-        </button>
-      </div>
-      <div v-else-if="source === 'tefillot'" key="tefillot" class="tefillot-filter-row">
-        <TanachScopeSelect
-          :model-value="tefillotOccasion"
-          label="מועד"
-          :groups="[{ options: tefillotOccasionOptions }]"
-          empty-label="כל המועדים"
-          @update:model-value="tefillotOccasion = $event"
-        />
-        <TanachScopeSelect
-          :model-value="tefillotService"
-          label="תפילה"
-          :groups="[{ options: tefillotServiceOptions }]"
-          empty-label="כל התפילות"
-          @update:model-value="tefillotService = $event"
-        />
-      </div>
-      </Transition>
       <div class="controls-secondary-row">
         <button
           v-if="method === 'gematria'"
@@ -308,7 +308,7 @@ const orderIndependent = ref(false);
 const sourceOptions = [
   { value: 'all', label: 'הכל', icon: 'mdi-layers-triple-outline' },
   { value: 'tanach', label: 'תנ״ך', icon: 'mdi-book-open-variant-outline' },
-  { value: 'tefillot', label: 'תפילות', icon: 'mdi-hands-pray' },
+  { value: 'tefillot', label: 'תפילות', icon: 'mdi-shawl' },
 ];
 const tefillotOccasionOptions = [
   { value: 'weekday', label: 'חול' },
@@ -663,11 +663,12 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .total-mark { display: flex; align-items: baseline; gap: 4px; flex: 0 0 auto; color: var(--text-secondary, #74716a); white-space: nowrap; }
 .total-mark strong { font-size: .84rem; font-variant-numeric: tabular-nums; color: #96732b; }
 .total-mark span { font-size: .7rem; }
-.controls { display: grid; gap: 11px; margin-bottom: 9px; padding: 11px 13px; border: 1px solid rgba(211,193,151,.55); border-radius: 11px; background: rgba(255,253,249,.72); }
-.source-control-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding-bottom: 10px; border-bottom: 1px solid #efe7d9; }
-.source-control-label { color: #96732b; font-size: .7rem; font-weight: 800; white-space: nowrap; }
+.controls { display: grid; grid-template-rows: auto auto; gap: 0; margin-bottom: 9px; padding: 11px 13px; border: 1px solid rgba(211,193,151,.55); border-radius: 11px; background: rgba(255,253,249,.72); }
+.source-context-row { display: flex; align-items: stretch; justify-content: space-between; gap: 12px; min-width: 0; padding-bottom: 10px; }
+.source-context-row > :first-child { min-width: 0; }
+.combined-context-spacer { flex: 1 1 auto; }
 .source-selector { display: inline-flex; max-width: 100%; padding: 3px; border: 1px solid #e2d5ba; border-radius: 9px; background: #fff; }
-.source-selector button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 92px; min-height: 34px; padding: 5px 12px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: #4d5a70; font: inherit; font-size: .75rem; font-weight: 750; cursor: pointer; transition: background .16s ease, border-color .16s ease, color .16s ease; }
+.source-selector button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 72px; min-height: 34px; padding: 5px 10px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: #4d5a70; font: inherit; font-size: .75rem; font-weight: 750; cursor: pointer; transition: background .16s ease, border-color .16s ease, color .16s ease; }
 .source-selector button .mdi { color: #a68035; font-size: 1rem; }
 .source-selector button:hover { background: #fbf6ec; }
 .source-selector button.active { border-color: #d6bd7a; background: #f8f0dc; color: #765812; box-shadow: 0 1px 3px rgba(60,46,17,.08); }
@@ -675,7 +676,7 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .source-breakdown > span { display: inline-flex; align-items: center; gap: 4px; padding: 3px 7px; border: 1px solid #e8e0d3; border-radius: 999px; background: #fffdf9; color: #657084; font-size: .67rem; }
 .source-breakdown .mdi { color: #a68035; }
 .source-breakdown b { color: #34415a; font-variant-numeric: tabular-nums; }
-.tefillot-filter-row { display: grid; grid-template-columns: repeat(2, minmax(150px, 240px)); gap: 8px; justify-content: start; min-height: 48px; }
+.tefillot-filter-row { display: grid; flex: 1 1 auto; grid-template-columns: repeat(2, minmax(120px, 240px)); gap: 8px; justify-content: start; min-height: 48px; }
 .filter-swap-enter-active, .filter-swap-leave-active { transition: opacity .14s ease, transform .14s ease; }
 .filter-swap-enter-from, .filter-swap-leave-to { opacity: 0; transform: translateY(-3px); }
 .method-selector { display: inline-flex; flex: 0 0 auto; max-width: 100%; padding: 3px; gap: 2px; border: 1px solid #e2d5ba; border-radius: 9px; background: #f5efe4; }
@@ -683,8 +684,8 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .method-selector button:hover:not(:disabled) { color: #725619; }
 .method-selector button.active { border-color: #d6bd7a; background: #fffdf8; color: #765812; box-shadow: 0 1px 3px rgba(60,46,17,.08); }
 .method-selector button:disabled { color: #aaa396; cursor: not-allowed; }
-.controls-primary-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(172px, 218px); gap: 12px; align-items: stretch; }
-.manual-range { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; min-width: 0; align-items: start; }
+.controls-primary-row { display: grid; flex: 1 1 auto; grid-template-columns: minmax(150px, 1fr) minmax(150px, 218px); gap: 12px; align-items: stretch; min-width: 0; }
+.manual-range { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; min-width: 0; align-items: start; }
 .parshah-filter { display: flex; align-items: center; justify-content: flex-start; gap: 10px; min-height: 48px; padding: 8px 12px; border: 1px solid #dbc17c; border-radius: 10px; background: #fbf4e6; color: var(--navy, #1a2744); font: inherit; text-align: right; cursor: pointer; transition: border-color .18s ease, background .18s ease, box-shadow .18s ease; }
 .parshah-filter:hover { border-color: #c79d43; background: #faf0db; }
 .parshah-filter.active { border-color: #bd9135; background: #f0deab; color: #654d16; box-shadow: inset 0 0 0 1px rgba(159,118,32,.08); }
@@ -791,5 +792,5 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .load-more { display: flex; align-items: center; gap: 7px; margin: 16px auto 0; padding-inline: 16px; }
 @keyframes breathe { from { opacity: .45; } to { opacity: 1; } }
 @media (max-width: 820px) { .match-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 560px) { .discovery-header { align-items: flex-start; gap: 8px; }.title-line { align-items: flex-start; gap: 7px; }.title-line h2 { flex: 1 1 auto; }.match-grid { grid-template-columns: 1fr; }.total-mark strong { font-size: .78rem; }.controls { gap: 11px; padding: 11px; }.source-control-row { align-items: stretch; flex-direction: column; gap: 7px; }.source-selector { width: 100%; }.source-selector button { min-width: 0; flex: 1 1 0; padding-inline: 7px; }.controls-primary-row { grid-template-columns: 1fr; gap: 9px; }.tefillot-filter-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }.manual-range { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }.manual-range > :first-child { grid-column: 1 / -1; }.parshah-filter { min-height: 46px; }.controls-secondary-row { flex-direction: column; align-items: stretch; gap: 9px; }.controls-secondary-row .method-selector { align-self: flex-start; order: 1; margin-inline-start: 0; }.controls-secondary-row .filter-list { order: 2; gap: 6px; }.controls-secondary-row .order-switch { order: 2; align-self: flex-start; margin-inline-start: 0; } }
+@media (max-width: 560px) { .discovery-header { align-items: flex-start; gap: 8px; }.title-line { align-items: flex-start; gap: 7px; }.title-line h2 { flex: 1 1 auto; }.match-grid { grid-template-columns: 1fr; }.total-mark strong { font-size: .78rem; }.controls { gap: 0; padding: 11px; }.source-context-row { align-items: stretch; flex-direction: column; gap: 7px; }.source-selector { width: 100%; order: -1; }.source-selector button { min-width: 0; flex: 1 1 0; padding-inline: 7px; }.controls-primary-row { grid-template-columns: 1fr; gap: 9px; }.tefillot-filter-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }.manual-range { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }.manual-range > :first-child { grid-column: 1 / -1; }.parshah-filter { min-height: 46px; }.controls-secondary-row { flex-direction: column; align-items: stretch; gap: 9px; }.controls-secondary-row .method-selector { align-self: flex-start; order: 1; margin-inline-start: 0; }.controls-secondary-row .filter-list { order: 2; gap: 6px; }.controls-secondary-row .order-switch { order: 2; align-self: flex-start; margin-inline-start: 0; } }
 </style>
