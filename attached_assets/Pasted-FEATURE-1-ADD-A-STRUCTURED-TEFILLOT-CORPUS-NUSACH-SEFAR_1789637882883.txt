@@ -1,0 +1,181 @@
+FEATURE 1 — ADD A STRUCTURED TEFILLOT CORPUS, NUSACH SEFARD
+
+Build a new תפילות section into the existing Gematria app.
+
+This task is only about adding a structured Nusach Sefard prayer corpus, reader, and navigation.
+
+Do not implement Yom-Tov-vs-Parsha replacement logic yet.
+
+Do not implement מילת יסוד matching against tefillot yet.
+
+Do not change the existing Tanach flow.
+
+SOURCE
+
+Use a structured Hebrew Nusach Sefard prayer source from Sefaria’s Siddur/Machzor corpora.
+
+Important:
+
+Nusach Sefard here means the Chassidic / ספרד nusach
+Do not mix it with Edot HaMizrach
+Do not copy from ArtScroll or another modern commercial siddur
+Use a Hebrew source/version that is legally reusable
+
+Preserve source metadata for imported content:
+
+source work
+version
+license
+original source reference
+REQUIRED CORPUS
+
+Support at minimum:
+
+Weekday
+Shacharit
+Mincha
+Maariv
+Shabbos
+Kabbalas Shabbos
+Maariv
+Shacharit
+Musaf
+Mincha
+Yom Tov
+Pesach
+Shavuos
+Sukkos
+Shemini Atzeres
+Simchas Torah
+
+Include the relevant:
+
+Maariv
+Shacharit
+Musaf
+Mincha
+High Holidays
+Rosh Hashanah
+Yom Kippur
+Neilah for Yom Kippur
+
+The architecture should also be able to support later, without a schema redesign:
+
+Rosh Chodesh
+Chol Hamoed
+Chanukah
+Purim
+fast days
+DATA MODEL
+
+Do not store each service as one giant text or HTML blob.
+
+Store the prayer corpus in structured units with fields equivalent to:
+
+nusach
+occasion
+service
+section
+subsection where useful
+sequence
+hebrew_text
+normalized_hebrew_text
+source_reference
+source_work
+source_version
+license
+
+The full order of a service must be reconstructable deterministically.
+
+Shared prayer sections may be reused rather than duplicated where that is clean and safe.
+
+Every searchable text unit must retain its full identity:
+
+occasion → service → section → source
+
+UI
+
+Add a new top-level destination:
+
+תפילות
+
+Keep the current app’s cream / navy / gold visual language.
+
+Navigation should be simple and tablet-friendly:
+
+Occasion → Service → Prayer Sections
+
+Example:
+
+שבת
+→ שחרית
+→ ברכות השחר / פסוקי דזמרה / קריאת שמע / עמידה / etc.
+
+The prayer reader should visually feel like part of the existing Tanach/Gematria app, not a separate product.
+
+Use proper RTL Hebrew rendering.
+
+FUTURE COMPATIBILITY
+
+Build this carefully so later features can:
+
+automatically use Yom Tov tefillot when Yom Tov replaces the weekly Parsha;
+run gematria matching against prayer text;
+run מילת יסוד matching against prayer text;
+identify exactly which occasion/service/section produced a result.
+
+Therefore, do not flatten the corpus into plain text.
+
+SEARCH / NORMALIZATION
+
+Use the app’s existing Hebrew normalization conventions where appropriate.
+
+Prepare the prayer text so it can later participate in the current search/matching system.
+
+Do not change the current matching UI in this task.
+
+DO NOT TOUCH
+
+Do not modify:
+
+current Tanach behavior
+weekly Parsha logic
+מילת יסוד matching
+saved data
+authentication
+multi-user work
+database ownership logic unrelated to this corpus
+publishing/deployment
+
+Do not do unrelated refactoring.
+
+VERIFICATION
+
+Before declaring completion, verify in the rendered development app:
+
+Weekday Shacharit opens correctly.
+Shabbos Shacharit opens correctly.
+Shabbos Musaf opens correctly.
+At least one regular Yom Tov service opens correctly.
+Rosh Hashanah content is available.
+Yom Kippur content is available.
+Neilah is available under Yom Kippur.
+Sections display in correct order.
+Hebrew renders properly RTL.
+Source/version/license metadata exists.
+Existing Tanach functionality still works.
+
+Do not publish.
+
+FINAL RESPONSE
+
+When finished, report only:
+
+prayer corpora imported
+exact source/version/license used
+data model added
+navigation/UI added
+verification results
+anything still missing
+
+Keep this implementation focused, structured, and future-proof. Do not broaden the task beyond Feature 1.
