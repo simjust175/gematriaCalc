@@ -74,9 +74,11 @@
           class="kollel-toggle"
           :class="{ active: includeKollel }"
           :aria-pressed="includeKollel"
+          :aria-busy="loading"
           @click="setIncludeKollel(!includeKollel)"
         >
-          {{ includeKollel ? 'עם הכולל' : 'בלי הכולל' }}
+          <span v-if="loading" class="mdi mdi-loading mdi-spin" aria-hidden="true"></span>
+          <span>{{ includeKollel ? 'עם הכולל' : 'בלי הכולל' }}</span>
         </button>
       </div>
       <div class="controls-secondary-row">
@@ -268,7 +270,10 @@ const {
     orderIndependentRef: orderIndependent,
   });
 
-const formattedTarget = computed(() => Number(props.target || 0).toLocaleString('he-IL'));
+const effectiveTarget = computed(() => (
+  Number(props.target || 0) + (method.value === 'gematria' && includeKollel.value ? 1 : 0)
+));
+const formattedTarget = computed(() => effectiveTarget.value.toLocaleString('he-IL'));
 const allTotal = computed(() => Number(counts.value.all ?? total.value) || 0);
 const hasPattern = computed(() => [...props.pattern].length >= 1);
 const discoveryHeading = computed(() => {
@@ -580,6 +585,8 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .parshah-filter-label { font-size: .75rem; font-weight: 800; line-height: 1.1; }
 .parshah-filter-name { color: #98752a; font-size: .69rem; font-weight: 600; line-height: 1.15; }
 .parshah-filter.active .parshah-filter-name { color: #775a18; }
+.kollel-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+.kollel-toggle .mdi-loading { font-size: .95rem; }
 .controls-secondary-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding-top: 10px; border-top: 1px solid #efe7d9; }
 .controls-secondary-row > .method-selector:only-child { margin-inline-start: auto; }
 .filter-list { display: flex; flex-wrap: wrap; gap: 7px; }
