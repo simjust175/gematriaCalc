@@ -1,4 +1,4 @@
-import { getCurrentScope, onScopeDispose, ref, watch } from 'vue';
+import { computed, getCurrentScope, onScopeDispose, ref, watch } from 'vue';
 
 const FILTERS = ['all', 'whole_word', 'whole_phrase', 'partial'];
 
@@ -39,8 +39,12 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
   function targetForRequest() {
     const target = valueOfTarget();
     if (target === null) return null;
-    return target + (currentMethod() === 'gematria' && includeKollel.value ? 1 : 0);
+    return target + (currentMethod() === 'gematria' && includeKollel.value && kollelAvailable.value ? 1 : 0);
   }
+  const kollelAvailable = computed(() => {
+    const target = valueOfTarget();
+    return target !== null && Number.isSafeInteger(target + 1);
+  });
   function valueOf(refOrValue) {
     return typeof refOrValue === 'function' ? refOrValue() : refOrValue?.value ?? refOrValue;
   }
@@ -156,7 +160,7 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
   }
 
   function setIncludeKollel(nextValue) {
-    const next = nextValue === true;
+    const next = nextValue === true && kollelAvailable.value;
     if (includeKollel.value === next) return;
     includeKollel.value = next;
     schedule();
@@ -234,7 +238,13 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
       currentOrderIndependent(),
       includeKollel.value,
     ],
-    schedule,
+    () => {
+      if (includeKollel.value && !kollelAvailable.value) {
+        includeKollel.value = false;
+        return;
+      }
+      schedule();
+    },
     { immediate: true, flush: 'sync' },
   );
 
@@ -246,7 +256,7 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
   if (getCurrentScope()) onScopeDispose(dispose);
 
   return {
-    results, counts, total, loading, error, filter, search, includeKollel, bookOrder, parshaId, chapterBook, chapter, verse, currentParshah, weeklyParshah,
+    results, counts, total, loading, error, filter, search, includeKollel, kollelAvailable, bookOrder, parshaId, chapterBook, chapter, verse, currentParshah, weeklyParshah,
     page, hasMore, setFilter, setSearch, setIncludeKollel, setBookOrder, setParshaId, setChapter, setVerse, toggleCurrentParshah, loadMore, refresh, stop: dispose,
   };
 }

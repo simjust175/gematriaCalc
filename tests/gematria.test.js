@@ -605,6 +605,43 @@ test('Tanach discovery clears stale targets, filters server-side, and appends pa
   }
 });
 
+test('Tanach discovery never applies Kollel beyond the safe integer range', async () => {
+  const urls = [];
+  const fetchImpl = async url => {
+    urls.push(String(url));
+    return {
+      ok: true,
+      json: async () => ({
+        results: [],
+        counts: { all: 0, whole_word: 0, whole_phrase: 0, partial: 0 },
+        total: 0,
+        page: 1,
+        limit: 12,
+        hasMore: false,
+      }),
+    };
+  };
+  const live = useTanachGematriaMatches(ref(Number.MAX_SAFE_INTEGER), {
+    fetchImpl,
+    debounceMs: 0,
+  });
+
+  try {
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.equal(live.kollelAvailable.value, false);
+    live.setIncludeKollel(true);
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.equal(live.includeKollel.value, false);
+    assert.equal(urls.length, 1);
+    assert.equal(
+      new URL(urls[0], 'http://example.test').searchParams.get('value'),
+      String(Number.MAX_SAFE_INTEGER),
+    );
+  } finally {
+    live.stop();
+  }
+});
+
 test('Tanach discovery scopes normalized search and weekly filters to its current target', async () => {
   const urls = [];
   const fetchImpl = async url => {

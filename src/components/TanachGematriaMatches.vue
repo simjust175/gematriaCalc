@@ -76,6 +76,7 @@
           role="switch"
           :aria-checked="includeKollel"
           :aria-busy="loading"
+          :disabled="!kollelAvailable"
           @click="setIncludeKollel(!includeKollel)"
         >
           <span>כולל</span>
@@ -265,7 +266,7 @@ const methodOptions = [
   { value: 'finals', label: 'סופי תיבות' },
 ];
 const {
-  results, counts, total, loading, error, filter, includeKollel, bookOrder, parshaId, chapterBook, chapter, verse, currentParshah, weeklyParshah,
+  results, counts, total, loading, error, filter, includeKollel, kollelAvailable, bookOrder, parshaId, chapterBook, chapter, verse, currentParshah, weeklyParshah,
   hasMore, setFilter, setIncludeKollel, setBookOrder, setParshaId, setChapter, setVerse, toggleCurrentParshah, loadMore, refresh,
 } =
   useTanachGematriaMatches(computed(() => props.target), {
@@ -576,7 +577,8 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .method-selector button:hover:not(:disabled) { color: #725619; }
 .method-selector button.active { border-color: #d6bd7a; background: #fffdf8; color: #765812; box-shadow: 0 1px 3px rgba(60,46,17,.08); }
 .method-selector button:disabled { color: #aaa396; cursor: not-allowed; }
-.controls-primary-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(172px, 218px); gap: 12px; align-items: stretch; }
+.controls-primary-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px 12px; align-items: center; }
+.controls-primary-row .manual-range { grid-column: 1 / -1; }
 .manual-range { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; min-width: 0; align-items: start; }
 .parshah-filter { display: flex; align-items: center; justify-content: flex-start; gap: 10px; min-height: 48px; padding: 8px 12px; border: 1px solid #dbc17c; border-radius: 10px; background: #fbf4e6; color: var(--navy, #1a2744); font: inherit; text-align: right; cursor: pointer; transition: border-color .18s ease, background .18s ease, box-shadow .18s ease; }
 .parshah-filter:hover { border-color: #c79d43; background: #faf0db; }
@@ -589,6 +591,7 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .kollel-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 34px; padding: 5px 9px 5px 12px; border: 1px solid #d8bf7b; border-radius: 999px; background: #fffdf8; color: var(--navy, #1a2744); font: inherit; font-size: .72rem; font-weight: 800; line-height: 1; white-space: nowrap; cursor: pointer; transition: border-color .18s ease, background .18s ease, color .18s ease; }
 .kollel-toggle:hover { border-color: #be9847; background: #fbf5e8; }
 .kollel-toggle.active { border-color: #c59c43; background: #f7edd5; color: #654d16; }
+.kollel-toggle:disabled { border-color: #ddd3bd; background: #f8f5ef; color: #aaa396; cursor: not-allowed; }
 .kollel-indicator { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 20px; height: 20px; border: 1px solid #cdbd99; border-radius: 50%; background: #fff; color: #fff; transition: border-color .18s ease, background .18s ease; }
 .kollel-indicator .mdi { font-size: .78rem; line-height: 1; }
 .kollel-toggle.active .kollel-indicator { border-color: #b88a2c; background: #b88a2c; }
@@ -681,5 +684,5 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .load-more { display: flex; align-items: center; gap: 7px; margin: 16px auto 0; padding-inline: 16px; }
 @keyframes breathe { from { opacity: .45; } to { opacity: 1; } }
 @media (max-width: 820px) { .match-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 560px) { .discovery-header { align-items: flex-start; gap: 8px; }.title-line { align-items: flex-start; gap: 7px; }.title-line h2 { flex: 1 1 auto; }.match-grid { grid-template-columns: 1fr; }.total-mark strong { font-size: .78rem; }.controls { gap: 11px; padding: 11px; }.controls-primary-row { grid-template-columns: 1fr; gap: 9px; }.manual-range { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }.manual-range > :first-child { grid-column: 1 / -1; }.parshah-filter { min-height: 46px; }.controls-secondary-row { flex-direction: column; align-items: stretch; gap: 9px; }.controls-secondary-row .method-selector { align-self: flex-start; order: 1; margin-inline-start: 0; }.controls-secondary-row .filter-list { order: 2; gap: 6px; }.controls-secondary-row .order-switch { order: 2; align-self: flex-start; margin-inline-start: 0; } }
+@media (max-width: 560px) { .discovery-header { align-items: flex-start; gap: 8px; }.title-line { align-items: flex-start; gap: 7px; }.title-line h2 { flex: 1 1 auto; }.match-grid { grid-template-columns: 1fr; }.total-mark strong { font-size: .78rem; }.controls { gap: 11px; padding: 11px; }.controls-primary-row { grid-template-columns: minmax(0, 1fr) auto; gap: 9px; }.controls-primary-row .manual-range { grid-column: 1 / -1; }.manual-range { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }.manual-range > :first-child { grid-column: 1 / -1; }.parshah-filter { min-height: 46px; }.controls-secondary-row { flex-direction: column; align-items: stretch; gap: 9px; }.controls-secondary-row .method-selector { align-self: flex-start; order: 1; margin-inline-start: 0; }.controls-secondary-row .filter-list { order: 2; gap: 6px; }.controls-secondary-row .order-switch { order: 2; align-self: flex-start; margin-inline-start: 0; } }
 </style>

@@ -89,6 +89,15 @@ test('Kollel switch keeps its effective target and active state synchronized', a
   expect((await plusOneResponse.json()).target).toBe(45);
   await expect(kollel).toHaveAttribute('aria-busy', 'false');
   await expect(kollel.locator('.mdi-check')).toBeVisible();
+
+  await page.setViewportSize({ width: 860, height: 900 });
+  await expect.poll(() => page.evaluate(() => (
+    document.documentElement.scrollWidth <= document.documentElement.clientWidth
+  ))).toBe(true);
+  const toolbarBox = await discovery.locator('.controls').boundingBox();
+  const kollelBox = await kollel.boundingBox();
+  expect(kollelBox.x).toBeGreaterThanOrEqual(toolbarBox.x);
+  expect(kollelBox.x + kollelBox.width).toBeLessThanOrEqual(toolbarBox.x + toolbarBox.width + 1);
 });
 
 test('calculator discovery switches intentionally between gematria and letter sequences', async ({ page }, testInfo) => {
