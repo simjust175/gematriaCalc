@@ -1,0 +1,149 @@
+MASTER FIX PROMPT — DO NOT GUESS, DO NOT REDESIGN, DO NOT TOUCH UNRELATED CODE
+
+I want one precise bug fixed in the Gematria/Tanach results UI. Do not broaden the task.
+
+The bug
+
+The app has two completely different concepts that must remain separate:
+
+בחירה מרובה = multi-selection mode
+כולל = gematria +1
+
+These are unrelated.
+
+Right now, the כולל calculation itself is working:
+
+Input target 44
+בלי הכולל → target 44
+עם הכולל → target 45
+The results correctly change from:
+697 / 497 / 200
+to 1722 / 1456 / 266
+
+The remaining bug is that the visible label above the result filters still says "בלי הכולל" even while כולל is active and the calculation is already using 45.
+
+Required architecture
+
+There must be one and only one source of truth for the Kollel state:
+
+includeKollel
+
+The following must all derive directly from that same state:
+
+the visual active/inactive state of the כולל button
+the effective gematria target
+the API request target
+the displayed heading/label:
+בלי הכולל when false
+עם הכולל when true
+
+Do not create another boolean.
+
+Do not create another local display state.
+
+Do not infer the label from selectionMode, button text, request value, result count, or any other state.
+
+The label must be directly reactive to includeKollel.
+
+Exact expected behavior
+
+Start with input 44.
+
+State A — Kollel OFF
+
+includeKollel = false
+effective target = 44
+heading/label = בלי הכולל
+button visually inactive
+counts:
+total 697
+single word 497
+multi-word 200
+
+State B — user clicks כולל
+
+includeKollel = true
+effective target = 45
+heading/label must immediately become עם הכולל
+button visually active
+fresh results load:
+total 1722
+single word 1456
+multi-word 266
+
+State C — user clicks again
+
+includeKollel = false
+effective target returns to 44
+heading/label returns to בלי הכולל
+button becomes inactive
+counts return to 697 / 497 / 200
+Critical restriction
+
+Do not modify בחירה מרובה.
+
+Leave the multi-selection control exactly as it currently works and exactly as it is labeled.
+
+Do not rename it.
+
+Do not connect it to כולל.
+
+Do not use its state to drive the Kollel label.
+
+Before making changes
+
+First trace the rendered label and identify:
+
+which template element renders the current בלי הכולל
+which reactive variable currently drives that text
+whether it is incorrectly bound to selectionMode or another state
+
+Then make the smallest possible fix so that the actual Kollel label reads directly from includeKollel.
+
+Do not refactor unrelated code.
+
+Mandatory browser verification
+
+Do not report this as fixed from code inspection alone.
+
+Test it in the actual rendered browser UI.
+
+Use this exact regression test:
+
+Enter 44
+Wait until the UI shows:
+בלי הכולל
+697 / 497 / 200
+Click the כולל control
+Wait for the new request/result
+Verify visually in the DOM:
+the displayed target is 45
+the label says עם הכולל
+the Kollel control is active
+counts are 1722 / 1456 / 266
+Click again
+Verify:
+target returns to 44
+label returns to בלי הכולל
+counts return to 697 / 497 / 200
+
+If any of those fail, continue debugging until they all pass.
+
+Do not touch
+
+Do not modify:
+
+database code
+authentication
+multi-user work
+migrations
+saved data
+Tanach matching logic
+API calculation logic unless absolutely proven necessary
+styling/layout
+persistent-input feature
+navigation
+selection mode
+deployment/publishing
+
+This task is only to make the visible Kollel state and the already-working Kollel calculation stay perfectly synchronized.
