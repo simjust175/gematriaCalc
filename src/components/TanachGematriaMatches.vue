@@ -669,6 +669,8 @@ async function saveResult(item, key) {
 </script>
 
 <style scoped>
+@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@500;600;700;800&display=swap');
+
 .gematria-discovery { margin-top: 24px; color: var(--navy, #1a2744); }
 .discovery-header { display: flex; justify-content: space-between; gap: 18px; align-items: end; padding: 20px 2px 13px; border-top: 1px solid var(--border, #e8e1d5); }
 .section-kicker { color: #96732b; font-size: .7rem; font-weight: 800; letter-spacing: .12em; }
@@ -715,7 +717,13 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .parshah-filter.active { border-color: #bd9135; background: #f0deab; color: #654d16; box-shadow: inset 0 0 0 1px rgba(159,118,32,.08); }
 .parshah-filter > .mdi { flex: 0 0 auto; color: #9a772d; font-size: 1.15rem; }
 .parshah-filter-copy { display: grid; min-width: 0; gap: 1px; }
-.parshah-filter-label { font-size: .75rem; font-weight: 800; line-height: 1.1; }
+.parshah-filter-label {
+  font-family: "Heebo", "Assistant", "Noto Sans Hebrew", "Arial Hebrew", Arial, sans-serif;
+  font-size: .76rem;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  line-height: 1.1;
+}
 .parshah-filter-name { color: #98752a; font-size: .69rem; font-weight: 600; line-height: 1.15; }
 .parshah-filter.active .parshah-filter-name { color: #775a18; }
 .kollel-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 34px; padding: 5px 9px 5px 12px; border: 1px solid #d8bf7b; border-radius: 999px; background: #fffdf8; color: var(--navy, #1a2744); font: inherit; font-size: .72rem; font-weight: 800; line-height: 1; white-space: nowrap; cursor: pointer; transition: border-color .18s ease, background .18s ease, color .18s ease; }
