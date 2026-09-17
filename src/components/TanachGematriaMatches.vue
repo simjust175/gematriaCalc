@@ -81,7 +81,7 @@
       </div>
       <div class="controls-secondary-row">
         <button type="button" class="selection-toggle" :class="{ active: selectionMode }" @click="toggleSelectionMode">
-          {{ selectionMode ? 'כולל' : 'בלי כולל' }}
+          {{ selectionMode ? 'יציאה מבחירה' : 'בחירה מרובה' }}
         </button>
         <div v-if="method === 'gematria'" class="filter-list" role="group" aria-label="סוג התאמה">
           <button
