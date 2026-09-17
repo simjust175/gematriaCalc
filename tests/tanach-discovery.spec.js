@@ -79,6 +79,8 @@ test('Kollel switch keeps its effective target, active state, and corpus counts 
   const discovery = page.locator('.gematria-discovery');
   const kollel = discovery.locator('.kollel-toggle');
   const filterCounts = discovery.locator('.filter-list button span');
+  await expect(discovery.locator('.selection-toggle')).toHaveCount(0);
+  await expect(discovery.locator('.kollel-switch-track')).toHaveCount(0);
 
   const rawResponsePromise = page.waitForResponse(response => (
     response.url().includes('/api/tanach/gematria-matches')
@@ -108,6 +110,7 @@ test('Kollel switch keeps its effective target, active state, and corpus counts 
   await expect(discovery.locator('.total-mark strong')).toHaveText('1,722');
   await expect(filterCounts).toHaveText(['1722', '1456', '266']);
   await expect(kollel).toHaveAttribute('aria-busy', 'false');
+  await expect(kollel.locator('.mdi-check')).toBeVisible();
 
   const restoredResponsePromise = page.waitForResponse(response => (
     response.url().includes('/api/tanach/gematria-matches')

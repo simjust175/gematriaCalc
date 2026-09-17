@@ -1,0 +1,214 @@
+FINAL IMPLEMENTATION — TANACH RESULTS CONTROL BAR
+
+Implement this now. Do not create another plan, redesign, or ask additional UX questions. The attached approved mockup is the visual source of truth.
+
+This is a small UI implementation task. The existing gematria/Kollel calculation already works. Do not touch the calculation logic.
+
+1. Exact approved layout
+
+Rebuild only the control area shown in the attached mockup.
+
+TOP ROW
+
+Keep:
+
+the weekly Parsha card on the left
+the ספר selector beside it
+
+The ספר selector should stretch across the available remaining width exactly like the approved mockup.
+
+Remove the empty/intermediate row that currently exists underneath the ספר selector.
+
+There should be no extra blank bordered box or empty control row.
+
+2. BOTTOM CONTROL ROW
+
+The bottom row must contain exactly these three groups:
+
+LEFT
+
+Keep the existing matching-method tabs exactly as they are:
+
+גימטריה
+ראשי תיבות
+סופי תיבות
+
+Do not change their functionality.
+
+CENTER
+
+Keep the three result-count filters:
+
+הכול
+מילה שלמה
+מילים שלימות
+
+Preserve their existing functionality and counts.
+
+RIGHT
+
+Place the redesigned כולל control here, on the same horizontal row as the result-count filters.
+
+It must occupy the position shown in the attached mockup.
+
+3. REMOVE בחירה מרובה FROM THIS UI
+
+Remove the visible בחירה מרובה / יציאה מבחירה control from this section completely.
+
+Important:
+
+Do not leave its text behind.
+Do not leave an empty placeholder.
+Do not leave unexplained spacing where it used to be.
+Do not move the Kollel control somewhere else to compensate.
+
+The final row should look exactly like the approved mockup:
+
+method tabs → result filters → כולל
+
+Do not perform a broad refactor of saved-result selection functionality. This task is about removing its visible control from this interface, not rewriting unrelated application logic.
+
+4. KOLLEL DESIGN
+
+Do not use the old-fashioned sliding switch.
+
+Replace it with the approved modern pill-style action control.
+
+The visible label should always simply be:
+
+כולל
+
+Kollel OFF
+neutral cream/white pill
+refined gold border
+navy/gold text
+inactive circular indicator
+no heavy shadow
+no traditional slider track
+Kollel ON
+warm cream/gold active treatment
+clearly active without becoming visually loud
+gold circular indicator with a checkmark
+label remains כולל
+
+Use the same elegant visual language already present throughout the application: cream, navy, muted gold, fine borders, rounded corners.
+
+Do not add the text כולל +1 בגימטריה.
+
+Do not add helper text underneath the control.
+
+5. KOLLEL BEHAVIOR — DO NOT REWRITE
+
+The control must continue using the existing:
+
+includeKollel
+
+state.
+
+There must be one source of truth.
+
+Do not create a second boolean or duplicate display state.
+
+Existing behavior must remain:
+
+Input 44 / Kollel OFF
+
+effective target = 44
+counts = 697 / 497 / 200
+
+Kollel ON
+
+effective target = 45
+counts = 1722 / 1456 / 266
+
+Kollel OFF again
+
+effective target = 44
+counts return to 697 / 497 / 200
+
+The new pill is only a better UI for the already-working includeKollel behavior.
+
+6. PIXEL / LAYOUT REQUIREMENTS
+
+Follow the attached mockup closely.
+
+Specifically:
+
+Kollel sits at the far right of the lower control row.
+Result filter pills remain centered beside it.
+Method tabs remain at the opposite side.
+Kollel must be vertically aligned with the filter pills.
+ספר uses the freed horizontal width above.
+Remove the unnecessary full-width middle row entirely.
+Keep overall card height compact.
+Preserve the existing outer card dimensions and visual language as much as practical.
+Do not introduce large new gaps.
+Do not redesign the result cards below.
+
+Desktop should match the mockup closely, while existing responsive behavior should remain sensible on smaller screens.
+
+7. STRICTLY OUT OF SCOPE
+
+Do not touch:
+
+gematria calculations
+Tanach matching algorithms
+API behavior
+cache logic
+database
+authentication
+accounts
+multi-user migration
+saved data
+calculator input persistence
+navigation
+result-card design
+publishing/deployment
+
+Do not make “cleanup” changes elsewhere.
+
+8. IMPLEMENTATION STRATEGY
+
+Make the smallest clean change necessary.
+
+Reuse the existing Kollel click handler and state.
+
+Do not rebuild functionality that already works.
+
+Do not spend time redesigning unrelated controls.
+
+Do not create new abstractions unless genuinely required for this small UI change.
+
+9. MANDATORY BROWSER VERIFICATION
+
+Before reporting completion, test the actual rendered development Preview, not merely source code.
+
+Verify:
+
+There is no visible בחירה מרובה control.
+There is no empty middle row.
+The ספר selector stretches across the available top-row width.
+כולל appears at the far right of the same row as the result filters.
+The Kollel control is the modern pill design—not a slider switch.
+No כולל +1 בגימטריה helper text is visible.
+Input 44, Kollel OFF → 697 / 497 / 200.
+Click כולל → target becomes 45 and counts become 1722 / 1456 / 266.
+The Kollel pill visibly changes to its active/checkmark state.
+Click again → target/counts and visual state return correctly.
+Existing method tabs and result filters still work.
+
+If the rendered UI does not closely match the attached mockup, continue adjusting only this component until it does.
+
+Do not publish.
+
+Final response
+
+When finished, report only:
+
+what UI elements were removed
+what UI elements were repositioned
+confirmation that Kollel still uses the existing includeKollel
+browser verification result
+confirmation that no unrelated application/database/migration code was changed
+
+I would attach your very last approved mockup with this prompt. That should eliminate nearly all room for interpretation.

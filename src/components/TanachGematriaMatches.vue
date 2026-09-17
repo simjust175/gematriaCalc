@@ -68,6 +68,8 @@
             </span>
           </span>
         </button>
+      </div>
+      <div class="controls-secondary-row">
         <button
           v-if="method === 'gematria'"
           type="button"
@@ -79,15 +81,10 @@
           @click="setIncludeKollel(!includeKollel)"
         >
           <span>כולל</span>
-          <span v-if="loading" class="mdi mdi-loading mdi-spin" aria-hidden="true"></span>
-          <span class="kollel-switch-track" aria-hidden="true">
-            <span class="kollel-switch-thumb"></span>
+          <span class="kollel-indicator" aria-hidden="true">
+            <span v-if="loading" class="mdi mdi-loading mdi-spin"></span>
+            <span v-else-if="includeKollel" class="mdi mdi-check"></span>
           </span>
-        </button>
-      </div>
-      <div class="controls-secondary-row">
-        <button type="button" class="selection-toggle" :class="{ active: selectionMode }" @click="toggleSelectionMode">
-          {{ selectionMode ? 'יציאה מבחירה' : 'בחירה מרובה' }}
         </button>
         <div v-if="method === 'gematria'" class="filter-list" role="group" aria-label="סוג התאמה">
           <button
@@ -589,14 +586,12 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .parshah-filter-label { font-size: .75rem; font-weight: 800; line-height: 1.1; }
 .parshah-filter-name { color: #98752a; font-size: .69rem; font-weight: 600; line-height: 1.15; }
 .parshah-filter.active .parshah-filter-name { color: #775a18; }
-.kollel-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 8px 12px; border: 1px solid #dbc17c; border-radius: 10px; background: #fffaf0; color: #765812; font: inherit; font-size: .75rem; font-weight: 800; cursor: pointer; transition: border-color .18s ease, background .18s ease, box-shadow .18s ease; }
-.kollel-toggle:hover { border-color: #c79d43; background: #faf0db; }
-.kollel-toggle.active { border-color: #bd9135; background: #f0deab; box-shadow: inset 0 0 0 1px rgba(159,118,32,.08); }
-.kollel-toggle .mdi-loading { font-size: .95rem; }
-.kollel-switch-track { position: relative; flex: 0 0 auto; width: 34px; height: 19px; border: 1px solid #cfc5b4; border-radius: 999px; background: #e7e0d4; box-shadow: inset 0 1px 2px rgba(26,39,68,.08); transition: background .18s ease, border-color .18s ease; }
-.kollel-switch-thumb { position: absolute; top: 2px; inset-inline-start: 2px; width: 13px; height: 13px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(26,39,68,.28); transition: transform .2s ease; }
-.kollel-toggle.active .kollel-switch-track { border-color: #9f7620; background: #b88b32; }
-.kollel-toggle.active .kollel-switch-thumb { transform: translateX(-15px); }
+.kollel-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 34px; padding: 5px 9px 5px 12px; border: 1px solid #d8bf7b; border-radius: 999px; background: #fffdf8; color: var(--navy, #1a2744); font: inherit; font-size: .72rem; font-weight: 800; line-height: 1; white-space: nowrap; cursor: pointer; transition: border-color .18s ease, background .18s ease, color .18s ease; }
+.kollel-toggle:hover { border-color: #be9847; background: #fbf5e8; }
+.kollel-toggle.active { border-color: #c59c43; background: #f7edd5; color: #654d16; }
+.kollel-indicator { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 20px; height: 20px; border: 1px solid #cdbd99; border-radius: 50%; background: #fff; color: #fff; transition: border-color .18s ease, background .18s ease; }
+.kollel-indicator .mdi { font-size: .78rem; line-height: 1; }
+.kollel-toggle.active .kollel-indicator { border-color: #b88a2c; background: #b88a2c; }
 .controls-secondary-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding-top: 10px; border-top: 1px solid #efe7d9; }
 .controls-secondary-row > .method-selector:only-child { margin-inline-start: auto; }
 .filter-list { display: flex; flex-wrap: wrap; gap: 7px; }
@@ -665,8 +660,7 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .save-action { color: #98732b !important; }
 .curated-action { background: #fffaf0 !important; border-color: #e2d1aa !important; color: #765812 !important; font-weight: 700 !important; }
 .curated-action.saved { background: #f3f7f0 !important; border-color: #cbd9c5 !important; color: #55724b !important; cursor: default; opacity: .9; }
-.curated-action.selected, .selection-toggle.active { background: #f2e4bd !important; color: #765812 !important; border-color: #d6bd7a !important; }
-.selection-toggle { border: 1px solid transparent; border-radius: 7px; background: transparent; color: #8e6d2c; padding: 6px 9px; font: inherit; font-size: .7rem; cursor: pointer; }
+.curated-action.selected { background: #f2e4bd !important; color: #765812 !important; border-color: #d6bd7a !important; }
 .curated-save-bar { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 14px auto 0; padding: 8px 12px; border: 1px solid #dcc58e; border-radius: 9px; background: #fbf4e6; color: #765812; font-size: .76rem; }
 .curated-save-bar button { border: 1px solid #c9a55d; border-radius: 6px; background: #fffdf8; color: #765812; padding: 5px 9px; font: inherit; cursor: pointer; }
 .curated-save-bar .cancel-curated { border-color: transparent; background: transparent; }
