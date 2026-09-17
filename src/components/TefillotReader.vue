@@ -74,7 +74,17 @@
           </div>
           <p v-else-if="sectionError" class="section-state section-error" role="alert">{{ sectionError }}</p>
           <article v-else-if="units.length" class="prayer-text" lang="he">
-            <p v-for="unit in units" :key="unit.id">{{ unit.hebrew_text }}</p>
+            <p
+              v-for="unit in units"
+              :key="unit.id"
+              :data-unit-id="unit.id"
+              :class="{ 'matched-unit': Number(unit.id) === highlightedMatch?.unitId }"
+            >
+              <template v-if="Number(unit.id) === highlightedMatch?.unitId">
+                {{ highlightedUnitParts(unit).before }}<mark>{{ highlightedUnitParts(unit).match }}</mark>{{ highlightedUnitParts(unit).after }}
+              </template>
+              <template v-else>{{ unit.hebrew_text }}</template>
+            </p>
           </article>
           <div v-else class="section-state">בחרו מועד, תפילה וחלק לקריאה.</div>
         </section>
@@ -95,8 +105,13 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref } from 'vue';
+import { createTanachCursor } from '@/composables/useTanachCursor.js';
 
+const props = defineProps({
+  openReference: { type: Object, default: null },
+});
+const emit = defineEmits(['referenceConsumed']);
 const catalog = ref({ occasions: [], sources: [], stats: { unit_count: 0 } });
 const selectedOccasion = ref(null);
 const selectedService = ref(null);
@@ -106,6 +121,7 @@ const loadingCatalog = ref(true);
 const loadingSection = ref(false);
 const catalogError = ref('');
 const sectionError = ref('');
+const highlightedMatch = ref(null);
 let requestId = 0;
 
 const activeSource = computed(() => units.value[0] || null);
@@ -120,7 +136,20 @@ async function loadCatalog() {
     if (!response.ok) throw new Error(response.status === 401 ? 'נדרשת התחברות מחדש' : 'לא ניתן לטעון את מאגר התפילות');
     catalog.value = await response.json();
     if (!catalog.value.occasions.length) throw new Error('מאגר התפילות עדיין לא נטען');
-    selectOccasion(catalog.value.occasions[0]);
+    const referencedOccasion = catalog.value.occasions.find(
+      occasion => occasion.slug === props.openReference?.occasionSlug
+    );
+    selectOccasion(referencedOccasion || catalog.value.occasions[0]);
+    if (referencedOccasion) {
+      const service = referencedOccasion.services.find(
+        item => item.slug === props.openReference?.serviceSlug
+      );
+      if (service) {
+        selectService(service);
+        const section = service.sections.find(item => item.key === props.openReference?.sectionKey);
+        if (section) selectSection(section);
+      }
+    }
   } catch (error) {
     catalogError.value = error.message;
   } finally {
@@ -154,12 +183,56 @@ async function selectSection(section) {
     const response = await fetch(`/api/tefillot/section?${params}`);
     if (!response.ok) throw new Error('לא ניתן לטעון את חלק התפילה');
     const payload = await response.json();
-    if (currentRequest === requestId) units.value = payload.section;
+    if (currentRequest === requestId) {
+      units.value = payload.section;
+      await revealReferencedMatch();
+    }
   } catch (error) {
     if (currentRequest === requestId) sectionError.value = error.message;
   } finally {
     if (currentRequest === requestId) loadingSection.value = false;
   }
+}
+
+function highlightedUnitParts(unit) {
+  const text = String(unit.hebrew_text || '');
+  const match = highlightedMatch.value;
+  if (!match || Number(unit.id) !== match.unitId) return { before: '', match: text, after: '' };
+  const cursor = createTanachCursor(text);
+  const first = cursor.letters[match.start];
+  const last = cursor.letters[match.end];
+  if (!first || !last) return { before: '', match: text, after: '' };
+  const characters = [...text];
+  let end = last.displayIndex + 1;
+  while (/[\u0591-\u05BD\u05BF-\u05C2\u05C4\u05C5\u05C7]/u.test(characters[end] || '')) end += 1;
+  return {
+    before: characters.slice(0, first.displayIndex).join(''),
+    match: characters.slice(first.displayIndex, end).join(''),
+    after: characters.slice(end).join(''),
+  };
+}
+
+async function revealReferencedMatch() {
+  const reference = props.openReference;
+  if (
+    !reference
+    || !Number.isSafeInteger(Number(reference.unitId))
+    || !Number.isSafeInteger(Number(reference.start))
+    || !Number.isSafeInteger(Number(reference.end))
+  ) return;
+  const unitId = Number(reference.unitId);
+  if (!units.value.some(unit => Number(unit.id) === unitId)) return;
+  highlightedMatch.value = {
+    unitId,
+    start: Number(reference.start),
+    end: Number(reference.end),
+  };
+  await nextTick();
+  document.querySelector(`[data-unit-id="${unitId}"]`)?.scrollIntoView({
+    behavior: 'smooth',
+    block: 'center',
+  });
+  emit('referenceConsumed', reference.requestId);
 }
 </script>
 
@@ -222,6 +295,8 @@ async function selectSection(section) {
   margin: 0 0 1.05em; color: #202a3d; font-family: "Noto Serif Hebrew", serif;
   font-size: clamp(1.14rem, 1.8vw, 1.35rem); line-height: 2; white-space: pre-line;
 }
+.prayer-text p.matched-unit { scroll-margin-block: 120px; }
+.prayer-text mark { padding: 2px 4px; border-radius: 3px; background: #f2e4bd; color: #4e3b13; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
 .section-state, .reader-state {
   min-height: 320px; display: flex; align-items: center; justify-content: center; gap: 10px; color: #7b8496;
 }

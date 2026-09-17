@@ -13,7 +13,7 @@
     <template v-else>
       <AppBar :currentPage="currentPage" @navigate="currentPage = $event" @logout="onLogout" />
       <main class="main-content">
-        <GimForm v-if="currentPage === 'calculator'" @open-tanach="openTanachDiscovery" />
+        <GimForm v-if="currentPage === 'calculator'" @open-tanach="openTanachDiscovery" @open-tefillot="openTefillotDiscovery" />
         <SavedLibrary v-else-if="currentPage === 'library'" @open-tanach="openTanachDiscovery" />
         <BaseWords v-else-if="currentPage === 'base-words'" />
         <TanachReader
@@ -21,7 +21,11 @@
           :open-reference="pendingTanachReference"
           @reference-consumed="consumeTanachReference"
         />
-        <TefillotReader v-else-if="currentPage === 'tefillot'" />
+        <TefillotReader
+          v-else-if="currentPage === 'tefillot'"
+          :open-reference="pendingTefillotReference"
+          @reference-consumed="consumeTefillotReference"
+        />
       </main>
     </template>
   </div>
@@ -42,6 +46,8 @@ import { resolveAuthentication } from '@/composables/useAuthentication.js';
 const authState  = ref('checking');
 const currentPage = ref('calculator');
 const pendingTanachReference = ref(null);
+const pendingTefillotReference = ref(null);
+let tefillotReferenceRequestId = 0;
 let tanachReferenceRequestId = 0;
 
 onMounted(async () => {
@@ -70,11 +76,31 @@ function consumeTanachReference(requestId) {
   }
 }
 
+function openTefillotDiscovery(result) {
+  pendingTefillotReference.value = {
+    occasionSlug: result.occasionSlug,
+    serviceSlug: result.serviceSlug,
+    sectionKey: result.sectionKey,
+    unitId: result.unitId,
+    start: result.start,
+    end: result.end,
+    requestId: ++tefillotReferenceRequestId,
+  };
+  currentPage.value = 'tefillot';
+}
+
+function consumeTefillotReference(requestId) {
+  if (pendingTefillotReference.value?.requestId === requestId) {
+    pendingTefillotReference.value = null;
+  }
+}
+
 async function onLogout() {
   await fetch('/api/auth/logout', { method: 'POST' });
   authState.value = 'unauthenticated';
   currentPage.value = 'calculator';
   pendingTanachReference.value = null;
+  pendingTefillotReference.value = null;
 }
 </script>
 

@@ -1,0 +1,295 @@
+ATURE — BEAUTIFUL DYNAMIC SEARCH SOURCE UI: תנ״ך / תפילות / הכל
+
+Build a polished, production-quality source selector into the existing Gematria discovery area so the user can search:
+
+תנ״ך
+תפילות
+הכל = both Tanach and Tefillot together
+
+This must feel like a natural evolution of the current cream / navy / gold interface, not like a new disconnected feature.
+
+Do not redesign the whole page. Work only inside the existing discovery/filter card.
+
+1. SOURCE SELECTOR
+
+Add a refined segmented control labeled:
+
+מקור החיפוש
+
+with three options:
+
+הכל | תנ״ך | תפילות
+
+Make it elegant, compact, and clearly interactive.
+
+Recommended default:
+
+הכל
+
+because this gives the user the broadest answer to “where else does this value appear?”
+
+Use subtle gold/cream active styling and navy text. Avoid heavy switches or bulky buttons.
+
+2. DYNAMIC FILTERS
+
+The filter controls underneath must change intelligently according to the selected source.
+
+When source = תנ״ך
+
+Show only Tanach-specific filters:
+
+ספר
+weekly-parsha/context filter
+
+Use the existing Tanach filter behavior where possible.
+
+Do not show Tefillot filters.
+
+When source = תפילות
+
+Replace the Tanach filters with:
+
+מועד
+תפילה
+
+Example values:
+
+מועד
+
+הכל
+חול
+שבת
+יום טוב
+ראש חודש
+ימים נוראים
+
+תפילה
+
+הכל
+שחרית
+מנחה
+מעריב
+מוסף
+נעילה where available
+
+Do not show Tanach-specific dropdowns in this mode.
+
+When source = הכל
+
+Search both corpora:
+
+Tanach
+Tefillot
+
+Do not show four separate dropdowns at once.
+
+Keep the combined mode clean.
+
+In הכל mode:
+
+show either no source-specific filters by default, or only one compact סינון נוסף affordance if needed
+search both corpora automatically
+
+The interface should remain visually calm and uncluttered.
+
+3. TITLE / CONTEXT SHOULD UPDATE
+
+Make the heading context-aware.
+
+Examples:
+
+הכל
+
+איפה עוד מופיע הערך 45?
+
+תנ״ך
+
+איפה עוד מופיע הערך 45 בתנ״ך?
+
+תפילות
+
+איפה עוד מופיע הערך 45 בתפילות?
+
+Keep wording concise and natural.
+
+4. RESULT PRESENTATION
+
+Every result must clearly identify its source.
+
+Tanach result example
+
+תנ״ך · בראשית א:כו
+
+Tefillot result example
+
+תפילות · שבת · שחרית · עמידה
+
+Use small, refined source badges or metadata—not large banners.
+
+Result cards should remain visually consistent with the current card design.
+
+Do not redesign the entire result-card system.
+
+5. COUNTERS IN הכל MODE
+
+In combined mode, make the totals more informative without adding clutter.
+
+Example:
+
+1,944 התאמות
+
+with smaller breakdown chips:
+
+תנ״ך 697
+תפילות 1,247
+
+Keep the existing match-type filters:
+
+הכול
+מילה שלמה
+מילים שלימות
+
+Do not remove or break them.
+
+6. KOLLEL
+
+Preserve the current redesigned כולל pill control exactly where it is.
+
+Do not replace it with another switch.
+
+Do not change its logic.
+
+It must continue using the existing includeKollel state.
+
+It should work consistently across:
+
+תנ״ך
+תפילות
+הכל
+7. MATCHING METHODS
+
+Preserve:
+
+גימטריה
+ראשי תיבות
+סופי תיבות
+
+Keep their current behavior.
+
+These methods should apply to whichever source is selected.
+
+8. DATA / SEARCH LOGIC
+
+Use the existing Tanach search path for Tanach results.
+
+Use the new structured Tefillot corpus for Tefillot results.
+
+For הכל, combine results from both search paths cleanly.
+
+Do not flatten source identity.
+
+Every result must retain:
+
+source type
+source reference
+match type
+contextual metadata
+
+For Tefillot, retain at minimum:
+
+occasion
+service
+section
+9. UI QUALITY
+
+This should look highly polished.
+
+Design goals:
+
+clean
+premium
+minimal
+tablet-friendly
+RTL-perfect
+visually aligned with the current cream / navy / muted-gold design
+
+Avoid:
+
+too many dropdowns
+large blocks of controls
+duplicate labels
+old-fashioned toggle switches
+unnecessary explanatory text
+layout jumping when changing source
+
+The card height should remain compact and stable where practical.
+
+Use subtle transitions when the filter set changes.
+
+10. RESPONSIVE BEHAVIOR
+
+Desktop:
+
+keep the source selector compact
+keep dynamic filters aligned neatly
+preserve the current horizontal layout
+
+Tablet/mobile:
+
+allow controls to stack cleanly
+maintain good tap targets
+no horizontal overflow
+11. DO NOT TOUCH
+
+Do not modify:
+
+authentication
+multi-user migration
+database ownership logic unrelated to search
+saved data
+calculator input persistence
+navigation architecture
+publishing
+result-card actions
+unrelated styling
+
+Do not perform broad refactors.
+
+12. BROWSER VERIFICATION
+
+Before declaring this complete, verify in the actual rendered development Preview:
+
+הכל
+source selector shows הכל active
+both Tanach and Tefillot results appear
+each result clearly shows its source
+total and source breakdown are correct
+תנ״ך
+only Tanach filters appear
+only Tanach results appear
+תפילות
+only Tefillot filters appear
+only Tefillot results appear
+
+Also verify:
+
+changing source does not break כולל
+changing source does not break גימטריה / ראשי תיבות / סופי תיבות
+current result-type filters still work
+RTL remains correct
+layout remains compact
+
+Do not publish.
+
+FINAL RESPONSE
+
+When finished, report only:
+
+source selector added
+dynamic filters added
+combined search behavior
+source labeling on results
+browser verification results
+anything still missing
+
+Do not broaden the task beyond this source-selection/search experience.

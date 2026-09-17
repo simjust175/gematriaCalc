@@ -1,8 +1,24 @@
+import {
+  parseTefillotGematriaQuery,
+  searchTefillotGematria,
+} from './tefillotGematriaDiscovery.js';
+
 function validSlug(value) {
   return typeof value === 'string' && /^[a-z0-9-]+$/u.test(value);
 }
 
 export function registerTefillotRoutes(app, { pool, requireAuth }) {
+  app.get('/api/tefillot/gematria-matches', requireAuth, async (req, res) => {
+    const parsed = parseTefillotGematriaQuery(req.query);
+    if (parsed.error) return res.status(400).json({ error: parsed.error });
+    try {
+      res.json(await searchTefillotGematria(pool, parsed));
+    } catch (error) {
+      console.error('/api/tefillot/gematria-matches error:', error.message);
+      res.status(500).json({ error: 'tefillot_gematria_search_failed' });
+    }
+  });
+
   app.get('/api/tefillot/catalog', requireAuth, async (_req, res) => {
     try {
       const [navigation, sources, count] = await Promise.all([

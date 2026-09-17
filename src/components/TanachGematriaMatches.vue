@@ -2,7 +2,7 @@
   <section class="gematria-discovery" dir="rtl" aria-labelledby="matches-title">
     <header class="discovery-header">
       <div class="heading-block">
-        <span class="section-kicker">מחקר תנ״כי</span>
+        <span class="section-kicker">{{ sourceKicker }}</span>
         <div class="title-line">
           <h2 id="matches-title">{{ discoveryHeading }}</h2>
         </div>
@@ -12,12 +12,33 @@
             <strong>{{ allTotal.toLocaleString('he-IL') }}</strong>
             <span>התאמות</span>
           </p>
+          <div v-if="source === 'all'" class="source-breakdown" aria-label="התאמות לפי מקור">
+            <span><span class="mdi mdi-book-open-variant-outline" aria-hidden="true"></span> תנ״ך <b>{{ sourceCounts.tanach.toLocaleString('he-IL') }}</b></span>
+            <span><span class="mdi mdi-hands-pray" aria-hidden="true"></span> תפילות <b>{{ sourceCounts.tefillot.toLocaleString('he-IL') }}</b></span>
+          </div>
         </div>
       </div>
     </header>
 
     <div class="controls" role="toolbar" aria-label="סינון התאמות">
-      <div class="controls-primary-row">
+      <div class="source-control-row">
+        <span class="source-control-label">מקור החיפוש</span>
+        <div class="source-selector" role="group" aria-label="מקור החיפוש">
+          <button
+            v-for="item in sourceOptions"
+            :key="item.value"
+            type="button"
+            :class="{ active: source === item.value }"
+            :aria-pressed="source === item.value"
+            @click="source = item.value"
+          >
+            <span class="mdi" :class="item.icon" aria-hidden="true"></span>
+            {{ item.label }}
+          </button>
+        </div>
+      </div>
+      <Transition name="filter-swap" mode="out-in">
+      <div v-if="source === 'tanach'" key="tanach" class="controls-primary-row">
         <div class="manual-range">
           <TanachScopeSelect
             :model-value="bookOrder"
@@ -69,6 +90,23 @@
           </span>
         </button>
       </div>
+      <div v-else-if="source === 'tefillot'" key="tefillot" class="tefillot-filter-row">
+        <TanachScopeSelect
+          :model-value="tefillotOccasion"
+          label="מועד"
+          :groups="[{ options: tefillotOccasionOptions }]"
+          empty-label="כל המועדים"
+          @update:model-value="tefillotOccasion = $event"
+        />
+        <TanachScopeSelect
+          :model-value="tefillotService"
+          label="תפילה"
+          :groups="[{ options: tefillotServiceOptions }]"
+          empty-label="כל התפילות"
+          @update:model-value="tefillotService = $event"
+        />
+      </div>
+      </Transition>
       <div class="controls-secondary-row">
         <button
           v-if="method === 'gematria'"
@@ -124,12 +162,12 @@
         </div>
       </div>
     </div>
-    <p v-if="rangeMetadataError || chapterVersesError" class="range-filter-error" role="status">{{ rangeMetadataError || chapterVersesError }}</p>
-    <p v-if="weeklyParshah" class="parshah-note">
+    <p v-if="source === 'tanach' && (rangeMetadataError || chapterVersesError)" class="range-filter-error" role="status">{{ rangeMetadataError || chapterVersesError }}</p>
+    <p v-if="source === 'tanach' && weeklyParshah" class="parshah-note">
       פרשת השבוע: <strong>{{ weeklyParshah.nameHe }}</strong>
       <span v-if="currentParshah"> · {{ total.toLocaleString('he-IL') }} התאמות</span>
     </p>
-    <p v-else-if="manualScopeLabel" class="scope-note">מציג התאמות ב{{ manualScopeLabel }}</p>
+    <p v-else-if="source === 'tanach' && manualScopeLabel" class="scope-note">מציג התאמות ב{{ manualScopeLabel }}</p>
 
     <div v-if="loading && !results.length" class="match-grid" aria-label="טוען התאמות" aria-busy="true">
       <article v-for="n in 3" :key="n" class="match-card skeleton-card">
@@ -150,7 +188,13 @@
     <div v-else class="match-grid" aria-live="polite">
       <article v-for="(result, index) in results" :key="resultKey(result)" class="match-card" :class="{ 'curated-selected-card': selectedKeys.has(resultKey(result)) }">
         <div class="card-topline">
-          <span class="type-label">{{ typeLabel(result.type) }}</span>
+          <div class="card-labels">
+            <span class="source-badge" :class="`source-badge--${result.sourceType}`">
+              <span class="mdi" :class="result.sourceType === 'tefillot' ? 'mdi-hands-pray' : 'mdi-book-open-variant-outline'" aria-hidden="true"></span>
+              {{ result.sourceType === 'tefillot' ? 'תפילות' : 'תנ״ך' }}
+            </span>
+            <span class="type-label">{{ typeLabel(result.type) }}</span>
+          </div>
           <span class="match-index">{{ String(index + 1).padStart(2, '0') }}</span>
         </div>
         <div class="citation">
@@ -178,6 +222,7 @@
             פתח בקורא
           </button>
           <button
+            v-if="result.sourceType !== 'tefillot'"
             type="button"
             class="save-action"
             :class="{ saved: savedKeys.has(resultKey(result)), saving: savingKey === resultKey(result) }"
@@ -188,6 +233,7 @@
             {{ savedKeys.has(resultKey(result)) ? 'נשמר' : 'שמור טווח' }}
           </button>
           <button
+            v-if="result.sourceType !== 'tefillot'"
             type="button"
             class="curated-action"
             :class="{ selected: selectedKeys.has(resultKey(result)) || curatedSavedKeys.has(curatedStateKey(result)), saved: curatedSavedKeys.has(curatedStateKey(result)) }"
@@ -230,7 +276,7 @@ const props = defineProps({
   pattern: { type: String, default: '' },
   sourceText: { type: String, default: '' },
 });
-const emit = defineEmits(['open', 'saved']);
+const emit = defineEmits(['open', 'openTefillot', 'saved']);
 const savedKeys = ref(new Set());
 const saveErrors = ref(new Set());
 const savingKey = ref('');
@@ -255,20 +301,44 @@ const filterOptions = [
   { value: 'whole_phrase', label: 'מילים שלימות' },
 ];
 const method = ref('gematria');
+const source = ref('all');
+const tefillotOccasion = ref('');
+const tefillotService = ref('');
 const orderIndependent = ref(false);
+const sourceOptions = [
+  { value: 'all', label: 'הכל', icon: 'mdi-layers-triple-outline' },
+  { value: 'tanach', label: 'תנ״ך', icon: 'mdi-book-open-variant-outline' },
+  { value: 'tefillot', label: 'תפילות', icon: 'mdi-hands-pray' },
+];
+const tefillotOccasionOptions = [
+  { value: 'weekday', label: 'חול' },
+  { value: 'shabbat', label: 'שבת' },
+  { value: 'festival', label: 'יום טוב' },
+];
+const tefillotServiceOptions = [
+  { value: 'shacharit', label: 'שחרית' },
+  { value: 'mincha', label: 'מנחה' },
+  { value: 'maariv', label: 'ערבית' },
+  { value: 'musaf', label: 'מוסף' },
+  { value: 'kabbalat-shabbat', label: 'קבלת שבת' },
+  { value: 'additional', label: 'תפילות נוספות' },
+];
 const methodOptions = [
   { value: 'gematria', label: 'גימטריה' },
   { value: 'initials', label: 'ראשי תיבות' },
   { value: 'finals', label: 'סופי תיבות' },
 ];
 const {
-  results, counts, total, loading, error, filter, includeKollel, bookOrder, parshaId, chapterBook, chapter, verse, currentParshah, weeklyParshah,
+  results, counts, total, sourceCounts, loading, error, filter, includeKollel, bookOrder, parshaId, chapterBook, chapter, verse, currentParshah, weeklyParshah,
   hasMore, setFilter, setIncludeKollel, setBookOrder, setParshaId, setChapter, setVerse, toggleCurrentParshah, loadMore, refresh,
 } =
   useTanachGematriaMatches(computed(() => props.target), {
     methodRef: method,
     sequenceRef: computed(() => props.pattern),
     orderIndependentRef: orderIndependent,
+    sourceRef: source,
+    tefillotOccasionRef: tefillotOccasion,
+    tefillotServiceRef: tefillotService,
   });
 
 const effectiveTarget = computed(() => (
@@ -276,19 +346,38 @@ const effectiveTarget = computed(() => (
 ));
 const formattedTarget = computed(() => effectiveTarget.value.toLocaleString('he-IL'));
 const allTotal = computed(() => Number(counts.value.all ?? total.value) || 0);
+const sourceKicker = computed(() => ({
+  all: 'מחקר מקורות',
+  tanach: 'מחקר תנ״כי',
+  tefillot: 'מחקר תפילות',
+}[source.value]));
 const hasPattern = computed(() => [...props.pattern].length >= 1);
 const discoveryHeading = computed(() => {
-  if (method.value === 'initials') return `איפה מופיעים ראשי התיבות ${props.pattern}?`;
-  if (method.value === 'finals') return `איפה מופיעים סופי התיבות ${props.pattern}?`;
-  return `איפה עוד מופיע הערך ${formattedTarget.value}?`;
+  const suffix = source.value === 'tanach' ? ' בתנ״ך' : source.value === 'tefillot' ? ' בתפילות' : '';
+  if (method.value === 'initials') return `איפה מופיעים ראשי התיבות ${props.pattern}${suffix}?`;
+  if (method.value === 'finals') return `איפה מופיעים סופי התיבות ${props.pattern}${suffix}?`;
+  return `איפה עוד מופיע הערך ${formattedTarget.value}${suffix}?`;
 });
 const discoveryDescription = computed(() => method.value === 'gematria'
-  ? 'למצוא תיבות וצירופים בפסוקי התנ״ך העולים בגימטריא למספר המבוקש.'
+  ? source.value === 'tanach'
+    ? 'למצוא תיבות וצירופים בפסוקי התנ״ך העולים בגימטריא למספר המבוקש.'
+    : source.value === 'tefillot'
+      ? 'למצוא תיבות וצירופים בנוסח התפילות העולים בגימטריא למספר המבוקש.'
+      : 'למצוא תיבות וצירופים בתנ״ך ובתפילות העולים בגימטריא למספר המבוקש.'
   : method.value === 'initials'
     ? `מילים רצופות הפותחות באותיות ${props.pattern}`
     : `מילים רצופות המסתיימות באותיות ${props.pattern}`);
 watch(hasPattern, (valid) => {
   if (!valid && method.value !== 'gematria') method.value = 'gematria';
+});
+watch(source, (nextSource) => {
+  if (nextSource !== 'tanach') {
+    selectBook('');
+  }
+  if (nextSource !== 'tefillot') {
+    tefillotOccasion.value = '';
+    tefillotService.value = '';
+  }
 });
 watch([method, () => props.sourceText], () => {
   selectedKeys.value = new Set();
@@ -406,6 +495,9 @@ function typeLabel(type) {
   return { whole_word: 'מילה אחת', whole_phrase: 'מילים שלימות', partial: 'חלק ממילה' }[type] || 'התאמה';
 }
 function citation(item) {
+  if (item.sourceType === 'tefillot') {
+    return [item.occasionLabel, item.serviceLabel, item.sectionLabel].filter(Boolean).join(' · ');
+  }
   const book = item.bookName || item.book || item.bookSlug || '';
   return `${book} ${toHebrewNumber(item.chapter)}:${toHebrewNumber(item.verse)}`.trim();
 }
@@ -424,7 +516,8 @@ function canonicalSourceKey(item) {
   return `${context.bookSlug || context.book_slug || item.bookSlug || item.book || ''}-${context.chapter}-${context.verse}-${context.start}-${context.end}`;
 }
 function openResult(item) {
-  emit('open', item);
+  if (item.sourceType === 'tefillot') emit('openTefillot', item);
+  else emit('open', item);
 }
 function reasonCode() {
   return {
@@ -571,6 +664,20 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .total-mark strong { font-size: .84rem; font-variant-numeric: tabular-nums; color: #96732b; }
 .total-mark span { font-size: .7rem; }
 .controls { display: grid; gap: 11px; margin-bottom: 9px; padding: 11px 13px; border: 1px solid rgba(211,193,151,.55); border-radius: 11px; background: rgba(255,253,249,.72); }
+.source-control-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding-bottom: 10px; border-bottom: 1px solid #efe7d9; }
+.source-control-label { color: #96732b; font-size: .7rem; font-weight: 800; white-space: nowrap; }
+.source-selector { display: inline-flex; max-width: 100%; padding: 3px; border: 1px solid #e2d5ba; border-radius: 9px; background: #fff; }
+.source-selector button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 92px; min-height: 34px; padding: 5px 12px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: #4d5a70; font: inherit; font-size: .75rem; font-weight: 750; cursor: pointer; transition: background .16s ease, border-color .16s ease, color .16s ease; }
+.source-selector button .mdi { color: #a68035; font-size: 1rem; }
+.source-selector button:hover { background: #fbf6ec; }
+.source-selector button.active { border-color: #d6bd7a; background: #f8f0dc; color: #765812; box-shadow: 0 1px 3px rgba(60,46,17,.08); }
+.source-breakdown { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.source-breakdown > span { display: inline-flex; align-items: center; gap: 4px; padding: 3px 7px; border: 1px solid #e8e0d3; border-radius: 999px; background: #fffdf9; color: #657084; font-size: .67rem; }
+.source-breakdown .mdi { color: #a68035; }
+.source-breakdown b { color: #34415a; font-variant-numeric: tabular-nums; }
+.tefillot-filter-row { display: grid; grid-template-columns: repeat(2, minmax(150px, 240px)); gap: 8px; justify-content: start; min-height: 48px; }
+.filter-swap-enter-active, .filter-swap-leave-active { transition: opacity .14s ease, transform .14s ease; }
+.filter-swap-enter-from, .filter-swap-leave-to { opacity: 0; transform: translateY(-3px); }
 .method-selector { display: inline-flex; flex: 0 0 auto; max-width: 100%; padding: 3px; gap: 2px; border: 1px solid #e2d5ba; border-radius: 9px; background: #f5efe4; }
 .method-selector button { display: inline-flex; align-items: center; min-height: 30px; padding: 4px 10px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: #657084; font: inherit; font-size: .72rem; font-weight: 750; line-height: 1; white-space: nowrap; cursor: pointer; transition: background .16s ease, color .16s ease, border-color .16s ease; }
 .method-selector button:hover:not(:disabled) { color: #725619; }
@@ -620,6 +727,10 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .match-card:hover { transform: translateY(-2px); box-shadow: 0 7px 18px rgba(26,39,68,.08); }
 .match-card.curated-selected-card { border-color: #c09840; background: #fffdf7; box-shadow: 0 0 0 1px rgba(192,152,64,.14); }
 .card-topline, .card-actions { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.card-labels { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+.source-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 7px; border: 1px solid #e6dfd2; border-radius: 999px; background: #fbfaf7; color: #526079; font-size: .65rem; font-weight: 800; }
+.source-badge .mdi { color: #a68035; font-size: .82rem; }
+.source-badge--tefillot { background: #faf5e8; border-color: #e4d5ad; color: #765812; }
 .type-label { color: #8e6d2c; font-size: .68rem; font-weight: 800; }
 .match-index { color: #c9c0b1; font-size: .68rem; font-variant-numeric: tabular-nums; }
 .citation { margin-top: 12px; }
@@ -680,5 +791,5 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .load-more { display: flex; align-items: center; gap: 7px; margin: 16px auto 0; padding-inline: 16px; }
 @keyframes breathe { from { opacity: .45; } to { opacity: 1; } }
 @media (max-width: 820px) { .match-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 560px) { .discovery-header { align-items: flex-start; gap: 8px; }.title-line { align-items: flex-start; gap: 7px; }.title-line h2 { flex: 1 1 auto; }.match-grid { grid-template-columns: 1fr; }.total-mark strong { font-size: .78rem; }.controls { gap: 11px; padding: 11px; }.controls-primary-row { grid-template-columns: 1fr; gap: 9px; }.manual-range { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }.manual-range > :first-child { grid-column: 1 / -1; }.parshah-filter { min-height: 46px; }.controls-secondary-row { flex-direction: column; align-items: stretch; gap: 9px; }.controls-secondary-row .method-selector { align-self: flex-start; order: 1; margin-inline-start: 0; }.controls-secondary-row .filter-list { order: 2; gap: 6px; }.controls-secondary-row .order-switch { order: 2; align-self: flex-start; margin-inline-start: 0; } }
+@media (max-width: 560px) { .discovery-header { align-items: flex-start; gap: 8px; }.title-line { align-items: flex-start; gap: 7px; }.title-line h2 { flex: 1 1 auto; }.match-grid { grid-template-columns: 1fr; }.total-mark strong { font-size: .78rem; }.controls { gap: 11px; padding: 11px; }.source-control-row { align-items: stretch; flex-direction: column; gap: 7px; }.source-selector { width: 100%; }.source-selector button { min-width: 0; flex: 1 1 0; padding-inline: 7px; }.controls-primary-row { grid-template-columns: 1fr; gap: 9px; }.tefillot-filter-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }.manual-range { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }.manual-range > :first-child { grid-column: 1 / -1; }.parshah-filter { min-height: 46px; }.controls-secondary-row { flex-direction: column; align-items: stretch; gap: 9px; }.controls-secondary-row .method-selector { align-self: flex-start; order: 1; margin-inline-start: 0; }.controls-secondary-row .filter-list { order: 2; gap: 6px; }.controls-secondary-row .order-switch { order: 2; align-self: flex-start; margin-inline-start: 0; } }
 </style>
