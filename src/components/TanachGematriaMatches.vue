@@ -86,20 +86,8 @@
         </button>
       </div>
       <div class="controls-secondary-row">
-        <button
-          type="button"
-          class="selection-toggle"
-          :class="{ active: selectionMode }"
-          :aria-pressed="selectionMode"
-          :title="selectionMode ? 'סיום בחירה' : 'בחירת כמה התאמות'"
-          @click="toggleSelectionMode"
-        >
-          <span
-            class="mdi"
-            :class="selectionMode ? 'mdi-checkbox-multiple-marked-outline' : 'mdi-checkbox-multiple-blank-outline'"
-            aria-hidden="true"
-          ></span>
-          <span>בחירה</span>
+        <button type="button" class="selection-toggle" :class="{ active: selectionMode }" @click="toggleSelectionMode">
+          {{ selectionMode ? 'יציאה מבחירה' : 'בחירה מרובה' }}
         </button>
         <div v-if="method === 'gematria'" class="filter-list" role="group" aria-label="סוג התאמה">
           <button
@@ -678,8 +666,7 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .curated-action { background: #fffaf0 !important; border-color: #e2d1aa !important; color: #765812 !important; font-weight: 700 !important; }
 .curated-action.saved { background: #f3f7f0 !important; border-color: #cbd9c5 !important; color: #55724b !important; cursor: default; opacity: .9; }
 .curated-action.selected, .selection-toggle.active { background: #f2e4bd !important; color: #765812 !important; border-color: #d6bd7a !important; }
-.selection-toggle { display: inline-flex; align-items: center; gap: 5px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: #8e6d2c; padding: 6px 9px; font: inherit; font-size: .7rem; cursor: pointer; }
-.selection-toggle .mdi { font-size: .95rem; }
+.selection-toggle { border: 1px solid transparent; border-radius: 7px; background: transparent; color: #8e6d2c; padding: 6px 9px; font: inherit; font-size: .7rem; cursor: pointer; }
 .curated-save-bar { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 14px auto 0; padding: 8px 12px; border: 1px solid #dcc58e; border-radius: 9px; background: #fbf4e6; color: #765812; font-size: .76rem; }
 .curated-save-bar button { border: 1px solid #c9a55d; border-radius: 6px; background: #fffdf8; color: #765812; padding: 5px 9px; font: inherit; cursor: pointer; }
 .curated-save-bar .cancel-curated { border-color: transparent; background: transparent; }

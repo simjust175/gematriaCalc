@@ -90,7 +90,6 @@ test('Kollel switch keeps its effective target, active state, and corpus counts 
   await expect(discovery.getByRole('heading')).toContainText('44');
   await expect(kollel).toHaveText('כולל');
   await expect(kollel).toHaveAttribute('aria-checked', 'false');
-  await expect(discovery.locator('.selection-toggle')).toHaveText('בחירה');
   await expect(discovery.locator('.total-mark strong')).toHaveText('697');
   await expect(filterCounts).toHaveText(['697', '497', '200']);
 
