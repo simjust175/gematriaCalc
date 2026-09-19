@@ -1,0 +1,88 @@
+BUG FIX — “הכל” SHOULD SHOW BOTH TANACH + TEFILLOT RESULTS
+
+There is a regression in the source selector.
+
+Current behavior:
+
+תנ״ך works and returns Tanach results.
+תפילות should return Tefillot results.
+הכל currently returns 0 / no results.
+
+Required behavior:
+
+תנ״ך = Tanach results only
+תפילות = Tefillot results only
+הכל = BOTH Tanach and Tefillot results combined
+
+Important:
+
+Do not treat “הכל” as a separate source.
+
+When הכל is selected:
+
+Run the exact same Tanach query that already works in תנ״ך mode.
+Run the exact same Tefillot query used in תפילות mode.
+Merge both result sets.
+Display both kinds of results together in one results list.
+Keep clear source metadata/badges so every result still shows whether it came from תנ״ך or תפילות.
+
+The combined count must equal:
+
+Tanach count + Tefillot count
+
+Existing matching logic must continue to work:
+גימטריה
+ראשי תיבות
+סופי תיבות
+כולל
+result-type filters
+Do not change the current UI layout or toolbar design.
+Do not change תנ״ך-only behavior.
+Do not change תפילות-only behavior.
+Do not change database architecture.
+Do not publish.
+IMPORTANT FAILURE HANDLING
+
+In הכל mode, if one source temporarily fails or is unavailable, do not throw away the results from the other source.
+
+Example:
+
+Tanach returns 697 results
+Tefillot request fails
+
+Then הכל must still show the 697 Tanach results, not 0.
+
+Likewise, if Tanach fails but Tefillot works, still show the Tefillot results.
+
+Only show 0 if both sources genuinely return zero matches.
+
+REGRESSION TESTS
+
+Add tests proving:
+
+תנ״ך mode returns Tanach results.
+תפילות mode returns Tefillot results.
+הכל returns the union of both result sets.
+הכל does not return 0 when Tanach has matches.
+failure of one source does not suppress successful results from the other source.
+combined total is calculated correctly.
+BROWSER VERIFICATION
+
+Before finishing, test in the actual development Preview using a value already known to return Tanach matches, such as the current test case shown in Preview.
+
+Verify:
+
+תנ״ך shows its current results.
+תפילות shows its own results if available.
+הכל shows Tanach results plus Tefillot results.
+Switching between all three modes does not leave stale counts/results.
+No “0 results” state appears in הכל when one of the two sources has matches.
+
+Report only:
+
+root cause
+files/logic corrected
+Tanach-only result count in browser test
+Tefillot-only result count in browser test
+combined הכל result count
+confirmation that one-source failure no longer causes הכל to show 0
