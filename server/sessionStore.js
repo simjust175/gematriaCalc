@@ -16,12 +16,12 @@ export class RoleRoutedSessionStore extends session.Store {
     super();
     this.legacyStore = new PostgresStore({
       pool: legacyPool,
-      createTableIfMissing: true,
+      createTableIfMissing: false,
     });
     this.multiUserStore = multiUserPool
       ? new PostgresStore({
         pool: multiUserPool,
-        createTableIfMissing: true,
+        createTableIfMissing: false,
       })
       : null;
   }

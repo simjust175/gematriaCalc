@@ -43,7 +43,9 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
   function targetForRequest() {
     const target = valueOfTarget();
     if (target === null) return null;
-    return target + (currentMethod() === 'gematria' && includeKollel.value ? 1 : 0);
+    return target + (
+      currentMethod() === 'gematria' && includeKollel.value && kollelAvailable.value ? 1 : 0
+    );
   }
   function valueOf(refOrValue) {
     return typeof refOrValue === 'function' ? refOrValue() : refOrValue?.value ?? refOrValue;
@@ -52,6 +54,13 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
     const method = valueOf(methodRef);
     return ['initials', 'finals'].includes(method) ? method : 'gematria';
   }
+  const kollelAvailable = computed(() => {
+    const target = valueOfTarget();
+    return currentMethod() === 'gematria'
+      && target !== null
+      && Number.isSafeInteger(target)
+      && target < Number.MAX_SAFE_INTEGER;
+  });
   function currentSequence() {
     return String(valueOf(sequenceRef) ?? '').trim();
   }

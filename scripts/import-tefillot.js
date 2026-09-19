@@ -3,7 +3,7 @@
  * exposed by Sefaria's structured Siddur Sefard index.
  */
 import { createHash } from 'node:crypto';
-import { pool, initDb } from '../server/db.js';
+import { requireMultiUserPool } from '../server/databaseRouter.js';
 import {
   contextsForSiddurPath,
   describeContext,
@@ -55,7 +55,10 @@ async function mapWithConcurrency(items, limit, mapper) {
 }
 
 async function main() {
-  await initDb();
+  if (!process.argv.includes('--replace')) {
+    throw new Error('Refusing corpus replacement without the explicit --replace flag');
+  }
+  const pool = requireMultiUserPool();
   try {
     const index = await fetchJson(INDEX_URL);
     const leaves = collectLeaves(index.schema)

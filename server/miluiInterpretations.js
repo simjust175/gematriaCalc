@@ -7,68 +7,13 @@ import {
 } from '../src/utils/milui.js';
 import { computeAll } from '../src/composables/useGematria.js';
 import { verifyTanachSaveContext } from './tanachSaveContext.js';
-import { ensureMiluiOwnerState } from './miluiIndex.js';
 
 const MODE = 'full_milui';
 
-function requireOwnerId(ownerId) {
-  if (!Number.isSafeInteger(Number(ownerId)) || Number(ownerId) <= 0) {
-    throw new Error('A valid account ownerId is required for מילוי operations');
-  }
-  return Number(ownerId);
-}
-
 export async function ensureMiluiInterpretationSchema(db) {
-  if (db?.databaseRole !== 'multi-user') {
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS explicit_milui_interpretations (
-        id BIGSERIAL PRIMARY KEY,
-        original_text TEXT NOT NULL,
-        normalized_text TEXT NOT NULL,
-        calculation_mode TEXT NOT NULL DEFAULT 'full_milui'
-          CHECK (calculation_mode = 'full_milui'),
-        full_milui_gematria INTEGER NOT NULL CHECK (full_milui_gematria > 0),
-        filling_only_gematria INTEGER NOT NULL CHECK (filling_only_gematria >= 0),
-        expanded_text TEXT NOT NULL,
-        selections JSONB NOT NULL,
-        mapping_snapshot JSONB NOT NULL,
-        mapping_version BIGINT,
-        registry_version TEXT NOT NULL,
-        selection_fingerprint TEXT NOT NULL,
-        linked_saved_entry_id INTEGER REFERENCES saved_entries(id) ON DELETE SET NULL,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        UNIQUE(normalized_text, calculation_mode, selection_fingerprint, full_milui_gematria)
-      );
-      CREATE INDEX IF NOT EXISTS idx_explicit_milui_total
-        ON explicit_milui_interpretations(calculation_mode, full_milui_gematria, created_at DESC);
-      CREATE INDEX IF NOT EXISTS idx_explicit_milui_normalized
-        ON explicit_milui_interpretations(normalized_text, created_at DESC);
-      CREATE TABLE IF NOT EXISTS saved_entry_milui_save_modes (
-        saved_entry_id INTEGER PRIMARY KEY REFERENCES saved_entries(id) ON DELETE CASCADE,
-        save_mode TEXT NOT NULL CHECK (save_mode IN ('primary_only', 'all_forms')),
-        form_ids JSONB NOT NULL DEFAULT '["primary"]'::jsonb,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
-      CREATE TABLE IF NOT EXISTS saved_entry_milui_form_index (
-        saved_entry_id INTEGER NOT NULL REFERENCES saved_entries(id) ON DELETE CASCADE,
-        form_id TEXT NOT NULL,
-        full_milui_gematria INTEGER NOT NULL CHECK (full_milui_gematria > 0),
-        expanded_text TEXT NOT NULL,
-        interpretation_id BIGINT REFERENCES explicit_milui_interpretations(id) ON DELETE SET NULL,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        PRIMARY KEY (saved_entry_id, form_id)
-      );
-      CREATE INDEX IF NOT EXISTS idx_saved_entry_milui_form_total
-        ON saved_entry_milui_form_index(full_milui_gematria, saved_entry_id);
-    `);
-    return;
-  }
-
   await db.query(`
     CREATE TABLE IF NOT EXISTS explicit_milui_interpretations (
       id BIGSERIAL PRIMARY KEY,
-      owner_id BIGINT NOT NULL,
       original_text TEXT NOT NULL,
       normalized_text TEXT NOT NULL,
       calculation_mode TEXT NOT NULL DEFAULT 'full_milui'
@@ -83,14 +28,13 @@ export async function ensureMiluiInterpretationSchema(db) {
       selection_fingerprint TEXT NOT NULL,
       linked_saved_entry_id INTEGER REFERENCES saved_entries(id) ON DELETE SET NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      UNIQUE(owner_id, normalized_text, calculation_mode, selection_fingerprint, full_milui_gematria)
+      UNIQUE(normalized_text, calculation_mode, selection_fingerprint, full_milui_gematria)
     );
     CREATE INDEX IF NOT EXISTS idx_explicit_milui_total
       ON explicit_milui_interpretations(calculation_mode, full_milui_gematria, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_explicit_milui_normalized
       ON explicit_milui_interpretations(normalized_text, created_at DESC);
     CREATE TABLE IF NOT EXISTS saved_entry_milui_save_modes (
-      owner_id BIGINT NOT NULL,
       saved_entry_id INTEGER PRIMARY KEY REFERENCES saved_entries(id) ON DELETE CASCADE,
       save_mode TEXT NOT NULL CHECK (save_mode IN ('primary_only', 'all_forms')),
       form_ids JSONB NOT NULL DEFAULT '["primary"]'::jsonb,
@@ -98,7 +42,6 @@ export async function ensureMiluiInterpretationSchema(db) {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE TABLE IF NOT EXISTS saved_entry_milui_form_index (
-      owner_id BIGINT NOT NULL,
       saved_entry_id INTEGER NOT NULL REFERENCES saved_entries(id) ON DELETE CASCADE,
       form_id TEXT NOT NULL,
       full_milui_gematria INTEGER NOT NULL CHECK (full_milui_gematria > 0),
@@ -112,16 +55,12 @@ export async function ensureMiluiInterpretationSchema(db) {
   `);
 }
 
-async function getActiveMapping(db, ownerId) {
-  ownerId = requireOwnerId(ownerId);
-  await ensureMiluiOwnerState(db, ownerId);
+async function getActiveMapping(db) {
   const result = await db.query(
     `SELECT state.active_version AS mapping_version, version.mapping
      FROM milui_index_state state
      JOIN milui_mapping_versions version ON version.version = state.active_version
-      WHERE state.id = 'private-default' AND state.owner_id = $1
-        AND version.owner_id = $1 AND version.status = 'active'`,
-    [ownerId]
+     WHERE state.id = 'private-default' AND version.status = 'active'`
   );
   if (!result.rowCount) throw new Error('Active מילוי mapping is unavailable');
   const checked = normalizeMiluiMapping(result.rows[0].mapping);
@@ -151,10 +90,9 @@ function validateCompleteSelections(occurrences, selections) {
     && occurrences.every(occurrence => uniqueIndexes.has(occurrence.sourceIndex));
 }
 
-export async function createMiluiInterpretation(input, db, ownerId) {
-  ownerId = requireOwnerId(ownerId);
+export async function createMiluiInterpretation(input, db) {
   const originalText = typeof input?.originalText === 'string' ? input.originalText : '';
-  const { mapping, mappingVersion } = await getActiveMapping(db, ownerId);
+  const { mapping, mappingVersion } = await getActiveMapping(db);
   const occurrences = getMiluiVariantOccurrences(originalText, mapping);
   if (!occurrences.length) {
     const error = new Error('No accepted מילוי variants exist for this text');
@@ -188,9 +126,9 @@ export async function createMiluiInterpretation(input, db, ownerId) {
   );
   const linked = await db.query(
     `SELECT id FROM saved_entries
-      WHERE owner_id = $2 AND tanach_book_slug IS NULL AND normalized_text = $1
+     WHERE tanach_book_slug IS NULL AND normalized_text = $1
      ORDER BY id ASC LIMIT 1`,
-    [calculation.normalizedText, ownerId]
+    [calculation.normalizedText]
   );
   const values = [
     originalText,
@@ -207,16 +145,16 @@ export async function createMiluiInterpretation(input, db, ownerId) {
   ];
   const inserted = await db.query(
     `INSERT INTO explicit_milui_interpretations
-       (owner_id, original_text, normalized_text, full_milui_gematria, filling_only_gematria,
+       (original_text, normalized_text, full_milui_gematria, filling_only_gematria,
         expanded_text, selections, mapping_snapshot, mapping_version, registry_version,
         selection_fingerprint, linked_saved_entry_id)
-      VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9,$10,$11,$12)
-      ON CONFLICT (owner_id, normalized_text, calculation_mode, selection_fingerprint, full_milui_gematria)
+     VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11)
+     ON CONFLICT (normalized_text, calculation_mode, selection_fingerprint, full_milui_gematria)
      DO NOTHING
      RETURNING id, original_text, normalized_text, calculation_mode,
        full_milui_gematria, filling_only_gematria, expanded_text, selections,
        mapping_snapshot, mapping_version, registry_version, linked_saved_entry_id, created_at`,
-     [ownerId, ...values]
+    values
   );
   if (inserted.rowCount) return { created: true, interpretation: inserted.rows[0] };
 
@@ -225,20 +163,18 @@ export async function createMiluiInterpretation(input, db, ownerId) {
             full_milui_gematria, filling_only_gematria, expanded_text, selections,
             mapping_snapshot, mapping_version, registry_version, linked_saved_entry_id, created_at
      FROM explicit_milui_interpretations
-      WHERE owner_id = $1 AND normalized_text = $2 AND calculation_mode = $3
-        AND selection_fingerprint = $4 AND full_milui_gematria = $5`,
-    [ownerId, calculation.normalizedText, MODE, fingerprint, calculation.fullGematria]
+     WHERE normalized_text = $1 AND calculation_mode = $2
+       AND selection_fingerprint = $3 AND full_milui_gematria = $4`,
+    [calculation.normalizedText, MODE, fingerprint, calculation.fullGematria]
   );
   return { created: false, interpretation: existing.rows[0] };
 }
 
-export async function recordMiluiSaveMode(savedEntryId, mode, formIds, db, ownerId) {
-  ownerId = requireOwnerId(ownerId);
+export async function recordMiluiSaveMode(savedEntryId, mode, formIds, db) {
   const normalizedMode = mode === 'all_forms' ? 'all_forms' : 'primary_only';
   const existing = await db.query(
-    `SELECT save_mode, form_ids FROM saved_entry_milui_save_modes
-     WHERE saved_entry_id = $1 AND owner_id = $2`,
-    [savedEntryId, ownerId]
+    'SELECT save_mode, form_ids FROM saved_entry_milui_save_modes WHERE saved_entry_id = $1',
+    [savedEntryId]
   );
   if (existing.rows[0]?.save_mode === 'all_forms') return;
   const normalizedFormIds = [...new Set([
@@ -248,8 +184,8 @@ export async function recordMiluiSaveMode(savedEntryId, mode, formIds, db, owner
   ])];
   await db.query(
     `INSERT INTO saved_entry_milui_save_modes
-       (owner_id, saved_entry_id, save_mode, form_ids)
-      VALUES ($1,$2,$3,$4::jsonb)
+       (saved_entry_id, save_mode, form_ids)
+     VALUES ($1,$2,$3::jsonb)
      ON CONFLICT (saved_entry_id) DO UPDATE
        SET save_mode = CASE
              WHEN saved_entry_milui_save_modes.save_mode = 'all_forms' THEN 'all_forms'
@@ -261,41 +197,39 @@ export async function recordMiluiSaveMode(savedEntryId, mode, formIds, db, owner
              ELSE EXCLUDED.form_ids
            END,
            updated_at = NOW()`,
-     [ownerId, savedEntryId, normalizedMode, JSON.stringify(normalizedFormIds)]
+    [savedEntryId, normalizedMode, JSON.stringify(normalizedFormIds)]
   );
 }
 
-async function ensureSavedEntry(verified, db, ownerId) {
-  ownerId = requireOwnerId(ownerId);
+async function ensureSavedEntry(verified, db) {
   const { originalText, calculated, context } = verified;
   const existing = context
     ? await db.query(
       `SELECT id FROM saved_entries
-        WHERE owner_id = $6 AND tanach_book_slug = $1 AND tanach_chapter = $2
+       WHERE tanach_book_slug = $1 AND tanach_chapter = $2
          AND tanach_verse = $3 AND tanach_start = $4 AND tanach_end = $5`,
-      [context.bookSlug, context.chapter, context.verse, context.start, context.end, ownerId]
+      [context.bookSlug, context.chapter, context.verse, context.start, context.end]
     )
     : await db.query(
       `SELECT id FROM saved_entries
-        WHERE owner_id = $2 AND tanach_book_slug IS NULL AND normalized_text = $1
+       WHERE tanach_book_slug IS NULL AND normalized_text = $1
        ORDER BY id ASC LIMIT 1`,
-      [calculated.normalizedText, ownerId]
+      [calculated.normalizedText]
     );
   if (existing.rowCount) return { id: existing.rows[0].id, created: false };
 
   const inserted = await db.query(
     `INSERT INTO saved_entries
-       (owner_id, original_text, normalized_text, full_gematria, full_gematria_hebrew,
+       (original_text, normalized_text, full_gematria, full_gematria_hebrew,
         initials, initials_gematria, initials_gematria_hebrew,
         finals, finals_gematria, finals_gematria_hebrew,
         tanach_book_slug, tanach_book_label, tanach_chapter, tanach_verse,
         tanach_start, tanach_end, parsha_id)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
      ON CONFLICT DO NOTHING
      RETURNING id`,
     [
-       ownerId,
-       originalText,
+      originalText,
       calculated.normalizedText,
       calculated.fullGematria,
       calculated.fullHebrewNumber,
@@ -317,16 +251,16 @@ async function ensureSavedEntry(verified, db, ownerId) {
   if (!inserted.rowCount) {
     const concurrent = context
       ? await db.query(
-         `SELECT id FROM saved_entries
-          WHERE owner_id = $6 AND tanach_book_slug = $1 AND tanach_chapter = $2
+        `SELECT id FROM saved_entries
+         WHERE tanach_book_slug = $1 AND tanach_chapter = $2
            AND tanach_verse = $3 AND tanach_start = $4 AND tanach_end = $5`,
-        [context.bookSlug, context.chapter, context.verse, context.start, context.end, ownerId]
+        [context.bookSlug, context.chapter, context.verse, context.start, context.end]
       )
       : await db.query(
-         `SELECT id FROM saved_entries
-          WHERE owner_id = $2 AND tanach_book_slug IS NULL AND normalized_text = $1
+        `SELECT id FROM saved_entries
+         WHERE tanach_book_slug IS NULL AND normalized_text = $1
          ORDER BY id ASC LIMIT 1`,
-        [calculated.normalizedText, ownerId]
+        [calculated.normalizedText]
       );
     if (concurrent.rowCount) return { id: concurrent.rows[0].id, created: false };
     const error = new Error('Saved entry conflict could not be resolved');
@@ -336,21 +270,15 @@ async function ensureSavedEntry(verified, db, ownerId) {
   const entryId = inserted.rows[0].id;
   for (const word of calculated.words) {
     await db.query(
-      `INSERT INTO saved_words
-         (owner_id, entry_id, word, normalized_word, gematria, position)
-        VALUES ($1,$2,$3,$4,$5,$6)`,
-      [ownerId, entryId, word.word, word.word, word.gematria, word.position]
+      `INSERT INTO saved_words (entry_id, word, normalized_word, gematria, position)
+       VALUES ($1,$2,$3,$4,$5)`,
+      [entryId, word.word, word.word, word.gematria, word.position]
     );
   }
   return { id: entryId, created: true };
 }
 
-export async function saveAllCommonMiluiForms(
-  originalText,
-  db,
-  { tanachContext = null, ownerId } = {}
-) {
-  ownerId = requireOwnerId(ownerId);
+export async function saveAllCommonMiluiForms(originalText, db, { tanachContext = null } = {}) {
   const verified = await verifyTanachSaveContext(originalText, tanachContext, db);
   if (verified.calculated.inputMode === 'numeric') {
     const error = new Error('Numeric entries cannot be saved');
@@ -358,11 +286,11 @@ export async function saveAllCommonMiluiForms(
     throw error;
   }
   originalText = verified.originalText;
-  const { mapping } = await getActiveMapping(db, ownerId);
+  const { mapping } = await getActiveMapping(db);
   const occurrences = getMiluiVariantOccurrences(originalText, mapping);
-  const savedEntry = await ensureSavedEntry(verified, db, ownerId);
+  const savedEntry = await ensureSavedEntry(verified, db);
   if (!occurrences.length) {
-    await recordMiluiSaveMode(savedEntry.id, 'all_forms', ['primary'], db, ownerId);
+    await recordMiluiSaveMode(savedEntry.id, 'all_forms', ['primary'], db);
     return {
       savedEntry,
       formIds: ['primary'],
@@ -387,7 +315,7 @@ export async function saveAllCommonMiluiForms(
       originalText,
       selections: form.calculation.selections,
       expectedTotal: form.calculation.fullGematria,
-    }, db, ownerId);
+    }, db);
     results.push({ ...result, formId: form.id, label: form.label });
     resultBySelections.set(
       JSON.stringify(form.calculation.selections.map(selection => [
@@ -400,9 +328,9 @@ export async function saveAllCommonMiluiForms(
   await db.query(
     `UPDATE explicit_milui_interpretations
      SET linked_saved_entry_id = $1
-      WHERE owner_id = $3 AND normalized_text = $2
+     WHERE normalized_text = $2
        AND (linked_saved_entry_id IS NULL OR linked_saved_entry_id = $1)`,
-    [savedEntry.id, forms[0].calculation.normalizedText, ownerId]
+    [savedEntry.id, forms[0].calculation.normalizedText]
   );
   for (const form of forms) {
     const selectionKey = JSON.stringify(form.calculation.selections.map(selection => [
@@ -412,15 +340,14 @@ export async function saveAllCommonMiluiForms(
     const interpretation = resultBySelections.get(selectionKey)?.interpretation;
     await db.query(
       `INSERT INTO saved_entry_milui_form_index
-         (owner_id, saved_entry_id, form_id, full_milui_gematria, expanded_text, interpretation_id)
-        VALUES ($1,$2,$3,$4,$5,$6)
+         (saved_entry_id, form_id, full_milui_gematria, expanded_text, interpretation_id)
+       VALUES ($1,$2,$3,$4,$5)
        ON CONFLICT (saved_entry_id, form_id) DO UPDATE
          SET full_milui_gematria = EXCLUDED.full_milui_gematria,
              expanded_text = EXCLUDED.expanded_text,
              interpretation_id = EXCLUDED.interpretation_id`,
       [
-       ownerId,
-       savedEntry.id,
+        savedEntry.id,
         form.id,
         form.calculation.fullGematria,
         form.calculation.expandedText,
@@ -432,8 +359,7 @@ export async function saveAllCommonMiluiForms(
     savedEntry.id,
     'all_forms',
     forms.map(form => form.id),
-     db,
-     ownerId
+    db
   );
   return {
     savedEntry,
@@ -448,9 +374,8 @@ export async function saveSelectedCommonMiluiForms(
   originalText,
   formIds,
   db,
-  { tanachContext = null, ownerId } = {}
+  { tanachContext = null } = {}
 ) {
-  ownerId = requireOwnerId(ownerId);
   const selectedIds = [...new Set(Array.isArray(formIds) ? formIds : [])];
   if (
     selectedIds.length < 1
@@ -468,7 +393,7 @@ export async function saveSelectedCommonMiluiForms(
     throw error;
   }
   originalText = verified.originalText;
-  const { mapping } = await getActiveMapping(db, ownerId);
+  const { mapping } = await getActiveMapping(db);
   const forms = getCommonMiluiForms(originalText, mapping);
   const selectedForms = selectedIds.map(id => forms.find(form => form.id === id));
   if (selectedForms.some(form => !form)) {
@@ -477,33 +402,32 @@ export async function saveSelectedCommonMiluiForms(
     throw error;
   }
 
-  const savedEntry = await ensureSavedEntry(verified, db, ownerId);
+  const savedEntry = await ensureSavedEntry(verified, db);
   const results = [];
   for (const form of selectedForms) {
     const result = await createMiluiInterpretation({
       originalText,
       selections: form.calculation.selections,
       expectedTotal: form.calculation.fullGematria,
-    }, db, ownerId);
+    }, db);
     results.push({ ...result, formId: form.id, label: form.label });
     await db.query(
       `UPDATE explicit_milui_interpretations
        SET linked_saved_entry_id = $1
-       WHERE owner_id = $3 AND id = $2
+       WHERE id = $2
          AND (linked_saved_entry_id IS NULL OR linked_saved_entry_id = $1)`,
-      [savedEntry.id, result.interpretation.id, ownerId]
+      [savedEntry.id, result.interpretation.id]
     );
     await db.query(
       `INSERT INTO saved_entry_milui_form_index
-         (owner_id, saved_entry_id, form_id, full_milui_gematria, expanded_text, interpretation_id)
-        VALUES ($1,$2,$3,$4,$5,$6)
+         (saved_entry_id, form_id, full_milui_gematria, expanded_text, interpretation_id)
+       VALUES ($1,$2,$3,$4,$5)
        ON CONFLICT (saved_entry_id, form_id) DO UPDATE
          SET full_milui_gematria = EXCLUDED.full_milui_gematria,
              expanded_text = EXCLUDED.expanded_text,
              interpretation_id = EXCLUDED.interpretation_id`,
       [
-       ownerId,
-       savedEntry.id,
+        savedEntry.id,
         form.id,
         form.calculation.fullGematria,
         form.calculation.expandedText,
@@ -515,8 +439,7 @@ export async function saveSelectedCommonMiluiForms(
     savedEntry.id,
     'primary_only',
     ['primary', ...selectedIds],
-     db,
-     ownerId
+    db
   );
   return {
     savedEntry,
@@ -527,8 +450,7 @@ export async function saveSelectedCommonMiluiForms(
   };
 }
 
-export async function getExplicitMiluiMatches(total, db, ownerId) {
-  ownerId = requireOwnerId(ownerId);
+export async function getExplicitMiluiMatches(total, db) {
   if (!Number.isInteger(total) || total <= 0) return [];
   try {
     const result = await db.query(
@@ -544,20 +466,16 @@ export async function getExplicitMiluiMatches(total, db, ownerId) {
        LEFT JOIN LATERAL (
          SELECT entry.*
          FROM saved_entries entry
-           WHERE entry.owner_id = $3
-             AND (
-               entry.id = interpretation.linked_saved_entry_id
-               OR (entry.tanach_book_slug IS NULL
-                   AND entry.normalized_text = interpretation.normalized_text)
-             )
+         WHERE entry.id = interpretation.linked_saved_entry_id
+            OR (entry.tanach_book_slug IS NULL
+                AND entry.normalized_text = interpretation.normalized_text)
          ORDER BY (entry.id = interpretation.linked_saved_entry_id) DESC, entry.id ASC
          LIMIT 1
        ) saved ON TRUE
-        WHERE interpretation.owner_id = $3
-          AND interpretation.calculation_mode = $1
-          AND interpretation.full_milui_gematria = $2
+       WHERE interpretation.calculation_mode = $1
+         AND interpretation.full_milui_gematria = $2
        ORDER BY interpretation.created_at DESC, interpretation.id DESC`,
-       [MODE, total, ownerId]
+      [MODE, total]
     );
     return result.rows;
   } catch (error) {
@@ -582,14 +500,14 @@ export function registerMiluiInterpretationRoutes(app, {
         req.body?.originalText,
         req.body?.formIds,
         client,
-        { tanachContext: req.body?.tanachContext, ownerId: req.account.id }
+        { tanachContext: req.body?.tanachContext }
       );
       await client.query('COMMIT');
       if (result.savedEntry.created) {
         try {
-           await indexSavedEntry(result.savedEntry.id, req.account.id);
+          await indexSavedEntry(result.savedEntry.id);
         } catch (indexError) {
-           invalidateCoverage(req.account.id);
+          invalidateCoverage();
           console.error(`Saved entry ${result.savedEntry.id}, but מילוי indexing failed:`, indexError.message);
         }
       }
@@ -623,14 +541,13 @@ export function registerMiluiInterpretationRoutes(app, {
       await acquireSaveLock(client);
       const result = await saveAllCommonMiluiForms(req.body?.originalText, client, {
         tanachContext: req.body?.tanachContext,
-        ownerId: req.account.id,
       });
       await client.query('COMMIT');
       if (result.savedEntry.created) {
         try {
-           await indexSavedEntry(result.savedEntry.id, req.account.id);
+          await indexSavedEntry(result.savedEntry.id);
         } catch (indexError) {
-           invalidateCoverage(req.account.id);
+          invalidateCoverage();
           console.error(`Saved entry ${result.savedEntry.id}, but מילוי indexing failed:`, indexError.message);
         }
       }
@@ -658,7 +575,7 @@ export function registerMiluiInterpretationRoutes(app, {
 
   app.post('/api/milui-interpretations', requireAuth, async (req, res) => {
     try {
-       const result = await createMiluiInterpretation(req.body, pool, req.account.id);
+      const result = await createMiluiInterpretation(req.body, pool);
       if (!result.created) {
         return res.status(409).json({
           error: 'interpretation_already_exists',
@@ -686,11 +603,11 @@ export function registerMiluiInterpretationRoutes(app, {
       const normalizedText = typeof req.query.normalizedText === 'string'
         ? req.query.normalizedText.trim()
         : '';
-       const params = [req.account.id];
-       const where = ['owner_id = $1'];
+      const params = [];
+      const where = [];
       if (normalizedText) {
-         params.push(normalizedText);
-         where.push(`normalized_text = $${params.length}`);
+        params.push(normalizedText);
+        where.push(`normalized_text = $${params.length}`);
       }
       const result = await pool.query(
         `SELECT id, original_text, normalized_text, calculation_mode,

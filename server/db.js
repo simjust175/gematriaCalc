@@ -162,11 +162,18 @@ export async function seedTanachParshiot(db = pool) {
 }
 
 export async function initDb({
-  db = legacyPool,
-  initializeMultiUser = false,
+  db,
+  initializeMultiUser = true,
+  allowSchemaChanges = false,
 } = {}) {
   if (!db) throw new Error('Database connection is not configured');
-  if (initializeMultiUser) assertMultiUserPool(db);
+  if (!initializeMultiUser) {
+    throw new Error('Legacy schema initialization is disabled permanently');
+  }
+  assertMultiUserPool(db);
+  if (!allowSchemaChanges) {
+    throw new Error('Multi-user schema setup requires explicit allowSchemaChanges');
+  }
 
   await db.query(`
     CREATE TABLE IF NOT EXISTS saved_entries (
@@ -315,9 +322,7 @@ export async function initDb({
   await ensureFinalsDerived(db);
   await seedTanachParshiot(db);
 
-  if (!initializeMultiUser) await ensureMiluiPreferences(db);
-
-  if (process.env.NODE_ENV !== 'production') {
+  if (allowSchemaChanges) {
     await db.query(`
       CREATE TABLE IF NOT EXISTS curated_matches (
         id SERIAL PRIMARY KEY,
@@ -336,19 +341,19 @@ export async function initDb({
       );
       CREATE INDEX IF NOT EXISTS idx_curated_matches_parent ON curated_matches(parent_id);
     `);
-    const { ensureMiluiInterpretationSchema } = await import('./miluiInterpretations.js');
+    const { ensureMiluiInterpretationSchema } = await import('./multiUserMiluiInterpretations.js');
     await ensureMiluiInterpretationSchema(db);
-    const { ensureMiluiMatchingSchema } = await import('./miluiIndex.js');
+    const { ensureMiluiMatchingSchema } = await import('./multiUserMiluiIndex.js');
     await ensureMiluiMatchingSchema(db);
   }
 
   if (initializeMultiUser) {
     const ownership = await ensureMultiUserFoundation(db, {
-      allowSchemaChanges: process.env.NODE_ENV !== 'production',
+      allowSchemaChanges,
     });
-    const { initializeMiluiMatching } = await import('./miluiIndex.js');
+    const { initializeMiluiMatching } = await import('./multiUserMiluiIndex.js');
     const miluiIndex = await initializeMiluiMatching({
-      allowSchemaChanges: process.env.NODE_ENV !== 'production',
+      allowSchemaChanges,
       ownerId: ownership.legacyAccount.id,
       db,
     });

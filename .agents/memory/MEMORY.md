@@ -15,5 +15,5 @@
 - [Database test isolation](database-test-isolation.md) — DB-mutating Node test files must run serially or global row-count assertions observe temporary rows
 - [Desktop PWA installation](desktop-pwa-installation.md) — install from the secondary app menu; keep the service worker network-only so auth/data and deployed updates stay live
 - [Curated Tanach connections](curated-tanach-connections.md) — saved search results belong to a parent calculation; canonical sources dedupe while reasons accumulate
-- [Request database routing](request-database-routing.md) — private queries require an authenticated request database; role caches include database role plus owner ID
+- [Request database routing](request-database-routing.md) — legacy and owner-aware APIs are separate; multi-user setup/imports require the explicit second database
 - [Tefillot source licensing](tefillot-source-licensing.md) — licensed Siddur Sefard is approved; High Holiday Machzor texts stay deferred while Sefaria reports unknown licenses

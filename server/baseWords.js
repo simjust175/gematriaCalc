@@ -57,15 +57,12 @@ function isDuplicateError(error) {
  * Tanach corpus.
  */
 export function registerBaseWordRoutes(app, { pool, requireAuth }) {
-  app.get('/api/base-words', requireAuth, async (req, res) => {
+  app.get('/api/base-words', requireAuth, async (_req, res) => {
     try {
       const result = await pool.query(
         `SELECT id, original_text, normalized_text, full_gematria, source_type, created_at, updated_at
          FROM base_words
-         WHERE owner_id = $1
          ORDER BY created_at ASC, id ASC`
-        ,
-        [req.account.id]
       );
       res.json({ items: result.rows.map(serializeBaseWord) });
     } catch (err) {
@@ -82,12 +79,10 @@ export function registerBaseWordRoutes(app, { pool, requireAuth }) {
 
     try {
       const result = await pool.query(
-        `INSERT INTO base_words
-           (owner_id, original_text, normalized_text, full_gematria, source_type)
-         VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO base_words (original_text, normalized_text, full_gematria, source_type)
+         VALUES ($1, $2, $3, $4)
          RETURNING id, original_text, normalized_text, full_gematria, source_type, created_at, updated_at`,
         [
-          req.account.id,
           calculated.originalText,
           calculated.normalizedText,
           calculated.fullGematria,
@@ -112,9 +107,9 @@ export function registerBaseWordRoutes(app, { pool, requireAuth }) {
       const result = await pool.query(
         `UPDATE base_words
          SET original_text = $1, normalized_text = $2, full_gematria = $3, updated_at = NOW()
-         WHERE id = $4 AND owner_id = $5
+         WHERE id = $4
          RETURNING id, original_text, normalized_text, full_gematria, source_type, created_at, updated_at`,
-        [calculated.originalText, calculated.normalizedText, calculated.fullGematria, id, req.account.id]
+        [calculated.originalText, calculated.normalizedText, calculated.fullGematria, id]
       );
       if (!result.rowCount) return res.status(404).json({ error: 'base_word_not_found' });
       res.json({ item: serializeBaseWord(result.rows[0]) });
@@ -129,10 +124,7 @@ export function registerBaseWordRoutes(app, { pool, requireAuth }) {
     const id = baseWordId(req.params.id);
     if (!id) return res.status(404).json({ error: 'base_word_not_found' });
     try {
-      const result = await pool.query(
-        'DELETE FROM base_words WHERE id = $1 AND owner_id = $2',
-        [id, req.account.id]
-      );
+      const result = await pool.query('DELETE FROM base_words WHERE id = $1', [id]);
       if (!result.rowCount) return res.status(404).json({ error: 'base_word_not_found' });
       res.status(204).end();
     } catch (err) {
@@ -150,11 +142,10 @@ export function registerBaseWordRoutes(app, { pool, requireAuth }) {
       const result = await pool.query(
         `SELECT id, original_text, full_gematria, ($1::bigint / full_gematria) AS times
          FROM base_words
-          WHERE owner_id = $2
-            AND full_gematria > 0
+         WHERE full_gematria > 0
            AND $1::bigint % full_gematria = 0
          ORDER BY created_at ASC, id ASC`,
-        [value, req.account.id]
+        [value]
       );
       res.json({
         results: result.rows.map(row => ({

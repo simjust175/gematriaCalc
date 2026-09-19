@@ -13,8 +13,9 @@
     "test:api": "node --test --test-concurrency=1 tests/api.test.js tests/base-words.test.js tests/multi-user.test.js",
     "test:browser": "node scripts/run-e2e.js tests/calculator-keyboard.spec.js tests/tanach-browser.spec.js",
     "test:e2e": "node scripts/run-e2e.js",
-    "import:tanach": "node scripts/import-tanach.js"
-    ,"import:tefillot": "node scripts/import-tefillot.js"
+    "setup:multi-user": "node scripts/setup-multi-user-db.js --apply",
+    "import:tanach": "node scripts/import-tanach.js",
+    "import:tefillot": "node scripts/import-tefillot.js --replace"
   },
   "dependencies": {
     "@hebcal/core": "^6.9.2",

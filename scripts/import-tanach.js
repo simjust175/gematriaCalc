@@ -5,7 +5,8 @@
  */
 import { createHash } from 'node:crypto';
 import { unzipSync } from 'fflate';
-import { pool, initDb, seedTanachParshiot } from '../server/db.js';
+import { seedTanachParshiot } from '../server/db.js';
+import { requireMultiUserPool } from '../server/databaseRouter.js';
 import {
   resolveUxlcVerseText,
   UXLC_REPRESENTATION_VERSION,
@@ -89,7 +90,7 @@ function parseBook(xml, slug) {
 }
 
 async function main() {
-  await initDb();
+  const pool = requireMultiUserPool();
   try {
     const response = await fetch(ARCHIVE_URL);
     if (!response.ok) throw new Error(`Could not download UXLC (${response.status})`);

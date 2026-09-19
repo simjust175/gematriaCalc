@@ -4,19 +4,8 @@
  */
 import express from 'express';
 import session from 'express-session';
-import { timingSafeEqual } from 'node:crypto';
-import { randomUUID } from 'node:crypto';
-import { legacyPool, multiUserPool, routedPool } from './databaseRouter.js';
-import { runWithRequestDatabase } from './requestDatabase.js';
-import { RoleRoutedSessionStore, LEGACY_PREFIX, MULTI_USER_PREFIX } from './sessionStore.js';
-import {
-  SIGNUP_ENABLED,
-  authenticateStandardAccount,
-  createStandardAccount,
-  getAccountById,
-  getLegacyAccount,
-  serializeAccount,
-} from './accounts.js';
+import connectPgSimple from 'connect-pg-simple';
+import { pool } from './db.js';
 import { computeAll, normalize } from '../src/composables/useGematria.js';
 import { createTanachCursor } from '../src/composables/useTanachCursor.js';
 import { verifyTanachSaveContext } from './tanachSaveContext.js';
@@ -31,6 +20,7 @@ import {
   searchSavedMultiples,
 } from './multipleDiscovery.js';
 import { registerBaseWordRoutes } from './baseWords.js';
+import { multiUserPool } from './databaseRouter.js';
 import { registerTefillotRoutes } from './tefillot.js';
 import {
   getExplicitMiluiMatches,
@@ -49,7 +39,6 @@ import {
 import {
   acquireMiluiSaveLock,
   deleteMiluiIndexRows,
-  ensureMiluiOwnerState,
   getActiveMiluiMatches,
   indexSavedEntryForCurrentVersions,
   invalidateMiluiCoverageCheck,
@@ -61,9 +50,7 @@ import {
 } from './derivedLetterMatching.js';
 
 export const app = express();
-// Every authenticated route receives its database through AsyncLocalStorage.
-// This alias is request-routed and never falls back across account roles.
-const pool = routedPool;
+const PostgresSessionStore = connectPgSimple(session);
 
 // ── Middleware ───────────────────────────────────────────────────────────────
 
@@ -73,46 +60,25 @@ app.set('trust proxy', 1);
 app.use(express.json());
 app.use(requireApplicationReady);
 
-function sessionIdFromRequest(req) {
-  const cookie = req.headers.cookie?.match(/(?:^|;\s*)connect\.sid=([^;]+)/)?.[1];
-  if (!cookie) return null;
-  try {
-    return decodeURIComponent(cookie).replace(/^s:/, '').split('.')[0];
-  } catch {
-    return null;
-  }
-}
-
-app.use((req, res, next) => {
-  const sid = sessionIdFromRequest(req);
-  if (sid?.startsWith(MULTI_USER_PREFIX) && !multiUserPool) {
-    return res.status(503).json({ error: 'multi_user_unavailable' });
-  }
-  next();
-});
-
 // Sessions live in PostgreSQL so autoscaled instances share the same login
 // state. No external CORS headers: all API access is same-origin through Vite.
 app.use(session({
   secret: process.env.SESSION_SECRET || (() => {
     throw new Error('SESSION_SECRET environment variable must be set');
   })(),
-  genid: req => (
-    req.session?.databaseRole === 'multi-user'
-      || req.path === '/api/auth/account-login'
-      || req.path === '/api/auth/signup'
-      ? `${MULTI_USER_PREFIX}${randomUUID()}`
-      : `${LEGACY_PREFIX}${randomUUID()}`
-  ),
-  store: new RoleRoutedSessionStore({ legacyPool, multiUserPool }),
+  store: new PostgresSessionStore({
+    pool,
+    // The permanent legacy database owns its existing schema. Application
+    // startup must never create or migrate objects there.
+    createTableIfMissing: false,
+  }),
   resave: false,
   saveUninitialized: false,
-  rolling: true,
   cookie: {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
-    maxAge: 30 * 24 * 60 * 60 * 1000,
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   },
 }));
 
@@ -124,7 +90,7 @@ app.get('/api/health', (_req, res) => {
 });
 
 /** POST /api/auth/login — validate APP_PASSWORD and create session. */
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', (req, res) => {
   const { password } = req.body;
   const expected = process.env.APP_PASSWORD;
 
@@ -134,117 +100,32 @@ app.post('/api/auth/login', async (req, res) => {
       message: 'APP_PASSWORD secret is not set. Add it in Replit Secrets.',
     });
   }
-  const suppliedBuffer = Buffer.from(typeof password === 'string' ? password : '');
-  const expectedBuffer = Buffer.from(expected);
-  if (suppliedBuffer.length !== expectedBuffer.length
-      || !timingSafeEqual(suppliedBuffer, expectedBuffer)) {
+  if (typeof password !== 'string' || password !== expected) {
     return res.status(401).json({ error: 'invalid_password' });
   }
 
-  try {
-      const account = await getLegacyAccount(legacyPool);
-    req.session.regenerate(error => {
-      if (error) return res.status(500).json({ error: 'session_error' });
-      req.session.authenticated = true;
-        req.session.databaseRole = 'legacy';
-      req.session.accountId = Number(account.id);
-      req.session.save(err => {
-        if (err) return res.status(500).json({ error: 'session_error' });
-        res.json({ success: true });
-      });
-    });
-  } catch (error) {
-    console.error('/api/auth/login account error:', error.message);
-    res.status(500).json({ error: 'session_error' });
-  }
+  req.session.authenticated = true;
+  req.session.save(err => {
+    if (err) return res.status(500).json({ error: 'session_error' });
+    res.json({ success: true });
+  });
 });
-
-async function resolveSessionAccount(req) {
-  if (req.session?.authenticated !== true) return null;
-  const role = req.session.databaseRole || 'legacy';
-  if (role === 'multi-user' && !multiUserPool) {
-    const error = new Error('Multi-user database is unavailable');
-    error.code = 'MULTI_USER_DATABASE_UNAVAILABLE';
-    throw error;
-  }
-  let account = role === 'multi-user'
-    ? (req.session.accountId
-      ? await getAccountById(multiUserPool, req.session.accountId)
-      : null)
-    : await getLegacyAccount(legacyPool);
-  // Preserve existing authenticated client sessions created before account
-  // identity was introduced by resolving them once to the hidden legacy account.
-  if (!account && !req.session.accountId) {
-    account = await getLegacyAccount(legacyPool);
-    req.session.databaseRole = 'legacy';
-    req.session.accountId = Number(account.id);
-    await new Promise((resolve, reject) => req.session.save(error => (
-      error ? reject(error) : resolve()
-    )));
-  }
-  return account;
-}
 
 /** GET /api/auth/check — returns current authentication state. */
-app.get('/api/auth/check', async (req, res) => {
-  try {
-    const account = await resolveSessionAccount(req);
-    res.json({
-      authenticated: Boolean(account),
-      ...(account ? { account: serializeAccount(account) } : {}),
-    });
-  } catch (error) {
-    console.error('/api/auth/check error:', error.message);
-    res.status(500).json({ error: 'session_error' });
-  }
-});
-
-app.post('/api/auth/signup', async (req, res) => {
-  if (!SIGNUP_ENABLED) return res.status(404).json({ error: 'not_found' });
-  if (!multiUserPool) return res.status(503).json({ error: 'multi_user_unavailable' });
-  try {
-    const account = await createStandardAccount(multiUserPool, req.body || {});
-    req.session.regenerate(error => {
-      if (error) return res.status(500).json({ error: 'session_error' });
-      req.session.authenticated = true;
-      req.session.databaseRole = 'multi-user';
-      req.session.accountId = Number(account.id);
-      req.session.save(err => {
-        if (err) return res.status(500).json({ error: 'session_error' });
-        res.status(201).json({ success: true, account: serializeAccount(account) });
-      });
-    });
-  } catch (error) {
-    if (error.code === 'INVALID_EMAIL' || error.code === 'INVALID_PASSWORD') {
-      return res.status(400).json({ error: error.code.toLowerCase() });
-    }
-    if (error.code === 'ACCOUNT_EXISTS') {
-      return res.status(409).json({ error: 'account_exists' });
-    }
-    console.error('/api/auth/signup error:', error.message);
-    res.status(500).json({ error: 'account_create_failed' });
-  }
-});
-
-app.post('/api/auth/account-login', async (req, res) => {
-  if (!multiUserPool) return res.status(503).json({ error: 'multi_user_unavailable' });
-  try {
-    const account = await authenticateStandardAccount(multiUserPool, req.body || {});
-    if (!account) return res.status(401).json({ error: 'invalid_credentials' });
-    req.session.regenerate(error => {
-      if (error) return res.status(500).json({ error: 'session_error' });
-      req.session.authenticated = true;
-      req.session.databaseRole = 'multi-user';
-      req.session.accountId = Number(account.id);
-      req.session.save(err => {
-        if (err) return res.status(500).json({ error: 'session_error' });
-        res.json({ success: true, account: serializeAccount(account) });
-      });
-    });
-  } catch (error) {
-    console.error('/api/auth/account-login error:', error.message);
-    res.status(500).json({ error: 'account_login_failed' });
-  }
+app.get('/api/auth/check', (req, res) => {
+  const authenticated = req.session?.authenticated === true;
+  res.json({
+    authenticated,
+    account: authenticated ? {
+      id: null,
+      accountType: 'legacy_client',
+      planCode: 'legacy_unlimited',
+      entitlementStatus: 'active',
+      unlimited: true,
+      billingExempt: true,
+      hidden: true,
+    } : null,
+  });
 });
 
 /** POST /api/auth/logout — destroy the session. */
@@ -258,41 +139,38 @@ app.post('/api/auth/logout', (req, res) => {
 // ── Auth guard ───────────────────────────────────────────────────────────────
 
 /** Middleware: reject any request without a valid authenticated session. */
-async function requireAuth(req, res, next) {
-  try {
-    const account = await resolveSessionAccount(req);
-    if (!account) return res.status(401).json({ error: 'not_authenticated' });
-    req.account = account;
-    req.databaseRole = req.session.databaseRole || 'legacy';
-    req.database = req.databaseRole === 'multi-user' ? multiUserPool : legacyPool;
-    if (!req.database) return res.status(503).json({ error: 'multi_user_unavailable' });
-    runWithRequestDatabase(req.database, next);
-  } catch (error) {
-    next(error);
-  }
+function requireAuth(req, res, next) {
+  if (req.session?.authenticated === true) return next();
+  res.status(401).json({ error: 'not_authenticated' });
 }
 
 // ── Protected API routes ─────────────────────────────────────────────────────
 
 registerBaseWordRoutes(app, { pool, requireAuth });
-registerTefillotRoutes(app, { pool, requireAuth });
+if (multiUserPool) {
+  // Tefillot is shared corpus data stored only in the separate multi-user
+  // database. Legacy authentication remains in DATABASE_URL.
+  registerTefillotRoutes(app, { pool: multiUserPool, requireAuth });
+} else {
+  app.use('/api/tefillot', requireAuth, (_req, res) => {
+    res.status(503).json({ error: 'multi_user_unavailable' });
+  });
+}
 registerMiluiInterpretationRoutes(app, {
   pool,
   requireAuth,
   acquireSaveLock: acquireMiluiSaveLock,
   indexSavedEntry: indexSavedEntryForCurrentVersions,
-  invalidateCoverage: ownerId => invalidateMiluiCoverageCheck(ownerId, pool),
+  invalidateCoverage: invalidateMiluiCoverageCheck,
 });
 
 /** GET /api/settings/milui — retrieve the current private מילוי preference. */
-app.get('/api/settings/milui', requireAuth, async (req, res) => {
+app.get('/api/settings/milui', requireAuth, async (_req, res) => {
   try {
-    await ensureMiluiOwnerState(pool, req.account.id);
     const result = await pool.query(
       `SELECT preset_name, mapping
        FROM milui_preferences
-       WHERE owner_id = $1`,
-      [req.account.id]
+       WHERE id = 'private-default'`
     );
     const row = result.rows[0];
     if (!row) {
@@ -315,7 +193,6 @@ app.put('/api/settings/milui', requireAuth, async (req, res) => {
   try {
     const activated = await rebuildAndActivateMiluiMapping(checked.mapping, {
       presetName: MILUI_PRESET_NAME,
-      ownerId: req.account.id,
     });
     res.json({
       presetName: activated.presetName,
@@ -585,7 +462,7 @@ app.get('/api/multiples', requireAuth, async (req, res) => {
   if (parsed.error) return res.status(400).json({ error: parsed.error });
 
   try {
-    res.json(await searchSavedMultiples(pool, parsed.value, req.account.id));
+    res.json(await searchSavedMultiples(pool, parsed.value));
   } catch (err) {
     console.error('/api/multiples error:', err.message);
     res.status(500).json({ error: 'multiple_discovery_failed' });
@@ -639,21 +516,19 @@ app.get('/api/matches', requireAuth, async (req, res) => {
             `SELECT entry.id, mode.save_mode
              FROM saved_entries entry
              LEFT JOIN saved_entry_milui_save_modes mode
-                ON mode.saved_entry_id = entry.id AND mode.owner_id = entry.owner_id
+               ON mode.saved_entry_id = entry.id
              WHERE entry.tanach_book_slug = $1 AND entry.tanach_chapter = $2
-                AND entry.tanach_verse = $3 AND entry.tanach_start = $4 AND entry.tanach_end = $5
-                AND entry.owner_id = $6`,
-            [req.query.bookSlug, chapter, verse, start, end, req.account.id]
+               AND entry.tanach_verse = $3 AND entry.tanach_start = $4 AND entry.tanach_end = $5`,
+            [req.query.bookSlug, chapter, verse, start, end]
           );
         } else {
           chk = await pool.query(
             `SELECT entry.id, mode.save_mode
              FROM saved_entries entry
              LEFT JOIN saved_entry_milui_save_modes mode
-                ON mode.saved_entry_id = entry.id AND mode.owner_id = entry.owner_id
-              WHERE entry.tanach_book_slug IS NULL AND entry.normalized_text = $1
-                AND entry.owner_id = $2`,
-            [current.normalizedText, req.account.id]
+               ON mode.saved_entry_id = entry.id
+             WHERE entry.tanach_book_slug IS NULL AND entry.normalized_text = $1`,
+            [current.normalizedText]
           );
         }
         isAlreadySaved = chk.rows.length > 0;
@@ -668,14 +543,13 @@ app.get('/api/matches', requireAuth, async (req, res) => {
                  finals, finals_gematria, finals_gematria_hebrew,
                 created_at
          FROM saved_entries
-          WHERE owner_id = $6
-            AND (full_gematria = $1
-             OR initials_gematria = $1
-             OR initials = ANY($2::text[])
+         WHERE full_gematria = $1
+            OR initials_gematria = $1
+            OR initials = ANY($2::text[])
              OR initials_gematria = ANY($4::integer[])
              OR finals_gematria = $1
              OR finals = ANY($3::text[])
-             OR finals_gematria = ANY($5::integer[]))
+              OR finals_gematria = ANY($5::integer[])
          ORDER BY created_at DESC`,
         [
           g,
@@ -683,7 +557,6 @@ app.get('/api/matches', requireAuth, async (req, res) => {
           finalsTextCandidates,
           initialsCandidateGematria,
           finalsCandidateGematria,
-          req.account.id,
         ]
       );
 
@@ -715,7 +588,7 @@ app.get('/api/matches', requireAuth, async (req, res) => {
       // מילוי index and every explicitly persisted all-form interpretation.
       let miluiMatches = [];
       try {
-        miluiMatches = await getActiveMiluiMatches(g, pool, req.account.id);
+        miluiMatches = await getActiveMiluiMatches(g);
       } catch (miluiError) {
         console.error('Milui matching temporarily unavailable:', miluiError.message);
       }
@@ -743,11 +616,7 @@ app.get('/api/matches', requireAuth, async (req, res) => {
 
       const explicitMiluiTotal = Number(req.query.explicitMiluiTotal);
       if (Number.isInteger(explicitMiluiTotal) && explicitMiluiTotal > 0) {
-        const explicitMatches = await getExplicitMiluiMatches(
-          explicitMiluiTotal,
-          pool,
-          req.account.id
-        );
+        const explicitMatches = await getExplicitMiluiMatches(explicitMiluiTotal, pool);
         for (const explicitMatch of explicitMatches) {
           const resultKey = explicitMatch.id || `milui-${explicitMatch.interpretation_id}`;
           let result = entryMatches.get(resultKey);
@@ -801,11 +670,9 @@ app.get('/api/matches', requireAuth, async (req, res) => {
                 se.created_at
          FROM saved_words sw
          JOIN saved_entries se ON sw.entry_id = se.id
-          WHERE sw.gematria = $1
-            AND sw.owner_id = $2
-            AND se.owner_id = $2
+         WHERE sw.gematria = $1
          ORDER BY se.created_at DESC, sw.position ASC`,
-        [g, req.account.id]
+        [g]
       );
 
       for (const wordMatch of wordsRes.rows) {
@@ -911,21 +778,19 @@ app.post('/api/entries', requireAuth, async (req, res) => {
       ? await client.query(
         `SELECT id FROM saved_entries
          WHERE tanach_book_slug = $1 AND tanach_chapter = $2
-            AND tanach_verse = $3 AND tanach_start = $4 AND tanach_end = $5
-            AND owner_id = $6`,
+           AND tanach_verse = $3 AND tanach_start = $4 AND tanach_end = $5`,
         [
           verifiedContext.bookSlug,
           verifiedContext.chapter,
           verifiedContext.verse,
           verifiedContext.start,
           verifiedContext.end,
-          req.account.id,
         ]
       )
       : await client.query(
         `SELECT id FROM saved_entries
-         WHERE tanach_book_slug IS NULL AND normalized_text = $1 AND owner_id = $2`,
-        [calculated.normalizedText, req.account.id]
+         WHERE tanach_book_slug IS NULL AND normalized_text = $1`,
+        [calculated.normalizedText]
       );
     if (exists.rows.length > 0) {
       await client.query('ROLLBACK');
@@ -934,14 +799,13 @@ app.post('/api/entries', requireAuth, async (req, res) => {
 
     const entryRes = await client.query(
       `INSERT INTO saved_entries
-           (owner_id, original_text, normalized_text, full_gematria, full_gematria_hebrew,
+          (original_text, normalized_text, full_gematria, full_gematria_hebrew,
            initials, initials_gematria, initials_gematria_hebrew,
            finals, finals_gematria, finals_gematria_hebrew,
              tanach_book_slug, tanach_book_label, tanach_chapter, tanach_verse, tanach_start, tanach_end, parsha_id)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
        RETURNING id`,
       [
-        req.account.id,
         canonicalOriginalText,
         calculated.normalizedText,
         calculated.fullGematria,
@@ -965,18 +829,18 @@ app.post('/api/entries', requireAuth, async (req, res) => {
 
     for (const w of calculated.words) {
       await client.query(
-        `INSERT INTO saved_words (owner_id, entry_id, word, normalized_word, gematria, position)
-         VALUES ($1,$2,$3,$4,$5,$6)`,
-        [req.account.id, entryId, w.word, w.word, w.gematria, w.position]
+        `INSERT INTO saved_words (entry_id, word, normalized_word, gematria, position)
+         VALUES ($1,$2,$3,$4,$5)`,
+        [entryId, w.word, w.word, w.gematria, w.position]
       );
     }
-    await recordMiluiSaveMode(entryId, 'primary_only', ['primary'], client, req.account.id);
+    await recordMiluiSaveMode(entryId, 'primary_only', ['primary'], client);
 
     await client.query('COMMIT');
     try {
-      await indexSavedEntryForCurrentVersions(entryId, pool, req.account.id);
+      await indexSavedEntryForCurrentVersions(entryId);
     } catch (indexError) {
-      invalidateMiluiCoverageCheck(req.account.id);
+      invalidateMiluiCoverageCheck();
       console.error(`Saved entry ${entryId}, but מילוי indexing failed:`, indexError.message);
     }
     res.json({ id: entryId, success: true });
@@ -1042,9 +906,9 @@ app.post('/api/entries/curated-matches', requireAuth, async (req, res) => {
     await acquireMiluiSaveLock(client);
     const parentResult = await client.query(
       `SELECT id FROM saved_entries
-       WHERE tanach_book_slug IS NULL AND normalized_text = $1 AND owner_id = $2
+       WHERE tanach_book_slug IS NULL AND normalized_text = $1
        FOR UPDATE`,
-      [parentCalculated.normalizedText, req.account.id]
+      [parentCalculated.normalizedText]
     );
     let parentId;
     let parentCreated = false;
@@ -1053,13 +917,13 @@ app.post('/api/entries/curated-matches', requireAuth, async (req, res) => {
     } else {
       const inserted = await client.query(
         `INSERT INTO saved_entries
-          (owner_id, original_text, normalized_text, full_gematria, full_gematria_hebrew,
+          (original_text, normalized_text, full_gematria, full_gematria_hebrew,
            initials, initials_gematria, initials_gematria_hebrew,
            finals, finals_gematria, finals_gematria_hebrew)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-          ON CONFLICT (owner_id, normalized_text) WHERE tanach_book_slug IS NULL DO NOTHING
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+         ON CONFLICT (normalized_text) WHERE tanach_book_slug IS NULL DO NOTHING
          RETURNING id`,
-        [req.account.id, parentOriginalText, parentCalculated.normalizedText, parentCalculated.fullGematria,
+        [parentOriginalText, parentCalculated.normalizedText, parentCalculated.fullGematria,
           parentCalculated.fullHebrewNumber, parentCalculated.initials,
           parentCalculated.initialsGematria, parentCalculated.initialsHebrewNumber,
           parentCalculated.finals, parentCalculated.finalsGematria,
@@ -1070,18 +934,18 @@ app.post('/api/entries/curated-matches', requireAuth, async (req, res) => {
         parentCreated = true;
         for (const word of parentCalculated.words) {
           await client.query(
-            `INSERT INTO saved_words (owner_id, entry_id, word, normalized_word, gematria, position)
-             VALUES ($1,$2,$3,$4,$5,$6)`,
-            [req.account.id, parentId, word.word, word.word, word.gematria, word.position]
+            `INSERT INTO saved_words (entry_id, word, normalized_word, gematria, position)
+             VALUES ($1,$2,$3,$4,$5)`,
+            [parentId, word.word, word.word, word.gematria, word.position]
           );
         }
-        await recordMiluiSaveMode(parentId, 'primary_only', ['primary'], client, req.account.id);
+        await recordMiluiSaveMode(parentId, 'primary_only', ['primary'], client);
       } else {
         const existing = await client.query(
           `SELECT id FROM saved_entries
-            WHERE tanach_book_slug IS NULL AND normalized_text = $1 AND owner_id = $2
+           WHERE tanach_book_slug IS NULL AND normalized_text = $1
            FOR UPDATE`,
-          [parentCalculated.normalizedText, req.account.id]
+          [parentCalculated.normalizedText]
         );
         parentId = existing.rows[0].id;
       }
@@ -1105,16 +969,16 @@ app.post('/api/entries/curated-matches', requireAuth, async (req, res) => {
       const context = verified.context;
       const result = await client.query(
         `INSERT INTO curated_matches
-          (owner_id, parent_id, original_text, normalized_text, tanach_book_slug, tanach_book_label, tanach_chapter,
+          (parent_id, original_text, normalized_text, tanach_book_slug, tanach_book_label, tanach_chapter,
            tanach_verse, tanach_start, tanach_end, reason_codes)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb)
          ON CONFLICT (parent_id, tanach_book_slug, tanach_chapter, tanach_verse, tanach_start, tanach_end)
          DO UPDATE SET reason_codes = (
            SELECT jsonb_agg(DISTINCT value ORDER BY value)
            FROM jsonb_array_elements_text(curated_matches.reason_codes || EXCLUDED.reason_codes) AS values(value)
          )
          RETURNING *`,
-        [req.account.id, parentId, verified.originalText, verified.calculated.normalizedText,
+        [parentId, verified.originalText, verified.calculated.normalizedText,
           context.bookSlug, context.bookLabel, context.chapter, context.verse, context.start, context.end,
           JSON.stringify([match.reasonCode])]
       );
@@ -1123,9 +987,9 @@ app.post('/api/entries/curated-matches', requireAuth, async (req, res) => {
     await client.query('COMMIT');
     if (parentCreated) {
       try {
-        await indexSavedEntryForCurrentVersions(parentId, pool, req.account.id);
+        await indexSavedEntryForCurrentVersions(parentId);
       } catch (indexError) {
-        invalidateMiluiCoverageCheck(req.account.id);
+        invalidateMiluiCoverageCheck();
         console.error(`Saved entry ${parentId}, but מילוי indexing failed:`, indexError.message);
       }
     }
@@ -1165,29 +1029,29 @@ app.get('/api/entries', requireAuth, async (req, res) => {
       alphabetical: 'MIN(se.normalized_text) ASC, MIN(se.id) ASC',
     }[sort] || 'MAX(se.created_at) DESC, MAX(se.id) DESC';
 
-    let whereSql = 'WHERE se.owner_id = $1';
-    let searchParams = [req.account.id];
+    let whereSql = '';
+    let searchParams = [];
     if (rawSearch) {
       if (/^\d+$/.test(rawSearch)) {
         const value = Number(rawSearch);
-        whereSql += ` AND (se.full_gematria = $2
-          OR se.initials_gematria = $2
-          OR se.finals_gematria = $2)`;
-        searchParams.push(value);
+        whereSql = `WHERE se.full_gematria = $1
+          OR se.initials_gematria = $1
+          OR se.finals_gematria = $1`;
+        searchParams = [value];
       } else {
         const normalizedSearch = normalize(rawSearch);
         const compactInitials = normalizedSearch.replace(/\s+/g, '');
-        whereSql += ` AND (se.original_text ILIKE $2
-             OR se.normalized_text ILIKE $3
-             OR se.initials ILIKE $2
-             OR REPLACE(se.initials, ' ', '') = $4
-             OR se.finals ILIKE $2
-             OR REPLACE(se.finals, ' ', '') = $4)`;
-        searchParams.push(
+        whereSql = `WHERE se.original_text ILIKE $1
+             OR se.normalized_text ILIKE $2
+             OR se.initials ILIKE $1
+             OR REPLACE(se.initials, ' ', '') = $3
+             OR se.finals ILIKE $1
+             OR REPLACE(se.finals, ' ', '') = $3`;
+        searchParams = [
           `%${rawSearch}%`,
           `%${normalizedSearch || rawSearch}%`,
           compactInitials,
-        );
+        ];
       }
     }
 
@@ -1200,8 +1064,7 @@ app.get('/api/entries', requireAuth, async (req, res) => {
               (SELECT name_he FROM tanach_parshiot WHERE id = se.parsha_id) AS parsha_name,
                COUNT(*) OVER (PARTITION BY se.full_gematria)::int AS value_entry_count,
                COALESCE(json_agg(sw ORDER BY sw.position) FILTER (WHERE sw.id IS NOT NULL), '[]') AS words,
-                (SELECT COUNT(*)::int FROM curated_matches cm
-                  WHERE cm.parent_id = se.id AND cm.owner_id = se.owner_id) AS curated_match_count,
+               (SELECT COUNT(*)::int FROM curated_matches cm WHERE cm.parent_id = se.id) AS curated_match_count,
                COALESCE((SELECT json_agg(json_build_object(
                  'id', cm.id, 'originalText', cm.original_text,
                  'tanachContext', json_build_object('bookSlug', cm.tanach_book_slug,
@@ -1209,8 +1072,7 @@ app.get('/api/entries', requireAuth, async (req, res) => {
                    'chapter', cm.tanach_chapter, 'verse', cm.tanach_verse,
                    'start', cm.tanach_start, 'end', cm.tanach_end),
                  'reasonCodes', cm.reason_codes) ORDER BY cm.id)
-                  FROM curated_matches cm
-                  WHERE cm.parent_id = se.id AND cm.owner_id = se.owner_id), '[]') AS curated_matches
+                 FROM curated_matches cm WHERE cm.parent_id = se.id), '[]') AS curated_matches
        FROM saved_entries se`;
     const paginationParams = [...searchParams, lim, off];
     const rows = grouped
@@ -1226,14 +1088,14 @@ app.get('/api/entries', requireAuth, async (req, res) => {
          )
          ${entrySelect}
          JOIN page_values pv ON pv.full_gematria = se.full_gematria
-         LEFT JOIN saved_words sw ON sw.entry_id = se.id AND sw.owner_id = se.owner_id
+         LEFT JOIN saved_words sw ON sw.entry_id = se.id
          GROUP BY se.id, pv.group_rank
          ORDER BY pv.group_rank, ${orderBy}`,
         paginationParams
       )
       : await pool.query(
         `${entrySelect}
-         LEFT JOIN saved_words sw ON sw.entry_id = se.id AND sw.owner_id = se.owner_id
+         LEFT JOIN saved_words sw ON sw.entry_id = se.id
          ${whereSql}
          GROUP BY se.id
          ORDER BY ${orderBy}
@@ -1297,10 +1159,8 @@ app.delete('/api/entries/:parentId/curated-matches/:matchId', requireAuth, async
   }
   try {
     const result = await pool.query(
-      `DELETE FROM curated_matches
-       WHERE id = $1 AND parent_id = $2 AND owner_id = $3
-       RETURNING id`,
-      [matchId, parentId, req.account.id]
+      'DELETE FROM curated_matches WHERE id = $1 AND parent_id = $2 RETURNING id',
+      [matchId, parentId]
     );
     if (!result.rowCount) return res.status(404).json({ error: 'not_found' });
     res.json({ success: true });
@@ -1321,19 +1181,12 @@ app.delete('/api/entries/:id', requireAuth, async (req, res) => {
     client = await pool.connect();
     await client.query('BEGIN');
     await acquireMiluiSaveLock(client);
-    const owned = await client.query(
-      'SELECT id FROM saved_entries WHERE id = $1 AND owner_id = $2 FOR UPDATE',
-      [id, req.account.id]
-    );
-    if (!owned.rowCount) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({ error: 'not_found' });
-    }
-    await deleteMiluiIndexRows(client, id, req.account.id);
     await client.query(
-      'DELETE FROM saved_entries WHERE id = $1 AND owner_id = $2',
-      [id, req.account.id]
+      'SELECT id FROM saved_entries WHERE id = $1 FOR UPDATE',
+      [id]
     );
+    await deleteMiluiIndexRows(client, id);
+    await client.query('DELETE FROM saved_entries WHERE id = $1', [id]);
     await client.query('COMMIT');
     res.json({ success: true });
   } catch (err) {

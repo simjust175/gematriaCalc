@@ -6,7 +6,7 @@ process.env.APP_PASSWORD = process.env.APP_PASSWORD || 'auth-routing-test-passwo
 process.env.SESSION_SECRET = process.env.SESSION_SECRET || 'auth-routing-test-session-secret';
 delete process.env.PUBLIC_SIGNUP_ENABLED;
 
-const { app } = await import('../server/app.js');
+const { app } = await import('../server/combinedApp.js');
 const { RoleRoutedSessionStore } = await import('../server/sessionStore.js');
 
 test('legacy password login and session restoration remain available without multi-user database', async () => {
