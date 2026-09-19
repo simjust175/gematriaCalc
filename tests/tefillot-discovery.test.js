@@ -1,9 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  combineDiscoveryPayloads,
-} from '../server/tefillot.js';
-import {
   clearTefillotGematriaCaches,
   parseTefillotGematriaQuery,
   searchTefillotGematria,
@@ -121,34 +118,52 @@ test('Tefillot discovery applies festival/service filters and exact edge methods
   assert.equal(finals.total, 1);
 });
 
-test('combined discovery keeps each page within the configured limit without duplicates', async () => {
+test('source modes query their own endpoint and all mode unions both sources', async () => {
   const calls = [];
   const fetchImpl = async url => {
     calls.push(url);
     const params = new URL(url, 'https://example.test').searchParams;
     const page = Number(params.get('page'));
-    const limit = Number(params.get('limit'));
-    const offset = (page - 1) * limit;
-    const count = page === 1 ? limit : 7;
+    const isTanach = url.includes('/api/tanach/');
+    const total = isTanach ? 15 : 7;
+    const offset = (page - 1) * 12;
+    const count = Math.max(0, Math.min(12, total - offset));
     return {
       ok: true,
       async json() {
         return {
           results: Array.from({ length: count }, (_, index) => ({
-            id: `${index % 2 ? 'tefillot' : 'tanach'}-${offset + index}`,
-            sourceType: index % 2 ? 'tefillot' : 'tanach',
+            id: `${isTanach ? 'tanach' : 'tefillot'}-${offset + index}`,
+            ...(isTanach ? {} : { sourceType: 'tefillot' }),
           })),
-          counts: { all: 22, whole_word: 18, whole_phrase: 4, partial: 3 },
-          sourceCounts: { tanach: 15, tefillot: 7 },
-          total: 22,
+          counts: { all: total, whole_word: total, whole_phrase: 0, partial: 0 },
+          total,
           page,
-          limit,
-          hasMore: page <= 2,
+          limit: 12,
+          hasMore: offset + count < total,
         };
       },
     };
   };
 
+  for (const source of ['tanach', 'tefillot']) {
+    calls.length = 0;
+    const scope = effectScope();
+    const api = scope.run(() => useTanachGematriaMatches(ref(45), {
+      fetchImpl,
+      debounceMs: 0,
+      limit: 12,
+      sourceRef: ref(source),
+      methodRef: ref('gematria'),
+    }));
+    await new Promise(resolve => setTimeout(resolve, 20));
+    assert.equal(calls.length, 1);
+    assert.ok(calls[0].includes(`/api/${source}/gematria-matches?`));
+    assert.equal(api.total.value, source === 'tanach' ? 15 : 7);
+    scope.stop();
+  }
+
+  calls.length = 0;
   const scope = effectScope();
   const api = scope.run(() => useTanachGematriaMatches(ref(45), {
     fetchImpl,
@@ -158,44 +173,61 @@ test('combined discovery keeps each page within the configured limit without dup
     methodRef: ref('gematria'),
   }));
   await new Promise(resolve => setTimeout(resolve, 20));
-  assert.equal(api.results.value.length, 12);
-  assert.equal(calls.length, 1);
-  assert.ok(calls[0].includes('/api/discovery/gematria-matches?'));
+  assert.equal(api.results.value.length, 19);
+  assert.equal(calls.length, 2);
+  assert.ok(calls.some(url => url.includes('/api/tanach/gematria-matches?')));
+  assert.ok(calls.some(url => url.includes('/api/tefillot/gematria-matches?')));
   assert.deepEqual(api.sourceCounts.value, { tanach: 15, tefillot: 7 });
   assert.deepEqual(new Set(api.results.value.map(item => item.sourceType)), new Set(['tanach', 'tefillot']));
   await api.loadMore();
-  assert.equal(api.results.value.length, 19);
-  assert.equal(new Set(api.results.value.map(item => item.id)).size, 19);
+  assert.equal(api.results.value.length, 22);
+  assert.equal(new Set(api.results.value.map(item => item.id)).size, 22);
   assert.equal(api.total.value, 22);
-  assert.equal(api.hasMore.value, true);
+  assert.equal(api.hasMore.value, false);
   scope.stop();
 });
 
-test('combined discovery merges both sources and sums totals and filter counts', () => {
-  const result = combineDiscoveryPayloads({
-    method: 'gematria',
-    results: [{ bookSlug: 'Genesis', text: 'א' }],
-    counts: { all: 8, whole_word: 6, whole_phrase: 2, partial: 4 },
-    total: 8,
-    page: 1,
-    hasMore: true,
-  }, {
-    method: 'gematria',
-    results: [{ unitId: 4, text: 'ב' }],
-    counts: { all: 5, whole_word: 3, whole_phrase: 2, partial: 1 },
-    total: 5,
-    page: 1,
-    hasMore: false,
-  }, 12);
-
-  assert.deepEqual(result.results.map(item => item.sourceType), ['tanach', 'tefillot']);
-  assert.deepEqual(result.sourceCounts, { tanach: 8, tefillot: 5 });
-  assert.deepEqual(result.counts, {
-    all: 13,
-    whole_word: 9,
-    whole_phrase: 4,
-    partial: 5,
-  });
-  assert.equal(result.total, 13);
-  assert.equal(result.hasMore, true);
+test('all mode preserves either successful source when the other source fails', async () => {
+  for (const failedSource of ['tefillot', 'tanach']) {
+    const successfulSource = failedSource === 'tefillot' ? 'tanach' : 'tefillot';
+    const successfulTotal = successfulSource === 'tanach' ? 697 : 23;
+    const scope = effectScope();
+    const api = scope.run(() => useTanachGematriaMatches(ref(45), {
+      fetchImpl: async url => {
+        if (url.includes(`/api/${failedSource}/`)) return { ok: false };
+        return {
+          ok: true,
+          async json() {
+            return {
+              results: [{
+                id: `${successfulSource}-1`,
+                ...(successfulSource === 'tefillot' ? { sourceType: 'tefillot' } : {}),
+              }],
+              counts: {
+                all: successfulTotal,
+                whole_word: successfulTotal,
+                whole_phrase: 0,
+                partial: 0,
+              },
+              total: successfulTotal,
+              hasMore: false,
+            };
+          },
+        };
+      },
+      debounceMs: 0,
+      sourceRef: ref('all'),
+      methodRef: ref('gematria'),
+    }));
+    await new Promise(resolve => setTimeout(resolve, 20));
+    assert.equal(api.results.value.length, 1);
+    assert.equal(api.results.value[0].sourceType, successfulSource);
+    assert.equal(api.total.value, successfulTotal);
+    assert.deepEqual(api.sourceCounts.value, {
+      tanach: successfulSource === 'tanach' ? successfulTotal : 0,
+      tefillot: successfulSource === 'tefillot' ? successfulTotal : 0,
+    });
+    assert.equal(api.error.value, '');
+    scope.stop();
+  }
 });

@@ -118,22 +118,6 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
        if (verse.value) params.set('verse', String(verse.value));
       if (currentParshah.value) params.set('parsha', 'current');
       const source = currentSource();
-      if (source === 'all') {
-        const response = await fetchImpl(`/api/discovery/gematria-matches?${params}`, {
-          signal: requestController.signal,
-        });
-        if (!response.ok) throw new Error('לא ניתן לטעון התאמות מן המקורות');
-        const data = await response.json();
-        if (currentId !== requestId || requestController.signal.aborted) return;
-        results.value = append ? [...results.value, ...(data.results || [])] : (data.results || []);
-        counts.value = data.counts || { whole_word: 0, whole_phrase: 0, partial: 0 };
-        sourceCounts.value = data.sourceCounts || { tanach: 0, tefillot: 0 };
-        total.value = Number(data.total || 0);
-        page.value = nextPage;
-        hasMore.value = data.hasMore === true;
-        weeklyParshah.value = data.weeklyParshah || null;
-        return;
-      }
       const requests = [];
       if (source !== 'tefillot') {
         requests.push(fetchImpl(`/api/tanach/gematria-matches?${params}`, {
@@ -159,7 +143,17 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
           return { source: 'tefillot', data: await response.json() };
         }));
       }
-      const payloads = await Promise.all(requests);
+      const outcomes = await Promise.allSettled(requests);
+      const payloads = outcomes
+        .filter(outcome => outcome.status === 'fulfilled')
+        .map(outcome => outcome.value);
+      if (payloads.length === 0) {
+        throw outcomes.find(outcome => outcome.status === 'rejected')?.reason
+          || new Error('אירעה שגיאה בטעינת ההתאמות');
+      }
+      if (source !== 'all' && outcomes.some(outcome => outcome.status === 'rejected')) {
+        throw outcomes.find(outcome => outcome.status === 'rejected').reason;
+      }
       if (currentId !== requestId || requestController.signal.aborted) return;
       const bySource = Object.fromEntries(payloads.map(item => [item.source, item.data]));
       const tanachResults = (bySource.tanach?.results || []).map(item => ({ ...item, sourceType: 'tanach' }));
@@ -170,18 +164,25 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
         if (tefillotResults[index]) incoming.push(tefillotResults[index]);
       }
       results.value = append ? [...results.value, ...incoming] : incoming;
-      counts.value = ['all', 'whole_word', 'whole_phrase', 'partial'].reduce((result, key) => {
-        result[key] = Number(bySource.tanach?.counts?.[key] || 0) + Number(bySource.tefillot?.counts?.[key] || 0);
-        return result;
-      }, {});
+      if (!(append && outcomes.some(outcome => outcome.status === 'rejected'))) {
+        counts.value = ['all', 'whole_word', 'whole_phrase', 'partial'].reduce((result, key) => {
+          result[key] = Number(bySource.tanach?.counts?.[key] || 0) + Number(bySource.tefillot?.counts?.[key] || 0);
+          return result;
+        }, {});
+      }
       sourceCounts.value = {
-        tanach: Number(bySource.tanach?.total || 0),
-        tefillot: Number(bySource.tefillot?.total || 0),
+        tanach: bySource.tanach
+          ? Number(bySource.tanach.total || 0)
+          : (append ? sourceCounts.value.tanach : 0),
+        tefillot: bySource.tefillot
+          ? Number(bySource.tefillot.total || 0)
+          : (append ? sourceCounts.value.tefillot : 0),
       };
       total.value = sourceCounts.value.tanach + sourceCounts.value.tefillot;
       page.value = nextPage;
       hasMore.value = payloads.some(item => item.data.hasMore === true);
-      weeklyParshah.value = bySource.tanach?.weeklyParshah || null;
+      weeklyParshah.value = bySource.tanach?.weeklyParshah
+        || (append ? weeklyParshah.value : null);
     } catch (reason) {
       if (reason?.name !== 'AbortError' && currentId === requestId) {
         error.value = reason?.message || 'אירעה שגיאה בטעינת ההתאמות';
