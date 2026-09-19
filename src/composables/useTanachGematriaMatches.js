@@ -118,7 +118,22 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
        if (verse.value) params.set('verse', String(verse.value));
       if (currentParshah.value) params.set('parsha', 'current');
       const source = currentSource();
-      if (source === 'all') params.set('limit', String(Math.ceil(limit / 2)));
+      if (source === 'all') {
+        const response = await fetchImpl(`/api/discovery/gematria-matches?${params}`, {
+          signal: requestController.signal,
+        });
+        if (!response.ok) throw new Error('לא ניתן לטעון התאמות מן המקורות');
+        const data = await response.json();
+        if (currentId !== requestId || requestController.signal.aborted) return;
+        results.value = append ? [...results.value, ...(data.results || [])] : (data.results || []);
+        counts.value = data.counts || { whole_word: 0, whole_phrase: 0, partial: 0 };
+        sourceCounts.value = data.sourceCounts || { tanach: 0, tefillot: 0 };
+        total.value = Number(data.total || 0);
+        page.value = nextPage;
+        hasMore.value = data.hasMore === true;
+        weeklyParshah.value = data.weeklyParshah || null;
+        return;
+      }
       const requests = [];
       if (source !== 'tefillot') {
         requests.push(fetchImpl(`/api/tanach/gematria-matches?${params}`, {

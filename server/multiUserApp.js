@@ -31,7 +31,7 @@ import {
   searchSavedMultiples,
 } from './multiUserMultipleDiscovery.js';
 import { registerBaseWordRoutes } from './multiUserBaseWords.js';
-import { registerTefillotRoutes } from './tefillot.js';
+import { registerCombinedDiscoveryRoute, registerTefillotRoutes } from './tefillot.js';
 import {
   getExplicitMiluiMatches,
   recordMiluiSaveMode,
@@ -276,6 +276,11 @@ async function requireAuth(req, res, next) {
 // ── Protected API routes ─────────────────────────────────────────────────────
 
 registerBaseWordRoutes(app, { pool, requireAuth });
+registerCombinedDiscoveryRoute(app, {
+  tanachPool: pool,
+  tefillotPool: pool,
+  requireAuth,
+});
 registerTefillotRoutes(app, { pool, requireAuth });
 registerMiluiInterpretationRoutes(app, {
   pool,

@@ -2,9 +2,91 @@ import {
   parseTefillotGematriaQuery,
   searchTefillotGematria,
 } from './tefillotGematriaDiscovery.js';
+import {
+  parseGematriaSearchQuery,
+  searchTanachGematria,
+  validateTanachGematriaScope,
+} from './tanachGematriaDiscovery.js';
 
 function validSlug(value) {
   return typeof value === 'string' && /^[a-z0-9-]+$/u.test(value);
+}
+
+const TANACH_ONLY_QUERY_KEYS = [
+  'book_order', 'parsha_id', 'chapter_book', 'chapter', 'verse', 'parsha',
+];
+
+export function combineDiscoveryPayloads(tanach, tefillot, limit) {
+  const tanachResults = (tanach.results || []).map(item => ({
+    ...item,
+    sourceType: 'tanach',
+  }));
+  const tefillotResults = (tefillot.results || []).map(item => ({
+    ...item,
+    sourceType: 'tefillot',
+  }));
+  const results = [];
+  for (
+    let index = 0;
+    index < Math.max(tanachResults.length, tefillotResults.length) && results.length < limit;
+    index += 1
+  ) {
+    if (tanachResults[index]) results.push(tanachResults[index]);
+    if (tefillotResults[index] && results.length < limit) results.push(tefillotResults[index]);
+  }
+  const counts = ['all', 'whole_word', 'whole_phrase', 'partial'].reduce((combined, key) => {
+    combined[key] = Number(tanach.counts?.[key] || 0) + Number(tefillot.counts?.[key] || 0);
+    return combined;
+  }, {});
+  const sourceCounts = {
+    tanach: Number(tanach.total || 0),
+    tefillot: Number(tefillot.total || 0),
+  };
+  return {
+    method: tanach.method || tefillot.method,
+    results,
+    counts,
+    sourceCounts,
+    total: sourceCounts.tanach + sourceCounts.tefillot,
+    page: tanach.page || tefillot.page || 1,
+    limit,
+    hasMore: tanach.hasMore === true || tefillot.hasMore === true,
+    weeklyParshah: tanach.weeklyParshah || null,
+  };
+}
+
+export function registerCombinedDiscoveryRoute(
+  app,
+  { tanachPool, tefillotPool, requireAuth },
+) {
+  app.get('/api/discovery/gematria-matches', requireAuth, async (req, res) => {
+    if (!tefillotPool) {
+      return res.status(503).json({ error: 'multi_user_unavailable' });
+    }
+    const requestedLimit = Number(req.query.limit || 12);
+    const perSourceLimit = Math.max(1, Math.ceil(requestedLimit / 2));
+    const tanachQuery = { ...req.query, limit: String(perSourceLimit) };
+    const tefillotQuery = { ...req.query, limit: String(perSourceLimit) };
+    for (const key of TANACH_ONLY_QUERY_KEYS) delete tefillotQuery[key];
+
+    const tanachOptions = parseGematriaSearchQuery(tanachQuery);
+    if (tanachOptions.error) return res.status(400).json({ error: tanachOptions.error });
+    const tefillotOptions = parseTefillotGematriaQuery(tefillotQuery);
+    if (tefillotOptions.error) return res.status(400).json({ error: tefillotOptions.error });
+
+    try {
+      const scopeError = await validateTanachGematriaScope(tanachPool, tanachOptions);
+      if (scopeError) return res.status(400).json({ error: scopeError });
+      const [tanach, tefillot] = await Promise.all([
+        searchTanachGematria(tanachPool, tanachOptions),
+        searchTefillotGematria(tefillotPool, tefillotOptions),
+      ]);
+      res.json(combineDiscoveryPayloads(tanach, tefillot, requestedLimit));
+    } catch (error) {
+      console.error('/api/discovery/gematria-matches error:', error.message);
+      res.status(500).json({ error: 'combined_gematria_search_failed' });
+    }
+  });
 }
 
 export function registerTefillotRoutes(app, { pool, requireAuth }) {

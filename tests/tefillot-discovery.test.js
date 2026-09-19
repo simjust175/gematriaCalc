@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  combineDiscoveryPayloads,
+} from '../server/tefillot.js';
+import {
   clearTefillotGematriaCaches,
   parseTefillotGematriaQuery,
   searchTefillotGematria,
@@ -122,26 +125,25 @@ test('combined discovery keeps each page within the configured limit without dup
   const calls = [];
   const fetchImpl = async url => {
     calls.push(url);
-    const source = url.includes('/tefillot/') ? 'tefillot' : 'tanach';
     const params = new URL(url, 'https://example.test').searchParams;
     const page = Number(params.get('page'));
     const limit = Number(params.get('limit'));
-    const total = source === 'tanach' ? 15 : 7;
     const offset = (page - 1) * limit;
-    const count = Math.max(0, Math.min(limit, total - offset));
+    const count = page === 1 ? limit : 7;
     return {
       ok: true,
       async json() {
         return {
           results: Array.from({ length: count }, (_, index) => ({
-            id: `${source}-${offset + index}`,
-            sourceType: source,
+            id: `${index % 2 ? 'tefillot' : 'tanach'}-${offset + index}`,
+            sourceType: index % 2 ? 'tefillot' : 'tanach',
           })),
-          counts: { all: total, whole_word: total, whole_phrase: 0, partial: 0 },
-          total,
+          counts: { all: 22, whole_word: 18, whole_phrase: 4, partial: 3 },
+          sourceCounts: { tanach: 15, tefillot: 7 },
+          total: 22,
           page,
           limit,
-          hasMore: offset + count < total,
+          hasMore: page <= 2,
         };
       },
     };
@@ -157,11 +159,43 @@ test('combined discovery keeps each page within the configured limit without dup
   }));
   await new Promise(resolve => setTimeout(resolve, 20));
   assert.equal(api.results.value.length, 12);
-  assert.ok(calls.every(url => new URL(url, 'https://example.test').searchParams.get('limit') === '6'));
+  assert.equal(calls.length, 1);
+  assert.ok(calls[0].includes('/api/discovery/gematria-matches?'));
+  assert.deepEqual(api.sourceCounts.value, { tanach: 15, tefillot: 7 });
+  assert.deepEqual(new Set(api.results.value.map(item => item.sourceType)), new Set(['tanach', 'tefillot']));
   await api.loadMore();
   assert.equal(api.results.value.length, 19);
   assert.equal(new Set(api.results.value.map(item => item.id)).size, 19);
   assert.equal(api.total.value, 22);
   assert.equal(api.hasMore.value, true);
   scope.stop();
+});
+
+test('combined discovery merges both sources and sums totals and filter counts', () => {
+  const result = combineDiscoveryPayloads({
+    method: 'gematria',
+    results: [{ bookSlug: 'Genesis', text: 'א' }],
+    counts: { all: 8, whole_word: 6, whole_phrase: 2, partial: 4 },
+    total: 8,
+    page: 1,
+    hasMore: true,
+  }, {
+    method: 'gematria',
+    results: [{ unitId: 4, text: 'ב' }],
+    counts: { all: 5, whole_word: 3, whole_phrase: 2, partial: 1 },
+    total: 5,
+    page: 1,
+    hasMore: false,
+  }, 12);
+
+  assert.deepEqual(result.results.map(item => item.sourceType), ['tanach', 'tefillot']);
+  assert.deepEqual(result.sourceCounts, { tanach: 8, tefillot: 5 });
+  assert.deepEqual(result.counts, {
+    all: 13,
+    whole_word: 9,
+    whole_phrase: 4,
+    partial: 5,
+  });
+  assert.equal(result.total, 13);
+  assert.equal(result.hasMore, true);
 });

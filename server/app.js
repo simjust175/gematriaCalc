@@ -21,7 +21,7 @@ import {
 } from './multipleDiscovery.js';
 import { registerBaseWordRoutes } from './baseWords.js';
 import { multiUserPool } from './databaseRouter.js';
-import { registerTefillotRoutes } from './tefillot.js';
+import { registerCombinedDiscoveryRoute, registerTefillotRoutes } from './tefillot.js';
 import {
   getExplicitMiluiMatches,
   recordMiluiSaveMode,
@@ -147,6 +147,11 @@ function requireAuth(req, res, next) {
 // ── Protected API routes ─────────────────────────────────────────────────────
 
 registerBaseWordRoutes(app, { pool, requireAuth });
+registerCombinedDiscoveryRoute(app, {
+  tanachPool: pool,
+  tefillotPool: multiUserPool,
+  requireAuth,
+});
 if (multiUserPool) {
   // Tefillot is shared corpus data stored only in the separate multi-user
   // database. Legacy authentication remains in DATABASE_URL.
