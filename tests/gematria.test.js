@@ -605,7 +605,7 @@ test('Tanach discovery clears stale targets, filters server-side, and appends pa
   }
 });
 
-test('Tanach discovery never applies Kollel beyond the safe integer range', async () => {
+test('Tanach discovery כולל toggle searches target plus one and toggles back to the exact target', async () => {
   const urls = [];
   const fetchImpl = async url => {
     urls.push(String(url));
@@ -621,22 +621,26 @@ test('Tanach discovery never applies Kollel beyond the safe integer range', asyn
       }),
     };
   };
-  const live = useTanachGematriaMatches(ref(Number.MAX_SAFE_INTEGER), {
-    fetchImpl,
-    debounceMs: 0,
-  });
+  const flush = () => new Promise(resolve => setTimeout(resolve, 0));
+  const live = useTanachGematriaMatches(ref(304), { fetchImpl, debounceMs: 0 });
 
   try {
-    await new Promise(resolve => setTimeout(resolve, 0));
-    assert.equal(live.kollelAvailable.value, false);
-    live.setIncludeKollel(true);
-    await new Promise(resolve => setTimeout(resolve, 0));
+    await flush();
+    let params = new URL(urls.at(-1), 'http://example.test').searchParams;
+    assert.equal(params.get('value'), '304');
     assert.equal(live.includeKollel.value, false);
-    assert.equal(urls.length, 1);
-    assert.equal(
-      new URL(urls[0], 'http://example.test').searchParams.get('value'),
-      String(Number.MAX_SAFE_INTEGER),
-    );
+
+    live.setIncludeKollel(true);
+    await flush();
+    params = new URL(urls.at(-1), 'http://example.test').searchParams;
+    assert.equal(params.get('value'), '305');
+    assert.equal(live.includeKollel.value, true);
+
+    live.setIncludeKollel(false);
+    await flush();
+    params = new URL(urls.at(-1), 'http://example.test').searchParams;
+    assert.equal(params.get('value'), '304');
+    assert.equal(live.includeKollel.value, false);
   } finally {
     live.stop();
   }

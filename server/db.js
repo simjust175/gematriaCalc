@@ -3,14 +3,15 @@ import { MILUI_DEFAULT_MAPPING, MILUI_PRESET_NAME } from '../src/utils/milui.js'
 import { TANACH_PARSHIOT } from './tanachParshiot.js';
 import { UXLC_REPRESENTATION_VERSION } from './uxlcText.js';
 import { computeAll } from '../src/composables/useGematria.js';
+import { ensureMultiUserFoundation } from './accounts.js';
+import { assertMultiUserPool, legacyPool } from './databaseRouter.js';
 const { Pool } = pg;
 
-export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-});
+// Existing modules continue to use this legacy alias during the connection
+// foundation step. Multi-user initialization receives an explicit pool.
+export const pool = legacyPool;
 
-let miluiPreferencesReady = null;
+const miluiPreferencesReady = new WeakMap();
 
 export async function ensureFinalsDerived(db = pool) {
   const before = await db.query(
@@ -56,8 +57,8 @@ export async function ensureFinalsDerived(db = pool) {
 }
 
 export function ensureMiluiPreferences(db = pool) {
-  if (miluiPreferencesReady) return miluiPreferencesReady;
-  miluiPreferencesReady = (async () => {
+  if (miluiPreferencesReady.has(db)) return miluiPreferencesReady.get(db);
+  const ready = (async () => {
     const before = await db.query(`
       SELECT
         (SELECT COUNT(*)::int FROM saved_entries) AS saved_entries,
@@ -71,6 +72,25 @@ export function ensureMiluiPreferences(db = pool) {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `);
+    const ownerColumn = await db.query(`
+      SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'milui_preferences'
+          AND column_name = 'owner_id'
+      ) AS present
+    `);
+    // A development database may already contain the owner-aware table from
+    // an interrupted multi-user migration. Do not try to write the legacy
+    // global row into that incompatible shape. The legacy application keeps
+    // its original default behavior through its existing data/fallback, while
+    // the multi-user path initializes owner-aware preferences later.
+    if (ownerColumn.rows[0]?.present === true && db.databaseRole !== 'multi-user') {
+      console.warn('Skipping legacy global מילוי preference seed for an existing owner-aware table');
+      return;
+    }
+    if (ownerColumn.rows[0]?.present === true) return;
     await db.query(
       `INSERT INTO milui_preferences (id, preset_name, mapping)
        VALUES ('private-default', $1, $2::jsonb)
@@ -93,10 +113,11 @@ export function ensureMiluiPreferences(db = pool) {
       + `saved_words ${before.rows[0].saved_words}; deleted 0, modified 0`
     );
   })().catch(error => {
-    miluiPreferencesReady = null;
+    miluiPreferencesReady.delete(db);
     throw error;
   });
-  return miluiPreferencesReady;
+  miluiPreferencesReady.set(db, ready);
+  return ready;
 }
 
 export async function seedTanachParshiot(db = pool) {
@@ -140,8 +161,14 @@ export async function seedTanachParshiot(db = pool) {
   return true;
 }
 
-export async function initDb() {
-  await pool.query(`
+export async function initDb({
+  db = legacyPool,
+  initializeMultiUser = false,
+} = {}) {
+  if (!db) throw new Error('Database connection is not configured');
+  if (initializeMultiUser) assertMultiUserPool(db);
+
+  await db.query(`
     CREATE TABLE IF NOT EXISTS saved_entries (
       id SERIAL PRIMARY KEY,
       original_text TEXT NOT NULL,
@@ -225,6 +252,47 @@ export async function initDb() {
     );
     CREATE INDEX IF NOT EXISTS idx_tanach_parshiot_order ON tanach_parshiot(canonical_order);
 
+    CREATE TABLE IF NOT EXISTS tefillot_sources (
+      id TEXT PRIMARY KEY,
+      source_work TEXT NOT NULL,
+      source_version TEXT NOT NULL,
+      version_source TEXT NOT NULL,
+      license TEXT NOT NULL,
+      source_url TEXT NOT NULL,
+      imported_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(source_work, source_version)
+    );
+
+    CREATE TABLE IF NOT EXISTS tefillot_units (
+      id BIGSERIAL PRIMARY KEY,
+      source_id TEXT NOT NULL REFERENCES tefillot_sources(id),
+      nusach TEXT NOT NULL,
+      occasion_slug TEXT NOT NULL,
+      occasion_label TEXT NOT NULL,
+      occasion_order INTEGER NOT NULL,
+      service_slug TEXT NOT NULL,
+      service_label TEXT NOT NULL,
+      service_order INTEGER NOT NULL,
+      section_key TEXT NOT NULL,
+      section_label TEXT NOT NULL,
+      section_order INTEGER NOT NULL,
+      subsection TEXT,
+      sequence INTEGER NOT NULL,
+      hebrew_text TEXT NOT NULL,
+      normalized_hebrew_text TEXT NOT NULL,
+      source_reference TEXT NOT NULL,
+      source_work TEXT NOT NULL,
+      source_version TEXT NOT NULL,
+      license TEXT NOT NULL,
+      UNIQUE(occasion_slug, service_slug, section_key, sequence, source_reference)
+    );
+    CREATE INDEX IF NOT EXISTS idx_tefillot_navigation
+      ON tefillot_units(occasion_order, service_order, section_order, sequence);
+    CREATE INDEX IF NOT EXISTS idx_tefillot_identity
+      ON tefillot_units(occasion_slug, service_slug, section_key);
+    CREATE INDEX IF NOT EXISTS idx_tefillot_search
+      ON tefillot_units USING GIN (to_tsvector('simple', normalized_hebrew_text));
+
     ALTER TABLE saved_entries ADD COLUMN IF NOT EXISTS tanach_book_slug TEXT;
     ALTER TABLE saved_entries ADD COLUMN IF NOT EXISTS tanach_book_label TEXT;
     ALTER TABLE saved_entries ADD COLUMN IF NOT EXISTS tanach_chapter INTEGER;
@@ -244,13 +312,13 @@ export async function initDb() {
       WHERE tanach_book_slug IS NOT NULL;
   `);
 
-  await ensureFinalsDerived();
-  await seedTanachParshiot();
+  await ensureFinalsDerived(db);
+  await seedTanachParshiot(db);
 
-  await ensureMiluiPreferences();
+  if (!initializeMultiUser) await ensureMiluiPreferences(db);
 
   if (process.env.NODE_ENV !== 'production') {
-    await pool.query(`
+    await db.query(`
       CREATE TABLE IF NOT EXISTS curated_matches (
         id SERIAL PRIMARY KEY,
         parent_id INTEGER NOT NULL REFERENCES saved_entries(id) ON DELETE CASCADE,
@@ -269,20 +337,27 @@ export async function initDb() {
       CREATE INDEX IF NOT EXISTS idx_curated_matches_parent ON curated_matches(parent_id);
     `);
     const { ensureMiluiInterpretationSchema } = await import('./miluiInterpretations.js');
-    await ensureMiluiInterpretationSchema(pool);
+    await ensureMiluiInterpretationSchema(db);
+    const { ensureMiluiMatchingSchema } = await import('./miluiIndex.js');
+    await ensureMiluiMatchingSchema(db);
   }
 
-  const { initializeMiluiMatching } = await import('./miluiIndex.js');
-  const miluiIndex = await initializeMiluiMatching({
-    // Development owns the candidate schema. Replit Publish compares it with
-    // production and applies the reviewed additive diff before production starts.
-    allowSchemaChanges: process.env.NODE_ENV !== 'production',
-  });
-  if (miluiIndex.schemaAvailable) {
-    console.log(
-      `Milui matching index ready: version ${miluiIndex.version}, `
-      + `${miluiIndex.coverage.indexedEntries}/${miluiIndex.coverage.savedEntries} entries`
-    );
+  if (initializeMultiUser) {
+    const ownership = await ensureMultiUserFoundation(db, {
+      allowSchemaChanges: process.env.NODE_ENV !== 'production',
+    });
+    const { initializeMiluiMatching } = await import('./miluiIndex.js');
+    const miluiIndex = await initializeMiluiMatching({
+      allowSchemaChanges: process.env.NODE_ENV !== 'production',
+      ownerId: ownership.legacyAccount.id,
+      db,
+    });
+    if (miluiIndex.schemaAvailable) {
+      console.log(
+        `Milui matching index ready: version ${miluiIndex.version}, `
+        + `${miluiIndex.coverage.indexedEntries}/${miluiIndex.coverage.savedEntries} entries`
+      );
+    }
   }
 
   console.log('Database initialized');
@@ -297,4 +372,9 @@ export async function needsTanachRepresentationImport(db = pool) {
   );
   const row = result.rows[0];
   return row.verse_count === 0 || row.representation_version < UXLC_REPRESENTATION_VERSION;
+}
+
+export async function needsTefillotImport(db = pool) {
+  const result = await db.query('SELECT COUNT(*)::int AS unit_count FROM tefillot_units');
+  return result.rows[0].unit_count === 0;
 }

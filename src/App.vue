@@ -13,13 +13,18 @@
     <template v-else>
       <AppBar :currentPage="currentPage" @navigate="currentPage = $event" @logout="onLogout" />
       <main class="main-content">
-        <GimForm v-if="currentPage === 'calculator'" @open-tanach="openTanachDiscovery" />
+        <GimForm v-if="currentPage === 'calculator'" @open-tanach="openTanachDiscovery" @open-tefillot="openTefillotDiscovery" />
         <SavedLibrary v-else-if="currentPage === 'library'" @open-tanach="openTanachDiscovery" />
         <BaseWords v-else-if="currentPage === 'base-words'" />
         <TanachReader
           v-else-if="currentPage === 'tanach'"
           :open-reference="pendingTanachReference"
           @reference-consumed="consumeTanachReference"
+        />
+        <TefillotReader
+          v-else-if="currentPage === 'tefillot'"
+          :open-reference="pendingTefillotReference"
+          @reference-consumed="consumeTefillotReference"
         />
       </main>
     </template>
@@ -32,6 +37,7 @@ import AppBar        from '@/components/AppBar.vue';
 import GimForm       from '@/components/GimForm.vue';
 import SavedLibrary  from '@/components/SavedLibrary.vue';
 import TanachReader   from '@/components/TanachReader.vue';
+import TefillotReader from '@/components/TefillotReader.vue';
 import LoginScreen   from '@/components/LoginScreen.vue';
 import BaseWords     from '@/components/BaseWords.vue';
 import { resolveAuthentication } from '@/composables/useAuthentication.js';
@@ -40,6 +46,8 @@ import { resolveAuthentication } from '@/composables/useAuthentication.js';
 const authState  = ref('checking');
 const currentPage = ref('calculator');
 const pendingTanachReference = ref(null);
+const pendingTefillotReference = ref(null);
+let tefillotReferenceRequestId = 0;
 let tanachReferenceRequestId = 0;
 
 onMounted(async () => {
@@ -68,11 +76,31 @@ function consumeTanachReference(requestId) {
   }
 }
 
+function openTefillotDiscovery(result) {
+  pendingTefillotReference.value = {
+    occasionSlug: result.occasionSlug,
+    serviceSlug: result.serviceSlug,
+    sectionKey: result.sectionKey,
+    unitId: result.unitId,
+    start: result.start,
+    end: result.end,
+    requestId: ++tefillotReferenceRequestId,
+  };
+  currentPage.value = 'tefillot';
+}
+
+function consumeTefillotReference(requestId) {
+  if (pendingTefillotReference.value?.requestId === requestId) {
+    pendingTefillotReference.value = null;
+  }
+}
+
 async function onLogout() {
   await fetch('/api/auth/logout', { method: 'POST' });
   authState.value = 'unauthenticated';
   currentPage.value = 'calculator';
   pendingTanachReference.value = null;
+  pendingTefillotReference.value = null;
 }
 </script>
 

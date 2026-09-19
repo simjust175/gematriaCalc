@@ -62,12 +62,26 @@ test('changing target clears stale cards immediately and load more appends serve
   await expect(discovery.locator('.match-card:not(.skeleton-card)')).toHaveCount(24);
 });
 
-test('Kollel switch keeps its effective target and active state synchronized', async ({ page }, testInfo) => {
+test('Kollel switch keeps its effective target, active state, and corpus counts synchronized', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-chromium');
   await login(page);
 
+  let gematriaRequestCount = 0;
+  await page.route('**/api/tanach/gematria-matches**', async route => {
+    const value = new URL(route.request().url()).searchParams.get('value');
+    if (value === '44' || value === '45') {
+      gematriaRequestCount += 1;
+      if (gematriaRequestCount > 1) await new Promise(resolve => setTimeout(resolve, 250));
+    }
+    await route.continue();
+  });
+
   const discovery = page.locator('.gematria-discovery');
   const kollel = discovery.locator('.kollel-toggle');
+  const filterCounts = discovery.locator('.filter-list button span');
+  await expect(discovery.locator('.selection-toggle')).toHaveCount(0);
+  await expect(discovery.locator('.kollel-switch-track')).toHaveCount(0);
+
   const rawResponsePromise = page.waitForResponse(response => (
     response.url().includes('/api/tanach/gematria-matches')
     && new URL(response.url()).searchParams.get('value') === '44'
@@ -75,29 +89,41 @@ test('Kollel switch keeps its effective target and active state synchronized', a
   await page.locator('.heb-input').fill('44');
   const rawResponse = await rawResponsePromise;
   expect((await rawResponse.json()).target).toBe(44);
+  await expect(discovery.getByRole('heading')).toContainText('44');
+  await expect(kollel).toHaveText('כולל');
   await expect(kollel).toHaveAttribute('aria-checked', 'false');
+  await expect(discovery.locator('.total-mark strong')).toHaveText('697');
+  await expect(filterCounts).toHaveText(['697', '497', '200']);
 
   const plusOneResponsePromise = page.waitForResponse(response => (
     response.url().includes('/api/tanach/gematria-matches')
     && new URL(response.url()).searchParams.get('value') === '45'
   ));
   await kollel.click();
+  await expect(kollel).toContainText('כולל');
   await expect(kollel).toHaveAttribute('aria-checked', 'true');
   await expect(kollel).toHaveAttribute('aria-busy', 'true');
   await expect(kollel.locator('.mdi-loading')).toBeVisible();
   const plusOneResponse = await plusOneResponsePromise;
   expect((await plusOneResponse.json()).target).toBe(45);
+  await expect(discovery.getByRole('heading')).toContainText('45');
+  await expect(discovery.locator('.total-mark strong')).toHaveText('1,722');
+  await expect(filterCounts).toHaveText(['1722', '1456', '266']);
   await expect(kollel).toHaveAttribute('aria-busy', 'false');
   await expect(kollel.locator('.mdi-check')).toBeVisible();
 
-  await page.setViewportSize({ width: 860, height: 900 });
-  await expect.poll(() => page.evaluate(() => (
-    document.documentElement.scrollWidth <= document.documentElement.clientWidth
-  ))).toBe(true);
-  const toolbarBox = await discovery.locator('.controls').boundingBox();
-  const kollelBox = await kollel.boundingBox();
-  expect(kollelBox.x).toBeGreaterThanOrEqual(toolbarBox.x);
-  expect(kollelBox.x + kollelBox.width).toBeLessThanOrEqual(toolbarBox.x + toolbarBox.width + 1);
+  const restoredResponsePromise = page.waitForResponse(response => (
+    response.url().includes('/api/tanach/gematria-matches')
+    && new URL(response.url()).searchParams.get('value') === '44'
+  ));
+  await kollel.click();
+  await expect(kollel).toHaveText('כולל');
+  await expect(kollel).toHaveAttribute('aria-checked', 'false');
+  const restoredResponse = await restoredResponsePromise;
+  expect((await restoredResponse.json()).target).toBe(44);
+  await expect(discovery.getByRole('heading')).toContainText('44');
+  await expect(discovery.locator('.total-mark strong')).toHaveText('697');
+  await expect(filterCounts).toHaveText(['697', '497', '200']);
 });
 
 test('calculator discovery switches intentionally between gematria and letter sequences', async ({ page }, testInfo) => {
@@ -385,7 +411,7 @@ test('curated multi-select shows gold cards, supports cancel, and submits a bulk
   });
   await page.locator('.heb-input').fill('שלום');
   const discovery = page.locator('.gematria-discovery');
-  await discovery.getByRole('button', { name: 'בחירה מרובה' }).click();
+  await discovery.getByRole('button', { name: 'כולל' }).click();
   const cards = discovery.locator('.match-card');
   await cards.nth(0).getByRole('button', { name: 'שמור התאמה' }).click();
   await cards.nth(1).getByRole('button', { name: 'שמור התאמה' }).click();

@@ -14,6 +14,14 @@
       <nav class="header-nav">
         <button
           class="nav-btn"
+          :class="{ active: currentPage === 'tefillot' }"
+          @click="$emit('navigate', 'tefillot')"
+        >
+          <span class="mdi mdi-book-open-variant-outline nav-icon" aria-hidden="true"></span>
+          תפילות
+        </button>
+        <button
+          class="nav-btn"
           :class="{ active: currentPage === 'tanach' }"
           @click="$emit('navigate', 'tanach')"
         >
@@ -293,6 +301,7 @@ onBeforeUnmount(() => {
   .brand-mark { height: 28px; width: 28px; }
   .header-nav { gap: 0; }
   .nav-btn { padding: 6px 7px; font-size: 0.76rem; }
+  .nav-btn:not(.more-btn) .nav-icon { display: none; }
   .more-btn { padding-inline: 5px; }
 }
 </style>

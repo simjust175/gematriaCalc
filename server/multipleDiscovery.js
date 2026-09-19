@@ -14,6 +14,13 @@ const GROUP_META = Object.freeze({
   current_into_saved: { label: 'הערך הנוכחי נכנס ב־', priority: 1 },
 });
 
+function requireOwnerId(ownerId) {
+  if (!Number.isSafeInteger(Number(ownerId)) || Number(ownerId) <= 0) {
+    throw new Error('A valid account ownerId is required for multiple discovery');
+  }
+  return Number(ownerId);
+}
+
 export function parseMultipleDiscoveryQuery(query = {}) {
   const value = Number(query.value);
   if (!Number.isSafeInteger(value) || value < 1 || value > MAX_MULTIPLE_VALUE) {
@@ -135,27 +142,31 @@ export function groupExactMultiples(rows, currentValue) {
   }));
 }
 
-async function readBaseSources(db, currentValue) {
+async function readBaseSources(db, currentValue, ownerId) {
+  ownerId = requireOwnerId(ownerId);
   const result = await db.query(
     `WITH source_values AS (
        SELECT id AS entry_id, original_text, created_at,
               'full_gematria'::text AS source_type,
               full_gematria AS source_value,
               NULL::text AS source_word
-       FROM saved_entries
+        FROM saved_entries
+        WHERE owner_id = $2
        UNION ALL
        SELECT se.id, se.original_text, se.created_at,
               'saved_word'::text,
               sw.gematria,
               sw.word
        FROM saved_words sw
-       JOIN saved_entries se ON se.id = sw.entry_id
+        JOIN saved_entries se ON se.id = sw.entry_id AND se.owner_id = $2
+        WHERE sw.owner_id = $2
        UNION ALL
        SELECT id, original_text, created_at,
               'initials_gematria'::text,
               initials_gematria,
               NULL::text
-       FROM saved_entries
+        FROM saved_entries
+        WHERE owner_id = $2
      )
      SELECT entry_id, original_text, created_at, source_type, source_value, source_word
      FROM source_values
@@ -165,14 +176,15 @@ async function readBaseSources(db, currentValue) {
          ($1::bigint > source_value AND $1::bigint % source_value = 0)
          OR (source_value > $1::bigint AND source_value % $1::bigint = 0)
        )`,
-    [currentValue]
+     [currentValue, ownerId]
   );
   return result.rows;
 }
 
-export async function searchSavedMultiples(db, currentValue) {
-  const baseRows = await readBaseSources(db, currentValue);
-  const miluiRows = await getActiveMiluiMultipleSources(currentValue, db);
+export async function searchSavedMultiples(db, currentValue, ownerId) {
+  ownerId = requireOwnerId(ownerId);
+  const baseRows = await readBaseSources(db, currentValue, ownerId);
+  const miluiRows = await getActiveMiluiMultipleSources(currentValue, db, ownerId);
   const groups = groupExactMultiples([...baseRows, ...miluiRows], currentValue);
   return { currentValue, groups };
 }
