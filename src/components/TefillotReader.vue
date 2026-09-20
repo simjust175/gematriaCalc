@@ -4,10 +4,17 @@
       <span class="mdi mdi-loading mdi-spin" aria-hidden="true"></span>
       טוען תפילות...
     </div>
-    <div v-else-if="catalogError" class="reader-state reader-state--error" role="alert">
-      <span class="mdi mdi-book-alert-outline" aria-hidden="true"></span>
-      <strong>{{ catalogError }}</strong>
-      <small>אפשר לטעון מחדש באמצעות npm run import:tefillot</small>
+    <div v-else-if="catalogError" class="reader-state reader-state--empty" role="status">
+      <div class="reader-empty-emblem" aria-hidden="true">
+        <span class="reader-empty-ring"></span>
+        <span class="mdi mdi-hands-pray"></span>
+      </div>
+      <div class="reader-empty-copy">
+        <span class="reader-empty-eyebrow">תפילות — בקרוב</span>
+        <strong>מאגר התפילות מתכונן</strong>
+        <span>חוויית חיפוש וקריאה בתפילות תתווסף בקרוב.</span>
+      </div>
+      <span class="reader-empty-rule" aria-hidden="true"></span>
     </div>
 
     <div v-else class="tefillot-layout">
@@ -302,6 +309,18 @@ async function revealReferencedMatch() {
 }
 .reader-state { min-height: 60vh; flex-direction: column; }
 .reader-state--error, .section-error { color: #9b413a; }
+.reader-state--empty { position: relative; min-height: 60vh; overflow: hidden; gap: 14px; border: 1px dashed #dfcfaa; border-radius: 16px; background: radial-gradient(circle at 50% 0%, rgba(255,255,255,.96), transparent 48%), linear-gradient(135deg, #fffdf8, #fbf3df); }
+.reader-state--empty::before, .reader-state--empty::after { content: ""; position: absolute; width: 170px; height: 170px; border: 1px solid rgba(192,152,64,.15); border-radius: 50%; pointer-events: none; }
+.reader-state--empty::before { top: -105px; inset-inline-start: -65px; }
+.reader-state--empty::after { bottom: -115px; inset-inline-end: -70px; }
+.reader-empty-emblem { position: relative; display: grid; place-items: center; width: 76px; height: 76px; border: 1px solid #d7bd78; border-radius: 50%; background: rgba(255,253,248,.94); color: #9b762b; box-shadow: 0 8px 20px rgba(117,88,18,.11); }
+.reader-empty-emblem .mdi { position: relative; z-index: 1; font-size: 2rem; }
+.reader-empty-ring { position: absolute; inset: 7px; border: 1px solid rgba(192,152,64,.3); border-radius: 50%; }
+.reader-empty-copy { display: grid; justify-items: center; gap: 7px; text-align: center; }
+.reader-empty-eyebrow { color: #a17b30; font-size: .72rem; font-weight: 800; letter-spacing: .08em; }
+.reader-empty-copy strong { color: #1a2744; font-family: "Noto Serif Hebrew", serif; font-size: 1.25rem; }
+.reader-empty-copy > span:last-child { color: #777064; font-size: .84rem; }
+.reader-empty-rule { width: 44px; height: 2px; margin-top: 2px; border-radius: 99px; background: #c39b4b; opacity: .72; }
 .source-card { padding: 14px 18px; color: #606b7e; font-size: .76rem; }
 .source-card summary { cursor: pointer; color: #43506a; font-weight: 700; }
 .source-card dl { display: grid; gap: 6px; margin: 13px 0; }
