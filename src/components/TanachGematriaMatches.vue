@@ -180,9 +180,16 @@
     </p>
 
     <div v-if="source === 'tefillot'" class="state-card coming-soon-state" role="status">
-      <span class="mdi mdi-hands-pray" aria-hidden="true"></span>
-      <strong>תפילות — בקרוב</strong>
-      <span>חיפוש והתאמות בתפילות יתווספו בקרוב.</span>
+      <div class="coming-soon-emblem" aria-hidden="true">
+        <span class="coming-soon-emblem-ring"></span>
+        <span class="mdi mdi-hands-pray"></span>
+      </div>
+      <div class="coming-soon-copy">
+        <span class="coming-soon-eyebrow">בקרוב במחשבון</span>
+        <strong>תפילות — בקרוב</strong>
+        <span>חיפוש והתאמות בתפילות יתווספו בקרוב.</span>
+      </div>
+      <span class="coming-soon-rule" aria-hidden="true"></span>
     </div>
     <div v-else-if="loading && !results.length" class="match-grid" aria-label="טוען התאמות" aria-busy="true">
       <article v-for="n in 3" :key="n" class="match-card skeleton-card">
@@ -704,8 +711,18 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .coming-soon-context .mdi { color: #a68035; font-size: 1.08rem; }
 .tefillot-coming-soon-note { display: flex; align-items: center; gap: 7px; margin: 0 2px 10px; color: #777064; font-size: .73rem; }
 .tefillot-coming-soon-note .mdi { color: #a68035; font-size: .95rem; }
-.coming-soon-state { border-color: #dfcfaa; background: linear-gradient(135deg, #fffdf8, #fbf3df); }
-.coming-soon-state > .mdi { color: #a68035; }
+.coming-soon-state { position: relative; min-height: 198px; overflow: hidden; border-color: #dfcfaa; background: radial-gradient(circle at 50% 0%, rgba(255,255,255,.95), transparent 52%), linear-gradient(135deg, #fffdf8, #fbf3df); }
+.coming-soon-state::before, .coming-soon-state::after { content: ""; position: absolute; width: 110px; height: 110px; border: 1px solid rgba(192,152,64,.16); border-radius: 50%; pointer-events: none; }
+.coming-soon-state::before { top: -67px; inset-inline-start: -45px; }
+.coming-soon-state::after { bottom: -76px; inset-inline-end: -38px; }
+.coming-soon-emblem { position: relative; display: grid; place-items: center; width: 52px; height: 52px; margin-bottom: 2px; border: 1px solid #d7bd78; border-radius: 50%; background: rgba(255,253,248,.92); color: #9b762b; box-shadow: 0 5px 13px rgba(117,88,18,.1); }
+.coming-soon-emblem .mdi { position: relative; z-index: 1; font-size: 1.45rem; }
+.coming-soon-emblem-ring { position: absolute; inset: 5px; border: 1px solid rgba(192,152,64,.3); border-radius: 50%; }
+.coming-soon-copy { display: grid; justify-items: center; gap: 5px; }
+.coming-soon-eyebrow { color: #a17b30; font-size: .66rem; font-weight: 800; letter-spacing: .08em; }
+.coming-soon-copy strong { color: var(--navy, #1a2744); font-size: .98rem; }
+.coming-soon-copy > span:last-child { color: #777064; font-size: .76rem; }
+.coming-soon-rule { width: 38px; height: 2px; margin-top: 4px; border-radius: 99px; background: #c39b4b; opacity: .72; }
 .filter-swap-enter-active, .filter-swap-leave-active { transition: opacity 180ms ease-out, transform 180ms ease-out; }
 .filter-swap-enter-from { opacity: 0; transform: translate3d(-5px, 2px, 0); }
 .filter-swap-leave-to { opacity: 0; transform: translate3d(4px, -1px, 0); }

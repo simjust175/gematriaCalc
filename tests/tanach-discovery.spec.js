@@ -79,6 +79,8 @@ test('interim Tefillot gate keeps selector layout and avoids unavailable APIs', 
   await selector.getByRole('button', { name: 'תפילות', exact: true }).click();
   await expect(discovery.locator('.coming-soon-state')).toContainText('תפילות — בקרוב');
   await expect(discovery.locator('.coming-soon-state')).toContainText('חיפוש והתאמות בתפילות יתווספו בקרוב.');
+  await expect(discovery.locator('.coming-soon-emblem')).toBeVisible();
+  await expect(discovery.locator('.coming-soon-eyebrow')).toHaveText('בקרוב במחשבון');
   await expect(discovery.locator('.error-state')).toHaveCount(0);
 
   await selector.getByRole('button', { name: 'הכל', exact: true }).click();
