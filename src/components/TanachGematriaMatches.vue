@@ -8,13 +8,13 @@
         </div>
         <div class="header-meta">
           <p>{{ discoveryDescription }}</p>
-          <p class="total-mark" aria-live="polite">
+          <p v-if="source !== 'tefillot'" class="total-mark" aria-live="polite">
             <strong>{{ allTotal.toLocaleString('he-IL') }}</strong>
             <span>התאמות</span>
           </p>
           <div v-if="source === 'all'" class="source-breakdown" aria-label="התאמות לפי מקור">
             <span><span class="mdi mdi-book-open-variant-outline" aria-hidden="true"></span> תנ״ך <b>{{ sourceCounts.tanach.toLocaleString('he-IL') }}</b></span>
-            <span><span class="mdi mdi-hands-pray" aria-hidden="true"></span> תפילות <b>{{ sourceCounts.tefillot.toLocaleString('he-IL') }}</b></span>
+            <span><span class="mdi mdi-hands-pray" aria-hidden="true"></span> תפילות <b>בקרוב</b></span>
           </div>
         </div>
       </div>
@@ -76,21 +76,9 @@
                 </span>
               </button>
             </div>
-            <div v-else-if="source === 'tefillot'" key="tefillot" class="tefillot-filter-row">
-              <TanachScopeSelect
-                :model-value="tefillotOccasion"
-                label="מועד"
-                :groups="[{ options: tefillotOccasionOptions }]"
-                empty-label="כל המועדים"
-                @update:model-value="tefillotOccasion = $event"
-              />
-              <TanachScopeSelect
-                :model-value="tefillotService"
-                label="תפילה"
-                :groups="[{ options: tefillotServiceOptions }]"
-                empty-label="כל התפילות"
-                @update:model-value="tefillotService = $event"
-              />
+            <div v-else-if="source === 'tefillot'" key="tefillot" class="coming-soon-context">
+              <span class="mdi mdi-hands-pray" aria-hidden="true"></span>
+              <span>חיפוש בתפילות ייפתח בקרוב</span>
             </div>
             <button
               v-else
@@ -121,7 +109,8 @@
             @click="source = item.value"
           >
             <span class="mdi" :class="item.icon" aria-hidden="true"></span>
-            {{ item.label }}
+            <span>{{ item.label }}</span>
+            <small v-if="item.comingSoon" class="source-coming-soon">בקרוב</small>
           </button>
         </div>
       </div>
@@ -186,8 +175,17 @@
       <span v-if="currentParshah"> · {{ total.toLocaleString('he-IL') }} התאמות</span>
     </p>
     <p v-else-if="source === 'tanach' && manualScopeLabel" class="scope-note">מציג התאמות ב{{ manualScopeLabel }}</p>
+    <p v-if="source === 'all'" class="tefillot-coming-soon-note" role="note">
+      <span class="mdi mdi-information-slab-circle-outline" aria-hidden="true"></span>
+      כרגע מוצגות תוצאות מהתנ״ך. תוצאות מתפילות יתווספו בקרוב.
+    </p>
 
-    <div v-if="loading && !results.length" class="match-grid" aria-label="טוען התאמות" aria-busy="true">
+    <div v-if="source === 'tefillot'" class="state-card coming-soon-state" role="status">
+      <span class="mdi mdi-hands-pray" aria-hidden="true"></span>
+      <strong>תפילות — בקרוב</strong>
+      <span>חיפוש והתאמות בתפילות יתווספו בקרוב.</span>
+    </div>
+    <div v-else-if="loading && !results.length" class="match-grid" aria-label="טוען התאמות" aria-busy="true">
       <article v-for="n in 3" :key="n" class="match-card skeleton-card">
         <span class="skeleton-line short"></span><span class="skeleton-line"></span>
         <span class="skeleton-line wide"></span>
@@ -326,7 +324,7 @@ const orderIndependent = ref(false);
 const sourceOptions = [
   { value: 'all', label: 'הכל', icon: 'mdi-layers-triple-outline' },
   { value: 'tanach', label: 'תנ״ך', icon: 'mdi-book-open-variant-outline' },
-  { value: 'tefillot', label: 'תפילות', icon: 'mdi-shawl' },
+  { value: 'tefillot', label: 'תפילות', icon: 'mdi-shawl', comingSoon: true },
 ];
 const tefillotOccasionOptions = [
   { value: 'weekday', label: 'חול' },
@@ -357,6 +355,7 @@ const {
     sourceRef: source,
     tefillotOccasionRef: tefillotOccasion,
     tefillotServiceRef: tefillotService,
+    tefillotAvailable: false,
   });
 
 const effectiveTarget = computed(() => (
@@ -367,7 +366,7 @@ const allTotal = computed(() => Number(counts.value.all ?? total.value) || 0);
 const sourceKicker = computed(() => ({
   all: 'מחקר מקורות',
   tanach: 'מחקר תנ״כי',
-  tefillot: 'מחקר תפילות',
+  tefillot: 'תפילות — בקרוב',
 }[source.value]));
 const hasPattern = computed(() => [...props.pattern].length >= 1);
 const discoveryHeading = computed(() => {
@@ -381,7 +380,7 @@ const discoveryDescription = computed(() => method.value === 'gematria'
     ? 'למצוא תיבות וצירופים בפסוקי התנ״ך העולים בגימטריא למספר המבוקש.'
     : source.value === 'tefillot'
       ? 'למצוא תיבות וצירופים בנוסח התפילות העולים בגימטריא למספר המבוקש.'
-      : 'למצוא תיבות וצירופים בתנ״ך ובתפילות העולים בגימטריא למספר המבוקש.'
+      : 'למצוא תיבות וצירופים בתנ״ך העולים בגימטריא למספר המבוקש.'
   : method.value === 'initials'
     ? `מילים רצופות הפותחות באותיות ${props.pattern}`
     : `מילים רצופות המסתיימות באותיות ${props.pattern}`);
@@ -697,11 +696,18 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .source-selector button .mdi { color: #a68035; font-size: 1rem; }
 .source-selector button:hover { background: #fbf6ec; }
 .source-selector button.active { color: #765812; }
+.source-coming-soon { padding: 1px 5px; border: 1px solid #d9c68f; border-radius: 999px; background: #fffaf0; color: #8a6a25; font-size: .58rem; font-weight: 800; line-height: 1.25; white-space: nowrap; }
 .source-breakdown { display: inline-flex; flex-wrap: wrap; gap: 6px; }
 .source-breakdown > span { display: inline-flex; align-items: center; gap: 4px; padding: 3px 7px; border: 1px solid #e8e0d3; border-radius: 999px; background: #fffdf9; color: #657084; font-size: .67rem; }
 .source-breakdown .mdi { color: #a68035; }
 .source-breakdown b { color: #34415a; font-variant-numeric: tabular-nums; }
 .tefillot-filter-row { display: grid; flex: 1 1 auto; grid-template-columns: repeat(2, minmax(120px, 240px)); gap: 8px; justify-content: start; min-height: 48px; }
+.coming-soon-context { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 8px 12px; border: 1px solid #e2d5ba; border-radius: 10px; background: #fffaf0; color: #705821; font-size: .76rem; font-weight: 700; }
+.coming-soon-context .mdi { color: #a68035; font-size: 1.08rem; }
+.tefillot-coming-soon-note { display: flex; align-items: center; gap: 7px; margin: 0 2px 10px; color: #777064; font-size: .73rem; }
+.tefillot-coming-soon-note .mdi { color: #a68035; font-size: .95rem; }
+.coming-soon-state { border-color: #dfcfaa; background: linear-gradient(135deg, #fffdf8, #fbf3df); }
+.coming-soon-state > .mdi { color: #a68035; }
 .filter-swap-enter-active, .filter-swap-leave-active { transition: opacity 180ms ease-out, transform 180ms ease-out; }
 .filter-swap-enter-from { opacity: 0; transform: translate3d(-5px, 2px, 0); }
 .filter-swap-leave-to { opacity: 0; transform: translate3d(4px, -1px, 0); }

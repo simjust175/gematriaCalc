@@ -62,6 +62,33 @@ test('changing target clears stale cards immediately and load more appends serve
   await expect(discovery.locator('.match-card:not(.skeleton-card)')).toHaveCount(24);
 });
 
+test('interim Tefillot gate keeps selector layout and avoids unavailable APIs', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-chromium');
+  const tefillotRequests = [];
+  page.on('request', request => {
+    if (request.url().includes('/api/tefillot/')) tefillotRequests.push(request.url());
+  });
+  await login(page);
+  await page.locator('.heb-input').fill('44');
+
+  const discovery = page.locator('.gematria-discovery');
+  const selector = discovery.locator('.source-selector');
+  await expect(selector.getByRole('button')).toHaveCount(3);
+  await expect(selector.getByRole('button', { name: /תפילות.*בקרוב/ })).toBeVisible();
+
+  await selector.getByRole('button', { name: /תפילות.*בקרוב/ }).click();
+  await expect(discovery.locator('.coming-soon-state')).toContainText('תפילות — בקרוב');
+  await expect(discovery.locator('.coming-soon-state')).toContainText('חיפוש והתאמות בתפילות יתווספו בקרוב.');
+  await expect(discovery.locator('.error-state')).toHaveCount(0);
+
+  await selector.getByRole('button', { name: 'הכל', exact: true }).click();
+  await expect(discovery.locator('.tefillot-coming-soon-note')).toContainText('כרגע מוצגות תוצאות מהתנ״ך');
+  await expect(discovery.locator('.total-mark strong')).toHaveText('697');
+  await expect(discovery.locator('.match-card:not(.skeleton-card)').first()).toBeVisible();
+  await expect(discovery.locator('.error-state')).toHaveCount(0);
+  expect(tefillotRequests).toEqual([]);
+});
+
 test('Kollel switch keeps its effective target, active state, and corpus counts synchronized', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-chromium');
   await login(page);

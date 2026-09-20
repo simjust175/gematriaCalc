@@ -231,3 +231,39 @@ test('all mode preserves either successful source when the other source fails', 
     scope.stop();
   }
 });
+
+test('interim availability gate never calls Tefillot and keeps Tanach active in all mode', async () => {
+  for (const source of ['tefillot', 'all', 'tanach']) {
+    const calls = [];
+    const scope = effectScope();
+    const api = scope.run(() => useTanachGematriaMatches(ref(44), {
+      fetchImpl: async url => {
+        calls.push(url);
+        if (url.includes('/api/tefillot/')) {
+          throw new Error('Tefillot endpoint must not be called while unavailable');
+        }
+        return {
+          ok: true,
+          async json() {
+            return {
+              results: [{ id: 'tanach-1' }],
+              counts: { all: 697, whole_word: 497, whole_phrase: 200, partial: 0 },
+              total: 697,
+              hasMore: false,
+            };
+          },
+        };
+      },
+      debounceMs: 0,
+      sourceRef: ref(source),
+      methodRef: ref('gematria'),
+      tefillotAvailable: false,
+    }));
+    await new Promise(resolve => setTimeout(resolve, 20));
+    assert.equal(calls.some(url => url.includes('/api/tefillot/')), false);
+    assert.equal(calls.filter(url => url.includes('/api/tanach/')).length, source === 'tefillot' ? 0 : 1);
+    assert.equal(api.total.value, source === 'tefillot' ? 0 : 697);
+    assert.equal(api.error.value, '');
+    scope.stop();
+  }
+});

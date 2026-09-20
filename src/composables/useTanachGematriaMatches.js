@@ -10,6 +10,7 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
   const sourceRef = options.sourceRef;
   const tefillotOccasionRef = options.tefillotOccasionRef;
   const tefillotServiceRef = options.tefillotServiceRef;
+  const tefillotAvailable = options.tefillotAvailable !== false;
   const debounceMs = options.debounceMs ?? 350;
   const limit = options.limit ?? 12;
   const results = ref([]);
@@ -76,6 +77,7 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
     return 'tanach';
   }
   function canRequest() {
+    if (currentSource() === 'tefillot' && !tefillotAvailable) return false;
     return currentMethod() === 'gematria' ? !!valueOfTarget() : currentWordCount() >= 1;
   }
 
@@ -127,7 +129,7 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
           return { source: 'tanach', data: await response.json() };
         }));
       }
-      if (source !== 'tanach') {
+      if (source !== 'tanach' && tefillotAvailable) {
         const tefillotParams = new URLSearchParams(params);
         for (const key of ['book_order', 'parsha_id', 'chapter_book', 'chapter', 'verse', 'parsha']) {
           tefillotParams.delete(key);
