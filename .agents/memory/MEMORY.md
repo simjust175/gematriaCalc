@@ -17,3 +17,4 @@
 - [Curated Tanach connections](curated-tanach-connections.md) — saved search results belong to a parent calculation; canonical sources dedupe while reasons accumulate
 - [Request database routing](request-database-routing.md) — legacy and owner-aware APIs are separate; multi-user setup/imports require the explicit second database
 - [Tefillot source licensing](tefillot-source-licensing.md) — licensed Siddur Sefard is approved; High Holiday Machzor texts stay deferred while Sefaria reports unknown licenses
+- [Interim Tefillot availability](tefillot-interim-availability.md) — keep Tefillot visibly coming soon and client-gated until the separate database is ready
