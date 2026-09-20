@@ -74,9 +74,9 @@ test('interim Tefillot gate keeps selector layout and avoids unavailable APIs', 
   const discovery = page.locator('.gematria-discovery');
   const selector = discovery.locator('.source-selector');
   await expect(selector.getByRole('button')).toHaveCount(3);
-  await expect(selector.getByRole('button', { name: /תפילות.*בקרוב/ })).toBeVisible();
+  await expect(selector.getByRole('button', { name: 'תפילות', exact: true })).toBeVisible();
 
-  await selector.getByRole('button', { name: /תפילות.*בקרוב/ }).click();
+  await selector.getByRole('button', { name: 'תפילות', exact: true }).click();
   await expect(discovery.locator('.coming-soon-state')).toContainText('תפילות — בקרוב');
   await expect(discovery.locator('.coming-soon-state')).toContainText('חיפוש והתאמות בתפילות יתווספו בקרוב.');
   await expect(discovery.locator('.error-state')).toHaveCount(0);

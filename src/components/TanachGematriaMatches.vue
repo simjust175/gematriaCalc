@@ -110,7 +110,6 @@
           >
             <span class="mdi" :class="item.icon" aria-hidden="true"></span>
             <span>{{ item.label }}</span>
-            <small v-if="item.comingSoon" class="source-coming-soon">בקרוב</small>
           </button>
         </div>
       </div>
@@ -324,7 +323,7 @@ const orderIndependent = ref(false);
 const sourceOptions = [
   { value: 'all', label: 'הכל', icon: 'mdi-layers-triple-outline' },
   { value: 'tanach', label: 'תנ״ך', icon: 'mdi-book-open-variant-outline' },
-  { value: 'tefillot', label: 'תפילות', icon: 'mdi-shawl', comingSoon: true },
+  { value: 'tefillot', label: 'תפילות', icon: 'mdi-shawl' },
 ];
 const tefillotOccasionOptions = [
   { value: 'weekday', label: 'חול' },
@@ -696,7 +695,6 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .source-selector button .mdi { color: #a68035; font-size: 1rem; }
 .source-selector button:hover { background: #fbf6ec; }
 .source-selector button.active { color: #765812; }
-.source-coming-soon { padding: 1px 5px; border: 1px solid #d9c68f; border-radius: 999px; background: #fffaf0; color: #8a6a25; font-size: .58rem; font-weight: 800; line-height: 1.25; white-space: nowrap; }
 .source-breakdown { display: inline-flex; flex-wrap: wrap; gap: 6px; }
 .source-breakdown > span { display: inline-flex; align-items: center; gap: 4px; padding: 3px 7px; border: 1px solid #e8e0d3; border-radius: 999px; background: #fffdf9; color: #657084; font-size: .67rem; }
 .source-breakdown .mdi { color: #a68035; }
