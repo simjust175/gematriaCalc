@@ -1,16 +1,37 @@
 import { spawn } from 'node:child_process';
-import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 
 const { Client } = pg;
 const schema = `tanach_reader_e2e_${process.pid}`;
 const schemaIdentifier = `"${schema}"`;
-const corpusTables = ['tanach_sources', 'tanach_books', 'tanach_verses'];
-const baseWordsMigration = readFileSync(
-  new URL('../server/migrations/20260307_add_base_words.sql', import.meta.url),
-  'utf8'
-);
+const privateTables = [
+  'session',
+  'tanach_sources',
+  'tanach_books',
+  'tanach_verses',
+  'tanach_parshiot',
+  'saved_entries',
+  'saved_words',
+  'base_words',
+  'curated_matches',
+  'explicit_milui_interpretations',
+  'milui_preferences',
+  'milui_mapping_versions',
+  'milui_index_state',
+  'saved_entry_milui_index',
+  'saved_entry_milui_save_modes',
+  'saved_entry_milui_form_index',
+];
+const copiedReferenceTables = [
+  'tanach_sources',
+  'tanach_books',
+  'tanach_verses',
+  'tanach_parshiot',
+  'milui_preferences',
+  'milui_mapping_versions',
+  'milui_index_state',
+];
 
 function createClient() {
   if (!process.env.DATABASE_URL) {
@@ -29,18 +50,41 @@ async function prepareSchema() {
     await client.query('BEGIN');
     await client.query(`DROP SCHEMA IF EXISTS ${schemaIdentifier} CASCADE`);
     await client.query(`CREATE SCHEMA ${schemaIdentifier}`);
-    for (const table of corpusTables) {
+    for (const table of privateTables) {
       await client.query(
         `CREATE TABLE ${schemaIdentifier}.${table}
            (LIKE public.${table} INCLUDING ALL)`
       );
+    }
+
+    const serialColumns = await client.query(
+      `SELECT table_name, column_name
+       FROM information_schema.columns
+       WHERE table_schema = 'public'
+         AND table_name = ANY($1::text[])
+         AND column_default LIKE 'nextval(%'
+       ORDER BY table_name, ordinal_position`,
+      [privateTables]
+    );
+    for (const { table_name: table, column_name: column } of serialColumns.rows) {
+      const sequence = `${table}_${column}_seq`;
+      await client.query(`CREATE SEQUENCE ${schemaIdentifier}."${sequence}"`);
+      await client.query(
+        `ALTER TABLE ${schemaIdentifier}.${table}
+         ALTER COLUMN "${column}" SET DEFAULT nextval('${schema}.${sequence}'::regclass)`
+      );
+      await client.query(
+        `ALTER SEQUENCE ${schemaIdentifier}."${sequence}"
+         OWNED BY ${schemaIdentifier}.${table}."${column}"`
+      );
+    }
+
+    for (const table of copiedReferenceTables) {
       await client.query(
         `INSERT INTO ${schemaIdentifier}.${table}
          SELECT * FROM public.${table}`
       );
     }
-    await client.query(`SET LOCAL search_path TO ${schemaIdentifier}`);
-    await client.query(baseWordsMigration);
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {});

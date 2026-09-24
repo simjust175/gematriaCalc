@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { execSync } from 'node:child_process';
 
-const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:5000';
+const e2ePassword = process.env.E2E_APP_PASSWORD || 'tanach-browser-test-password';
 const systemChromium = process.env.PLAYWRIGHT_CHROMIUM_PATH || (() => {
   try {
     return execSync('command -v chromium', { encoding: 'utf8' }).trim();
@@ -15,9 +15,8 @@ if (systemChromium) {
 }
 
 async function loginAndOpenCalculator(page) {
-  if (!process.env.APP_PASSWORD) throw new Error('APP_PASSWORD is required for the signed-in browser test');
-  await page.goto(baseURL);
-  await page.locator('input[type="password"]').fill(process.env.APP_PASSWORD);
+  await page.goto('/');
+  await page.locator('input[type="password"]').fill(e2ePassword);
   await page.getByRole('button', { name: 'כניסה' }).click();
   await expect(page.locator('.heb-input')).toBeVisible();
 }
@@ -103,7 +102,10 @@ test('automatic Hebrew keyboard maps physical keys and preserves calculator edit
   await page.keyboard.insertText('ש');
   await expect(textarea).toHaveValue('ש');
 
-  await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: baseURL });
+  await context.grantPermissions(
+    ['clipboard-read', 'clipboard-write'],
+    { origin: new URL(page.url()).origin }
+  );
   await page.evaluate(() => navigator.clipboard.writeText('shalom'));
   await textarea.fill('');
   await textarea.press('Control+V');

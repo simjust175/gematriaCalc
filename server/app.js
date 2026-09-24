@@ -20,8 +20,6 @@ import {
   searchSavedMultiples,
 } from './multipleDiscovery.js';
 import { registerBaseWordRoutes } from './baseWords.js';
-import { multiUserPool } from './databaseRouter.js';
-import { registerTefillotRoutes } from './tefillot.js';
 import {
   getExplicitMiluiMatches,
   recordMiluiSaveMode,
@@ -114,18 +112,7 @@ app.post('/api/auth/login', (req, res) => {
 /** GET /api/auth/check — returns current authentication state. */
 app.get('/api/auth/check', (req, res) => {
   const authenticated = req.session?.authenticated === true;
-  res.json({
-    authenticated,
-    account: authenticated ? {
-      id: null,
-      accountType: 'legacy_client',
-      planCode: 'legacy_unlimited',
-      entitlementStatus: 'active',
-      unlimited: true,
-      billingExempt: true,
-      hidden: true,
-    } : null,
-  });
+  res.json({ authenticated });
 });
 
 /** POST /api/auth/logout — destroy the session. */
@@ -147,15 +134,6 @@ function requireAuth(req, res, next) {
 // ── Protected API routes ─────────────────────────────────────────────────────
 
 registerBaseWordRoutes(app, { pool, requireAuth });
-if (multiUserPool) {
-  // Tefillot is shared corpus data stored only in the separate multi-user
-  // database. Legacy authentication remains in DATABASE_URL.
-  registerTefillotRoutes(app, { pool: multiUserPool, requireAuth });
-} else {
-  app.use('/api/tefillot', requireAuth, (_req, res) => {
-    res.status(503).json({ error: 'multi_user_unavailable' });
-  });
-}
 registerMiluiInterpretationRoutes(app, {
   pool,
   requireAuth,

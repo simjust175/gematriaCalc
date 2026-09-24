@@ -8,6 +8,7 @@
 - [Tanach edge-letter discovery](tanach-edge-letter-discovery.md) — ראשי/סופי searches use exact fixed-length, within-verse whole-word windows and normalize final forms only for comparison
 - [UXLC representation upgrades](uxlc-representation-upgrades.md) — Pointed qere display is versioned; discovery cache follows corpus revisions
 - [Reliable browser tests](browser-tests-nix.md) — Use Nix Chromium, isolate saved data, and keep decorative icons out of accessible names
+- [Browser harness isolation](browser-harness-isolation.md) — E2E pages and sequences must stay inside the disposable server/schema; never target the live dev app
 - [Automatic Hebrew typing](automatic-hebrew-typing.md) — one persisted app-wide preference; opt in Hebrew-semantic fields and exclude auth/technical inputs
 - [Production startup readiness](production-startup-readiness.md) — Autoscale health checks need the app shell before corpus/database initialization completes
 - [Production recovery](production-recovery.md) — Production PostgreSQL has a verified seven-day point-in-time restore window

@@ -1,6 +1,6 @@
-import { app } from './combinedApp.js';
-import { legacyPool, multiUserPool } from './databaseRouter.js';
-import { initializeDatabaseRoles } from './databaseStartup.js';
+import { app } from './app.js';
+import { pool } from './db.js';
+import { validatePrivateDatabase } from './databaseStartup.js';
 import { setApplicationReady } from './readiness.js';
 import express from 'express';
 import path from 'node:path';
@@ -10,14 +10,7 @@ const PORT = process.env.PORT || process.env.API_PORT || 3001;
 const isProduction = process.env.NODE_ENV === 'production';
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 async function initializeApplication() {
-  const status = await initializeDatabaseRoles({
-    legacyDb: legacyPool,
-    multiUserDb: multiUserPool,
-  });
-
-  if (!status.multiUserReady) {
-    console.warn('Multi-user database is not configured; multi-user startup is disabled.');
-  }
+  await validatePrivateDatabase(pool);
 }
 
 if (isProduction) {
