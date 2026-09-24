@@ -63,7 +63,7 @@ test('one automatic Hebrew preference controls every Hebrew text-entry surface',
     await page.request.delete(new URL(`/api/base-words/${baseWordId}`, page.url()).href);
   }
 
-  await page.getByRole('button', { name: 'תנ״ך', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'תנ״ך', exact: true }).click();
   const tanachSearch = page.getByRole('searchbox', { name: 'חיפוש בתנ״ך' });
   await typeShalom(page, tanachSearch);
   await expect(tanachSearch).toHaveValue('שלום');
@@ -94,7 +94,7 @@ test('one automatic Hebrew preference controls every Hebrew text-entry surface',
   await expect(disabledBaseWordInput).toHaveValue('t');
   await page.getByRole('button', { name: 'ביטול' }).click();
 
-  await page.getByRole('button', { name: 'תנ״ך', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'תנ״ך', exact: true }).click();
   await tanachSearch.fill('');
   await tanachSearch.press('KeyT');
   await expect(tanachSearch).toHaveValue('t');
@@ -117,7 +117,7 @@ test('one automatic Hebrew preference controls every Hebrew text-entry surface',
 
   await expect(automaticKeyboard).not.toBeChecked();
   await page.locator('.keyboard-toggle').click();
-  await page.getByRole('button', { name: 'תנ״ך', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'תנ״ך', exact: true }).click();
   await tanachSearch.fill('');
   await tanachSearch.press('KeyT');
   await expect(tanachSearch).toHaveValue('א');

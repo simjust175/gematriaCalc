@@ -179,6 +179,15 @@
       כרגע מוצגות תוצאות מהתנ״ך. תוצאות מתפילות יתווספו בקרוב.
     </p>
 
+    <button
+      v-if="source !== 'tefillot' && results.length && !error"
+      type="button"
+      class="selection-mode-toggle"
+      :aria-pressed="selectionMode"
+      @click="toggleSelectionMode"
+    >
+      {{ selectionMode ? 'סיום בחירה מרובה' : 'בחירה מרובה' }}
+    </button>
     <div v-if="source === 'tefillot'" class="state-card coming-soon-state" role="status">
       <div class="coming-soon-emblem" aria-hidden="true">
         <span class="coming-soon-emblem-ring"></span>
@@ -776,6 +785,8 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .parshah-note { margin: 0 0 13px; color: var(--text-secondary, #74716a); font-size: .73rem; }
 .parshah-note strong { color: #87671f; }
 .scope-note { margin: 0 0 13px; color: #87671f; font-size: .73rem; }
+.selection-mode-toggle { display: block; margin: 0 0 10px; padding: 5px 10px; border: 1px solid #c9a55d; border-radius: 6px; background: #fffdf8; color: #765812; font: inherit; font-size: .75rem; cursor: pointer; }
+.selection-mode-toggle[aria-pressed="true"] { background: #fbf4e6; }
 .match-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .match-card { display: flex; flex-direction: column; min-height: 190px; padding: 14px 15px 12px; border: 1px solid var(--border, #e8e1d5); border-radius: 10px; background: #fff; box-shadow: 0 2px 10px rgba(26,39,68,.035); transition: transform .18s, box-shadow .18s; }
 .match-card:hover { transform: translateY(-2px); box-shadow: 0 7px 18px rgba(26,39,68,.08); }

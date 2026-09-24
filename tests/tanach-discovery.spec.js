@@ -230,6 +230,8 @@ test('calculator discovery navigates Tanach scopes with accessible listboxes whi
   await page.locator('.heb-input').fill('יהוה');
 
   const discovery = page.locator('.gematria-discovery');
+  await discovery.getByRole('group', { name: 'מקור החיפוש' })
+    .getByRole('button', { name: 'תנ״ך', exact: true }).click();
   const book = discovery.getByRole('combobox', { name: 'ספר', exact: true });
   await expect(book).toBeEnabled();
   await book.click();
@@ -274,6 +276,8 @@ test('Tanach listbox selectors do not overflow on mobile', async ({ page }, test
   await login(page);
   await page.locator('.heb-input').fill('יהוה');
   const discovery = page.locator('.gematria-discovery');
+  await discovery.getByRole('group', { name: 'מקור החיפוש' })
+    .getByRole('button', { name: 'תנ״ך', exact: true }).click();
   await expect(discovery.getByRole('combobox', { name: 'ספר', exact: true })).toBeEnabled();
   await expect(discovery.locator('.discovery-header .method-selector')).toHaveCount(0);
   await expect(discovery.locator('.controls-secondary-row .method-selector')).toBeVisible();
@@ -440,7 +444,10 @@ test('curated multi-select shows gold cards, supports cancel, and submits a bulk
   });
   await page.locator('.heb-input').fill('שלום');
   const discovery = page.locator('.gematria-discovery');
-  await discovery.getByRole('button', { name: 'כולל' }).click();
+  await discovery.getByRole('switch', { name: 'כולל' }).click();
+  await discovery.getByRole('button', { name: 'בחירה מרובה' }).click();
+  await expect(discovery.getByRole('button', { name: 'סיום בחירה מרובה' }))
+    .toHaveAttribute('aria-pressed', 'true');
   const cards = discovery.locator('.match-card');
   await cards.nth(0).getByRole('button', { name: 'שמור התאמה' }).click();
   await cards.nth(1).getByRole('button', { name: 'שמור התאמה' }).click();

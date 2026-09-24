@@ -5,6 +5,11 @@ import pg from 'pg';
 const { Client } = pg;
 const schema = `tanach_reader_e2e_${process.pid}`;
 const schemaIdentifier = `"${schema}"`;
+if (!/^tanach_reader_e2e_[1-9]\d+$/.test(schema)
+    || process.env.NODE_ENV === 'production'
+    || process.env.REPLIT_DEPLOYMENT) {
+  throw new Error('E2E schema changes are allowed only in a disposable development test schema');
+}
 const privateTables = [
   'session',
   'tanach_sources',
@@ -85,6 +90,14 @@ async function prepareSchema() {
          SELECT * FROM public.${table}`
       );
     }
+    const version = await client.query(
+      `SELECT MAX(version) AS highest FROM ${schemaIdentifier}.milui_mapping_versions`
+    );
+    const highest = version.rows[0].highest;
+    await client.query(
+      'SELECT setval($1::regclass, $2::bigint, $3::boolean)',
+      [`${schema}.milui_mapping_versions_version_seq`, highest ?? 1, highest !== null]
+    );
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {});
