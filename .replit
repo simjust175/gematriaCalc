@@ -1,4 +1,4 @@
-modules = ["vue-node-20", "nodejs-20", "web", "postgresql-16"]
+modules = ["vue-node-20", "nodejs-20", "web", "postgresql-16", "python-base-3.13"]
 
 [nix]
 channel = "stable-25_05"
