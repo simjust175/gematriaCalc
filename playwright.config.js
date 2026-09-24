@@ -47,6 +47,7 @@ export default defineConfig({
       PGOPTIONS: `-c search_path=${e2eSchema}`,
       VITE_PORT: '4173',
       API_PORT: '4174',
+      TEFILLOT_ENABLED: process.env.E2E_TEFILLOT_ENABLED === 'true' ? 'true' : 'false',
     },
   },
   projects: [

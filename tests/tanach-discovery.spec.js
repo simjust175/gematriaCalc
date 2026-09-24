@@ -66,7 +66,7 @@ test('interim Tefillot gate keeps selector layout and avoids unavailable APIs', 
   test.skip(testInfo.project.name !== 'desktop-chromium');
   const tefillotRequests = [];
   page.on('request', request => {
-    if (request.url().includes('/api/tefillot/')) tefillotRequests.push(request.url());
+    if (request.url().includes('/api/tefillot/') && !request.url().includes('/availability')) tefillotRequests.push(request.url());
   });
   await login(page);
   await page.locator('.heb-input').fill('44');

@@ -81,6 +81,35 @@ test('GET /api/auth/check returns authenticated=false when no session', async ()
   assert.equal(res.body.authenticated, false);
 });
 
+test('Tefillot routes require private authentication and fail closed when disabled', async () => {
+  const paths = [
+    '/api/tefillot/availability',
+    '/api/tefillot/catalog',
+    '/api/tefillot/section?occasion=weekday&service=shacharit&section=morning',
+    '/api/tefillot/gematria-matches?method=gematria&value=44',
+  ];
+  for (const path of paths) {
+    assert.equal((await request(app).get(path)).status, 401, path);
+  }
+  const previous = process.env.TEFILLOT_ENABLED;
+  try {
+    process.env.TEFILLOT_ENABLED = 'false';
+    const agent = request.agent(app);
+    assert.equal((await agent.post('/api/auth/login').send({ password: process.env.APP_PASSWORD })).status, 200);
+    const availability = await agent.get(paths[0]);
+    assert.equal(availability.status, 200);
+    assert.deepEqual(availability.body, { enabled: false });
+    for (const path of paths.slice(1)) {
+      const disabled = await agent.get(path);
+      assert.equal(disabled.status, 503, path);
+      assert.equal(disabled.body.error, 'tefillot_unavailable');
+    }
+  } finally {
+    if (previous === undefined) delete process.env.TEFILLOT_ENABLED;
+    else process.env.TEFILLOT_ENABLED = previous;
+  }
+});
+
 test('curated matches auto-save, merge, persist, delete, and cascade correctly', async () => {
   const agent = request.agent(app);
   await agent.post('/api/auth/login').send({ password: 'correct-test-password-12345' });

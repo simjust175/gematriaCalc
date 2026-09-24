@@ -102,6 +102,7 @@
             <div><dt>חיבור</dt><dd>{{ activeSource.source_work }}</dd></div>
             <div><dt>גרסה</dt><dd>{{ activeSource.source_version }}</dd></div>
             <div><dt>רישיון</dt><dd>{{ activeSource.license }}</dd></div>
+            <div><dt>ייחוס</dt><dd>{{ activeSource.version_source }}</dd></div>
             <div><dt>מראה מקום</dt><dd>{{ activeSource.source_reference }}</dd></div>
           </dl>
           <a :href="activeSource.source_url" target="_blank" rel="noopener noreferrer">פתיחה בספריא</a>
@@ -139,6 +140,10 @@ async function loadCatalog() {
   loadingCatalog.value = true;
   catalogError.value = '';
   try {
+    const availability = await fetch('/api/tefillot/availability');
+    if (!availability.ok || !(await availability.json()).enabled) {
+      throw new Error('מאגר התפילות עדיין אינו זמין');
+    }
     const response = await fetch('/api/tefillot/catalog');
     if (!response.ok) throw new Error(response.status === 401 ? 'נדרשת התחברות מחדש' : 'לא ניתן לטעון את מאגר התפילות');
     catalog.value = await response.json();

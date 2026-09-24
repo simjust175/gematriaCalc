@@ -1,10 +1,10 @@
 ---
-name: Interim Tefillot availability
-description: Release rule for keeping preserved Tefillot functionality unavailable until its separate database is provisioned
+name: Private Tefillot rollout
+description: Boundary between the legacy-only release and the additive private Tefillot feature branch
 ---
 
-Keep Tefillot visible as “coming soon,” but do not let the client call Tefillot endpoints until the separate multi-user database is provisioned and approved for activation. Combined discovery should continue showing Tanach results with a brief Tefillot-coming-soon note.
+Keep the legacy-only release’s Tefillot experience visibly “coming soon.” On the separate private Tefillot feature branch, the user explicitly approved additive Tefillot schema in the original private project, without account or owner routing. Development can enable Tefillot after the licensed corpus is imported; production remains disabled until the separate schema/data/verification/enablement rollout is approved.
 
-**Why:** The interim production release must not expose technical availability errors, and the legacy database must remain isolated from Tefillot and multi-user data.
+**Why:** The earlier separate multi-user-database plan does not govern this user-requested private feature branch. Mixing the interim legacy release rule with the new private rollout would either block the authorized work or expose missing-data errors.
 
-**How to apply:** Preserve the Tefillot backend and database routing. When activating later, remove only the frontend availability gate after verifying the separate database, combined results, failure behavior, and publish schema diff.
+**How to apply:** Preserve APP_PASSWORD session auth and the production-off gate. Do not add multi-user/account ownership to the private release. Apply and import only with explicit one-time development commands; stage production schema through a reviewed Publish, import and verify production content separately, then enable in a final Publish.

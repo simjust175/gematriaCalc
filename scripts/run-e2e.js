@@ -16,6 +16,8 @@ const privateTables = [
   'tanach_books',
   'tanach_verses',
   'tanach_parshiot',
+  'tefillot_sources',
+  'tefillot_units',
   'saved_entries',
   'saved_words',
   'base_words',
@@ -33,10 +35,13 @@ const copiedReferenceTables = [
   'tanach_books',
   'tanach_verses',
   'tanach_parshiot',
+  'tefillot_sources',
+  'tefillot_units',
   'milui_preferences',
   'milui_mapping_versions',
   'milui_index_state',
 ];
+const optionalTables = ['tefillot_sources', 'tefillot_units'];
 
 function createClient() {
   if (!process.env.DATABASE_URL) {
@@ -53,9 +58,29 @@ async function prepareSchema() {
   await client.connect();
   try {
     await client.query('BEGIN');
+    const availableTables = await client.query(
+      `SELECT table_name FROM information_schema.tables
+       WHERE table_schema = 'public' AND table_name = ANY($1::text[])`,
+      [optionalTables]
+    );
+    const available = new Set(availableTables.rows.map(row => row.table_name));
+    if (available.size === 1) {
+      throw new Error('The development Tefillot schema is incomplete');
+    }
+    if (process.env.E2E_TEFILLOT_ENABLED === 'true') {
+      if (available.size !== optionalTables.length) {
+        throw new Error('Enabled Tefillot browser tests require the explicit development migration');
+      }
+      const count = await client.query('SELECT COUNT(*)::int AS units FROM public.tefillot_units');
+      if (!count.rows[0].units) {
+        throw new Error('Enabled Tefillot browser tests require the imported development corpus');
+      }
+    }
+    const tablesToCopy = privateTables.filter(table => !optionalTables.includes(table) || available.has(table));
+    const referencesToCopy = copiedReferenceTables.filter(table => tablesToCopy.includes(table));
     await client.query(`DROP SCHEMA IF EXISTS ${schemaIdentifier} CASCADE`);
     await client.query(`CREATE SCHEMA ${schemaIdentifier}`);
-    for (const table of privateTables) {
+    for (const table of tablesToCopy) {
       await client.query(
         `CREATE TABLE ${schemaIdentifier}.${table}
            (LIKE public.${table} INCLUDING ALL)`
@@ -69,7 +94,7 @@ async function prepareSchema() {
          AND table_name = ANY($1::text[])
          AND column_default LIKE 'nextval(%'
        ORDER BY table_name, ordinal_position`,
-      [privateTables]
+      [tablesToCopy]
     );
     for (const { table_name: table, column_name: column } of serialColumns.rows) {
       const sequence = `${table}_${column}_seq`;
@@ -84,7 +109,7 @@ async function prepareSchema() {
       );
     }
 
-    for (const table of copiedReferenceTables) {
+    for (const table of referencesToCopy) {
       await client.query(
         `INSERT INTO ${schemaIdentifier}.${table}
          SELECT * FROM public.${table}`

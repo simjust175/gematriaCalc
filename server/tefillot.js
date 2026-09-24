@@ -2,12 +2,55 @@ import {
   parseTefillotGematriaQuery,
   searchTefillotGematria,
 } from './tefillotGematriaDiscovery.js';
+
 function validSlug(value) {
   return typeof value === 'string' && /^[a-z0-9-]+$/u.test(value);
 }
 
+export async function isTefillotAvailable(db) {
+  // The feature branch can read its development corpus once explicitly
+  // provisioned. Production requires a separate, deliberate enablement.
+  if (
+    (process.env.NODE_ENV === 'production' && process.env.TEFILLOT_ENABLED !== 'true')
+    || (process.env.NODE_ENV !== 'production' && process.env.TEFILLOT_ENABLED === 'false')
+  ) {
+    return false;
+  }
+  const tables = await db.query(
+    `SELECT to_regclass('tefillot_sources') IS NOT NULL AS sources,
+            to_regclass('tefillot_units') IS NOT NULL AS units`
+  );
+  if (!tables.rows[0]?.sources || !tables.rows[0]?.units) return false;
+  const corpus = await db.query(
+    `SELECT EXISTS (
+       SELECT 1 FROM tefillot_units u
+       JOIN tefillot_sources s ON s.id = u.source_id
+     ) AS populated`
+  );
+  return corpus.rows[0]?.populated === true;
+}
+
 export function registerTefillotRoutes(app, { pool, requireAuth }) {
-  app.get('/api/tefillot/gematria-matches', requireAuth, async (req, res) => {
+  app.get('/api/tefillot/availability', requireAuth, async (_req, res) => {
+    try {
+      res.json({ enabled: await isTefillotAvailable(pool) });
+    } catch (error) {
+      console.error('/api/tefillot/availability error:', error.message);
+      res.status(503).json({ error: 'tefillot_readiness_failed' });
+    }
+  });
+
+  async function requireTefillotAvailable(_req, res, next) {
+    try {
+      if (await isTefillotAvailable(pool)) return next();
+      res.status(503).json({ error: 'tefillot_unavailable' });
+    } catch (error) {
+      console.error('/api/tefillot/readiness error:', error.message);
+      res.status(503).json({ error: 'tefillot_readiness_failed' });
+    }
+  }
+
+  app.get('/api/tefillot/gematria-matches', requireAuth, requireTefillotAvailable, async (req, res) => {
     const parsed = parseTefillotGematriaQuery(req.query);
     if (parsed.error) return res.status(400).json({ error: parsed.error });
     try {
@@ -18,7 +61,7 @@ export function registerTefillotRoutes(app, { pool, requireAuth }) {
     }
   });
 
-  app.get('/api/tefillot/catalog', requireAuth, async (_req, res) => {
+  app.get('/api/tefillot/catalog', requireAuth, requireTefillotAvailable, async (_req, res) => {
     try {
       const [navigation, sources, count] = await Promise.all([
         pool.query(
@@ -65,7 +108,7 @@ export function registerTefillotRoutes(app, { pool, requireAuth }) {
     }
   });
 
-  app.get('/api/tefillot/section', requireAuth, async (req, res) => {
+  app.get('/api/tefillot/section', requireAuth, requireTefillotAvailable, async (req, res) => {
     const { occasion, service, section } = req.query;
     if (!validSlug(occasion) || !validSlug(service) || typeof section !== 'string' || !section) {
       return res.status(400).json({ error: 'invalid_tefillot_reference' });

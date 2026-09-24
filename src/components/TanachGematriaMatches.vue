@@ -8,13 +8,13 @@
         </div>
         <div class="header-meta">
           <p>{{ discoveryDescription }}</p>
-          <p v-if="source !== 'tefillot'" class="total-mark" aria-live="polite">
+          <p v-if="source !== 'tefillot' || tefillotAvailable" class="total-mark" aria-live="polite">
             <strong>{{ allTotal.toLocaleString('he-IL') }}</strong>
             <span>התאמות</span>
           </p>
           <div v-if="source === 'all'" class="source-breakdown" aria-label="התאמות לפי מקור">
             <span><span class="mdi mdi-book-open-variant-outline" aria-hidden="true"></span> תנ״ך <b>{{ sourceCounts.tanach.toLocaleString('he-IL') }}</b></span>
-            <span><span class="mdi mdi-hands-pray" aria-hidden="true"></span> תפילות <b>בקרוב</b></span>
+            <span><span class="mdi mdi-hands-pray" aria-hidden="true"></span> תפילות <b>{{ tefillotAvailable ? sourceCounts.tefillot.toLocaleString('he-IL') : 'בקרוב' }}</b></span>
           </div>
         </div>
       </div>
@@ -76,9 +76,25 @@
                 </span>
               </button>
             </div>
-            <div v-else-if="source === 'tefillot'" key="tefillot" class="coming-soon-context">
-              <span class="mdi mdi-hands-pray" aria-hidden="true"></span>
-              <span>חיפוש בתפילות ייפתח בקרוב</span>
+            <div v-else-if="source === 'tefillot'" key="tefillot" class="tefillot-filter-row">
+              <template v-if="tefillotAvailable">
+                <label>מועד
+                  <select v-model="tefillotOccasion">
+                    <option value="">כל המועדים</option>
+                    <option v-for="item in tefillotOccasionOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
+                  </select>
+                </label>
+                <label>תפילה
+                  <select v-model="tefillotService">
+                    <option value="">כל התפילות</option>
+                    <option v-for="item in tefillotServiceOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
+                  </select>
+                </label>
+              </template>
+              <template v-else>
+                <span class="mdi mdi-hands-pray" aria-hidden="true"></span>
+                <span>חיפוש בתפילות ייפתח בקרוב</span>
+              </template>
             </div>
             <button
               v-else
@@ -174,10 +190,11 @@
       <span v-if="currentParshah"> · {{ total.toLocaleString('he-IL') }} התאמות</span>
     </p>
     <p v-else-if="source === 'tanach' && manualScopeLabel" class="scope-note">מציג התאמות ב{{ manualScopeLabel }}</p>
-    <p v-if="source === 'all'" class="tefillot-coming-soon-note" role="note">
+    <p v-if="source === 'all' && !tefillotAvailable" class="tefillot-coming-soon-note" role="note">
       <span class="mdi mdi-information-slab-circle-outline" aria-hidden="true"></span>
       כרגע מוצגות תוצאות מהתנ״ך. תוצאות מתפילות יתווספו בקרוב.
     </p>
+    <p v-if="sourceWarning" class="range-filter-error" role="status">{{ sourceWarning }}</p>
 
     <button
       v-if="source !== 'tefillot' && results.length && !error"
@@ -188,7 +205,7 @@
     >
       {{ selectionMode ? 'סיום בחירה מרובה' : 'בחירה מרובה' }}
     </button>
-    <div v-if="source === 'tefillot'" class="state-card coming-soon-state" role="status">
+    <div v-if="source === 'tefillot' && !tefillotAvailable" class="state-card coming-soon-state" role="status">
       <div class="coming-soon-emblem" aria-hidden="true">
         <span class="coming-soon-emblem-ring"></span>
         <span class="mdi mdi-hands-pray"></span>
@@ -333,6 +350,7 @@ const filterOptions = [
 ];
 const method = ref('gematria');
 const source = ref('all');
+const tefillotAvailable = ref(false);
 const tefillotOccasion = ref('');
 const tefillotService = ref('');
 const orderIndependent = ref(false);
@@ -360,7 +378,7 @@ const methodOptions = [
   { value: 'finals', label: 'סופי תיבות' },
 ];
 const {
-  results, counts, total, sourceCounts, loading, error, filter, includeKollel, bookOrder, parshaId, chapterBook, chapter, verse, currentParshah, weeklyParshah,
+  results, counts, total, sourceCounts, loading, error, sourceWarning, filter, includeKollel, bookOrder, parshaId, chapterBook, chapter, verse, currentParshah, weeklyParshah,
   hasMore, setFilter, setIncludeKollel, setBookOrder, setParshaId, setChapter, setVerse, toggleCurrentParshah, loadMore, refresh,
 } =
   useTanachGematriaMatches(computed(() => props.target), {
@@ -370,7 +388,7 @@ const {
     sourceRef: source,
     tefillotOccasionRef: tefillotOccasion,
     tefillotServiceRef: tefillotService,
-    tefillotAvailable: false,
+    tefillotAvailable,
   });
 
 const effectiveTarget = computed(() => (
@@ -381,7 +399,7 @@ const allTotal = computed(() => Number(counts.value.all ?? total.value) || 0);
 const sourceKicker = computed(() => ({
   all: 'מחקר מקורות',
   tanach: 'מחקר תנ״כי',
-  tefillot: 'תפילות — בקרוב',
+  tefillot: tefillotAvailable.value ? 'מחקר תפילות' : 'תפילות — בקרוב',
 }[source.value]));
 const hasPattern = computed(() => [...props.pattern].length >= 1);
 const discoveryHeading = computed(() => {
@@ -395,7 +413,9 @@ const discoveryDescription = computed(() => method.value === 'gematria'
     ? 'למצוא תיבות וצירופים בפסוקי התנ״ך העולים בגימטריא למספר המבוקש.'
     : source.value === 'tefillot'
       ? 'למצוא תיבות וצירופים בנוסח התפילות העולים בגימטריא למספר המבוקש.'
-      : 'למצוא תיבות וצירופים בתנ״ך העולים בגימטריא למספר המבוקש.'
+      : tefillotAvailable.value
+        ? 'למצוא תיבות וצירופים בתנ״ך ובתפילות העולים בגימטריא למספר המבוקש.'
+        : 'למצוא תיבות וצירופים בתנ״ך העולים בגימטריא למספר המבוקש.'
   : method.value === 'initials'
     ? `מילים רצופות הפותחות באותיות ${props.pattern}`
     : `מילים רצופות המסתיימות באותיות ${props.pattern}`);
@@ -463,6 +483,14 @@ const manualScopeLabel = computed(() => {
 });
 
 onMounted(loadRangeMetadata);
+onMounted(async () => {
+  try {
+    const response = await fetch('/api/tefillot/availability');
+    if (response.ok) tefillotAvailable.value = (await response.json()).enabled === true;
+  } catch {
+    // Until corpus readiness is verified, the client stays on Tanach only.
+  }
+});
 
 async function loadRangeMetadata() {
   rangeMetadataLoading.value = true;
@@ -716,6 +744,9 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .source-breakdown .mdi { color: #a68035; }
 .source-breakdown b { color: #34415a; font-variant-numeric: tabular-nums; }
 .tefillot-filter-row { display: grid; flex: 1 1 auto; grid-template-columns: repeat(2, minmax(120px, 240px)); gap: 8px; justify-content: start; min-height: 48px; }
+.tefillot-filter-row label { display: grid; gap: 3px; color: #625731; font-size: .72rem; }
+.tefillot-filter-row select { width: 100%; min-height: 31px; padding: 3px 8px; border: 1px solid #d9cbab; border-radius: 7px; background: #fffdf7; color: #1a2744; font: inherit; font-size: .82rem; }
+.tefillot-filter-row select:focus-visible { outline: 2px solid #a68035; outline-offset: 2px; }
 .coming-soon-context { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 8px 12px; border: 1px solid #e2d5ba; border-radius: 10px; background: #fffaf0; color: #705821; font-size: .76rem; font-weight: 700; }
 .coming-soon-context .mdi { color: #a68035; font-size: 1.08rem; }
 .tefillot-coming-soon-note { display: flex; align-items: center; gap: 7px; margin: 0 2px 10px; color: #777064; font-size: .73rem; }
