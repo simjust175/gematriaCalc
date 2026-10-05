@@ -28,6 +28,14 @@
         />
       </main>
     </template>
+    <AppUpdateModal
+      :open="appUpdates.open.value"
+      :release="appUpdates.release.value"
+      :updating="appUpdates.updating.value"
+      :error="appUpdates.error.value"
+      @update="appUpdates.update"
+      @defer="appUpdates.defer"
+    />
   </div>
 </template>
 
@@ -41,6 +49,10 @@ import TefillotReader from '@/components/TefillotReader.vue';
 import LoginScreen   from '@/components/LoginScreen.vue';
 import BaseWords     from '@/components/BaseWords.vue';
 import { resolveAuthentication } from '@/composables/useAuthentication.js';
+import AppUpdateModal from '@/components/AppUpdateModal.vue';
+import { useAppUpdates } from '@/composables/useAppUpdates.js';
+
+const appUpdates = useAppUpdates();
 
 // 'checking' | 'authenticated' | 'unauthenticated'
 const authState  = ref('checking');

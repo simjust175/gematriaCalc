@@ -7,6 +7,7 @@ import ViteFonts from 'unplugin-fonts/vite'
 // Utilities
 import { defineConfig } from 'vite'
 import { fileURLToPath, URL } from 'node:url'
+import { appReleasePlugin } from './build/appReleasePlugin.js'
 
 const frontendPort = Number(process.env.VITE_PORT) || 5000
 const apiPort = Number(process.env.API_PORT) || 3001
@@ -14,6 +15,7 @@ const apiPort = Number(process.env.API_PORT) || 3001
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
+    appReleasePlugin(),
     Vue({
       template: { transformAssetUrls }
     }),

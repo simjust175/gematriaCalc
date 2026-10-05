@@ -1,5 +1,5 @@
 <template>
-  <div class="tefillot-page" dir="rtl">
+  <div class="tefillot-page" dir="rtl" :style="{ '--reader-sticky-top': `${stickyOffset}px` }">
     <div v-if="loadingCatalog" class="reader-state">
       <span class="mdi mdi-loading mdi-spin" aria-hidden="true"></span>
       טוען תפילות...
@@ -64,8 +64,11 @@
       </aside>
 
       <main class="reader-column">
-        <section class="reader-card panel-card">
-          <header class="reader-heading">
+        <section ref="readerCard" class="reader-card panel-card">
+          <header
+            ref="readerHeading"
+            class="reader-heading"
+          >
             <div>
               <span class="breadcrumb">
                 {{ selectedOccasion?.label }} ← {{ selectedService?.label }}
@@ -74,6 +77,12 @@
             </div>
             <span class="nusach-badge">נוסח ספרד</span>
           </header>
+          <div
+            ref="stickyTitle"
+            class="reader-title-sticky"
+            :class="{ 'reader-title-sticky--pinned': titlePinned }"
+            aria-hidden="true"
+          >{{ selectedSection?.label || 'בחרו חלק תפילה' }}</div>
 
           <div v-if="loadingSection" class="section-state">
             <span class="mdi mdi-loading mdi-spin" aria-hidden="true"></span>
@@ -113,7 +122,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { createTanachCursor } from '@/composables/useTanachCursor.js';
 
 const props = defineProps({
@@ -130,11 +139,63 @@ const loadingSection = ref(false);
 const catalogError = ref('');
 const sectionError = ref('');
 const highlightedMatch = ref(null);
+const readerCard = ref(null);
+const readerHeading = ref(null);
+const stickyTitle = ref(null);
+const stickyOffset = ref(0);
+const titlePinned = ref(false);
 let requestId = 0;
+let headerResizeObserver;
+let readerResizeObserver;
 
 const activeSource = computed(() => units.value[0] || null);
 
-onMounted(loadCatalog);
+onMounted(() => {
+  window.addEventListener('scroll', updateStickyHeading, { passive: true });
+  window.addEventListener('resize', updateStickyHeading, { passive: true });
+  const appHeader = document.querySelector('.app-header');
+  if (appHeader && 'ResizeObserver' in window) {
+    headerResizeObserver = new ResizeObserver(updateStickyHeading);
+    headerResizeObserver.observe(appHeader);
+  }
+  loadCatalog();
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('scroll', updateStickyHeading);
+  window.removeEventListener('resize', updateStickyHeading);
+  headerResizeObserver?.disconnect();
+  readerResizeObserver?.disconnect();
+});
+
+function observeReaderHeading() {
+  readerResizeObserver?.disconnect();
+  if ('ResizeObserver' in window && readerCard.value && readerHeading.value && stickyTitle.value) {
+    readerResizeObserver = new ResizeObserver(updateStickyHeading);
+    readerResizeObserver.observe(readerCard.value);
+    readerResizeObserver.observe(readerHeading.value);
+    readerResizeObserver.observe(stickyTitle.value);
+  }
+  updateStickyHeading();
+}
+
+function updateStickyHeading() {
+  const appHeader = document.querySelector('.app-header');
+  stickyOffset.value = Math.ceil(appHeader?.getBoundingClientRect().height || 0);
+  const headingRect = readerHeading.value?.getBoundingClientRect();
+  const titleRect = stickyTitle.value?.getBoundingClientRect();
+  const cardRect = readerCard.value?.getBoundingClientRect();
+  const offset = stickyOffset.value;
+  titlePinned.value = Boolean(
+    headingRect
+    && titleRect
+    && cardRect
+    && headingRect.bottom <= offset + 1
+    && titleRect.top <= offset + 1
+    && titleRect.bottom > offset + 1
+    && cardRect.bottom > titleRect.bottom + 1
+  );
+}
 
 async function loadCatalog() {
   loadingCatalog.value = true;
@@ -166,6 +227,8 @@ async function loadCatalog() {
     catalogError.value = error.message;
   } finally {
     loadingCatalog.value = false;
+    await nextTick();
+    observeReaderHeading();
   }
 }
 
@@ -294,10 +357,22 @@ async function revealReferencedMatch() {
 .section-list small { flex: 0 0 auto; color: #9298a4; font-size: .65rem; }
 .section-list button.active { border-color: #c09840; background: #f8f1df; color: #765812; }
 .reader-column { min-width: 0; display: grid; gap: 14px; }
-.reader-card { min-height: 520px; overflow: hidden; }
+.reader-card { min-height: 520px; }
 .reader-heading {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
   padding: 20px 24px; border-bottom: 1px solid #eee7dc; background: #fffdf9;
+  border-radius: 13px 13px 0 0;
+}
+.reader-title-sticky {
+  position: sticky; top: var(--reader-sticky-top, 0px); z-index: 2;
+  display: flex; align-items: center; height: 52px; margin-block-start: -52px;
+  padding: 0 24px; overflow: hidden; background: #fffdf9; color: #1a2744;
+  font-family: "Noto Serif Hebrew", serif; font-size: 1rem; font-weight: 600; line-height: 1.25;
+  visibility: hidden; pointer-events: none;
+}
+.reader-title-sticky--pinned {
+  visibility: visible; border-bottom: 1px solid #e6dfd0;
+  box-shadow: 0 3px 10px rgba(26, 39, 68, .08);
 }
 .breadcrumb { color: #a67c28; font-size: .75rem; font-weight: 650; }
 .reader-heading h2 { margin-top: 3px; font-family: "Noto Serif Hebrew", serif; font-size: 1.4rem; }
@@ -341,6 +416,7 @@ async function revealReferencedMatch() {
 @media (max-width: 520px) {
   .navigator { padding: 15px; }
   .reader-heading { padding: 16px; }
+  .reader-title-sticky { padding-inline: 16px; }
   .prayer-text { padding: 24px 18px 40px; }
   .occasion-grid { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
 }
