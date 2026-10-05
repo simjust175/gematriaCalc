@@ -388,6 +388,16 @@ async function revealReferencedMatch() {
 }
 .prayer-text p.matched-unit { scroll-margin-block: 120px; }
 .prayer-text mark { padding: 2px 4px; border-radius: 3px; background: #f2e4bd; color: #4e3b13; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.prayer-text [data-prayer-unit]::selection,
+.prayer-text [data-prayer-unit] *::selection {
+  background: #e8d9ad;
+  color: #1a2744;
+}
+.prayer-text [data-prayer-unit]::-moz-selection,
+.prayer-text [data-prayer-unit] *::-moz-selection {
+  background: #e8d9ad;
+  color: #1a2744;
+}
 .section-state, .reader-state {
   min-height: 320px; display: flex; align-items: center; justify-content: center; gap: 10px; color: #7b8496;
 }

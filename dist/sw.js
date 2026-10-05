@@ -16,5 +16,6 @@ self.addEventListener('fetch', event => {
 });
 
 self.addEventListener('message', event => {
+  if (event.data === 'SKIP_WAITING') self.skipWaiting();
   if (event.data === 'version') event.source?.postMessage({ type: 'version', value: VERSION });
 });

@@ -1,10 +1,12 @@
 import { test, expect } from '@playwright/test';
 import { computeAll } from '../src/composables/useGematria.js';
+import { calculateMilui, getCommonMiluiForms, MILUI_DEFAULT_MAPPING } from '../src/utils/milui.js';
 
 test.use({ serviceWorkers: 'block' });
 const prayer = 'שְׁמַע יִשְׂרָאֵל, ה׳ אֱלֹהֵינוּ ה׳ אֶחָד.';
 
 async function openReader(page) {
+  await page.route('**/api/base-words', route => route.fulfill({ json: { items: [] } }));
   await page.route('**/api/auth/check', route => route.fulfill({ json: { authenticated: true } }));
   await page.route('**/api/tefillot/availability', route => route.fulfill({ json: { enabled: true } }));
   await page.route('**/api/tefillot/catalog', route => route.fulfill({ json: {
@@ -214,4 +216,141 @@ test('subtle save reuses the existing originalText API and supports duplicate an
   await page.getByRole('button', { name: 'שמור', exact: true }).click();
   await expect(page.getByRole('button', { name: 'נשמר', exact: true })).toBeDisabled();
   expect(payload).toEqual({ originalText: fragment });
+});
+
+test('Yesod checks canonical existing status without creating another entry', async ({ page }) => {
+  await openReader(page);
+  let posts = 0;
+  await page.route('**/api/base-words', route => {
+    if (route.request().method() === 'POST') posts++;
+    return route.fulfill({ json: { items: [{ id: 1, normalizedText: computeAll(prayer).normalizedText }] } });
+  });
+  await selectText(page);
+  await calculate(page);
+  await expect(page.getByRole('button', { name: 'כבר שמור כיסוד' })).toBeDisabled();
+  expect(posts).toBe(0);
+  await expect(page.getByRole('button', { name: 'שמור', exact: true })).toBeEnabled();
+});
+
+test('Yesod shared save keeps exact text, retries failures and handles a duplicate race', async ({ page }) => {
+  await openReader(page);
+  let status = 503;
+  let payload;
+  await page.route('**/api/base-words', route => {
+    if (route.request().method() === 'GET') return route.fulfill({ json: { items: [] } });
+    payload = route.request().postDataJSON();
+    return route.fulfill({ status, json: {} });
+  });
+  await page.locator('.prayer-text p').first().evaluate(el => { el.textContent = '  שְׁמַע, ישראל!  '; });
+  const text = await selectText(page);
+  await calculate(page);
+  await page.getByRole('button', { name: 'שמור כיסוד', exact: true }).click();
+  await expect(page.locator('.yesod-error')).toContainText('לא ניתן לשמור');
+  status = 409;
+  await page.getByRole('button', { name: 'שמור כיסוד', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'כבר שמור כיסוד' })).toBeDisabled();
+  expect(payload).toEqual({ originalText: text });
+});
+
+test('Yesod prayer save persists through real existing API and appears in normal collection/matches', async ({ page }) => {
+  await openReader(page);
+  await page.unroute('**/api/base-words');
+  const login = await page.request.post('/api/auth/login', {
+    data: { password: process.env.E2E_APP_PASSWORD || 'tanach-browser-test-password' },
+  });
+  expect(login.ok()).toBe(true);
+  const original = await page.request.get('/api/base-words');
+  for (const item of (await original.json()).items) {
+    if (item.normalizedText === computeAll(prayer).normalizedText) await page.request.delete(`/api/base-words/${item.id}`);
+  }
+  const text = await selectText(page);
+  await calculate(page);
+  await page.getByRole('button', { name: 'שמור כיסוד', exact: true }).click();
+  await expect(page.locator('.yesod-button')).toBeDisabled();
+  await expect(page.locator('.yesod-button')).toHaveText(/^(נשמר כיסוד|כבר שמור כיסוד)$/);
+  const list = await page.request.get('/api/base-words');
+  const saved = (await list.json()).items.filter(item => item.normalizedText === computeAll(text).normalizedText);
+  expect(saved).toHaveLength(1);
+  const item = saved[0];
+  try {
+    expect(item.originalText).toBe(text);
+    const matches = await page.request.get(`/api/base-words/matches?value=${computeAll(text).fullGematria}`);
+    expect((await matches.json()).results.some(match => match.id === item.id)).toBe(true);
+    const duplicate = await page.request.post('/api/base-words', { data: { originalText: computeAll(text).normalizedText } });
+    expect(duplicate.status()).toBe(409);
+    await page.locator('.app-header').getByRole('button', { name: 'מילות יסוד', exact: true }).click();
+    await expect(page.locator('.word-row').filter({ hasText: text })).toHaveCount(1);
+  } finally {
+    await page.request.delete(`/api/base-words/${item.id}`);
+  }
+});
+
+for (const [label, sample] of [
+  ['pointed punctuation and final letters', prayer],
+  ['partial word', 'שְׁמַ'],
+  ['Havayah', 'יְהוָה'],
+]) {
+  test(`Milui honors canonical customized settings: ${label}`, async ({ page }) => {
+    await openReader(page);
+    const mapping = { ...MILUI_DEFAULT_MAPPING, ה: 'הי', ו: 'ויו' };
+    await page.route('**/api/settings/milui', route => route.fulfill({ json: { mapping } }));
+    await page.locator('.prayer-text p').first().evaluate((el, text) => { el.textContent = text; }, sample);
+    const text = await selectText(page);
+    await calculate(page);
+    await page.locator('.milui-trigger').click();
+    const expected = calculateMilui(text, mapping);
+    await expect(page.locator('.milui-number')).toHaveText(expected.fullGematria.toLocaleString('he-IL'));
+    await expect(page.locator('.milui-expansion')).toHaveText(expected.expandedText);
+    await expect(page.locator('.milui-filling strong')).toHaveText(expected.fillingOnlyGematria.toLocaleString('he-IL'));
+    for (const [index, form] of getCommonMiluiForms(text, mapping).entries()) {
+      await expect(page.locator('.milui-list:not(.havayah-list) .milui-form-value').nth(index))
+        .toHaveText(form.calculation.fullGematria.toLocaleString('he-IL'));
+    }
+    if (label === 'Havayah') {
+      await expect(page.locator('.havayah-list .milui-form-value')).toHaveText(['72', '63', '45', '52']);
+    }
+    await assertResult(page, text);
+    expect(await page.evaluate(() => window.getSelection().toString())).toBe(text);
+    const bounds = await page.locator('[data-selection-popover]').boundingBox();
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.y).toBeGreaterThanOrEqual(0);
+    expect(bounds.y + bounds.height).toBeLessThanOrEqual(page.viewportSize().height + 1);
+  });
+}
+
+test('Milui never substitutes defaults when settings fail or are invalid; retry works', async ({ page }) => {
+  await openReader(page);
+  let mapping = { ה: 'invalid' };
+  await page.route('**/api/settings/milui', route => route.fulfill({ json: { mapping } }));
+  await selectText(page);
+  await calculate(page);
+  await page.locator('.milui-trigger').click();
+  await expect(page.locator('.milui-error')).toContainText('לא ניתן לטעון');
+  await expect(page.locator('.milui-number')).toHaveCount(0);
+  mapping = MILUI_DEFAULT_MAPPING;
+  await page.locator('.milui-error button').click();
+  await expect(page.locator('.milui-number')).toHaveText(calculateMilui(prayer).fullGematria.toLocaleString('he-IL'));
+});
+
+test('native gold selection is limited to prayer units and survives popup interactions', async ({ page }) => {
+  await openReader(page);
+  await page.locator('.prayer-text p').first().evaluate(el => { el.innerHTML = '<span>שְׁמַע</span> ישראל'; });
+  const text = await selectText(page);
+  await calculate(page);
+  const style = await page.evaluate(() => {
+    const color = selector => {
+      const computed = getComputedStyle(document.querySelector(selector), '::selection');
+      return { background: computed.backgroundColor, color: computed.color };
+    };
+    return { prayer: color('[data-prayer-unit]'), child: color('[data-prayer-unit] span'), heading: color('.reader-heading'), nav: color('.nav-btn') };
+  });
+  expect(style.prayer).toEqual({ background: 'rgb(232, 217, 173)', color: 'rgb(26, 39, 68)' });
+  expect(style.child).toEqual(style.prayer);
+  expect(style.heading.background).not.toBe(style.prayer.background);
+  expect(style.nav.background).not.toBe(style.prayer.background);
+  expect(await page.evaluate(() => window.getSelection().toString())).toBe(text);
+  await page.route('**/api/settings/milui', route => route.fulfill({ json: { mapping: MILUI_DEFAULT_MAPPING } }));
+  await page.locator('.milui-trigger').click();
+  await expect(page.locator('.milui-number')).toBeVisible();
+  expect(await page.evaluate(() => window.getSelection().toString())).toBe(text);
 });

@@ -65,7 +65,7 @@ export function useBaseWords(value = ref(0), enabled = ref(true), options = {}) 
     if (!text) return { ok: false, message: 'יש להזין מילה או ביטוי' };
     const response = await fetch('/api/base-words', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ originalText: text, ...(sourceType ? { sourceType } : {}) }),
+      body: JSON.stringify({ originalText: options.preserveOriginalText ? originalText : text, ...(sourceType ? { sourceType } : {}) }),
     });
     if (response.status === 409) return { ok: false, duplicate: true, message: 'כבר קיים במילות יסוד' };
     if (!response.ok) return { ok: false, message: 'לא ניתן לשמור כרגע' };

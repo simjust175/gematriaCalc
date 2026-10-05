@@ -2,6 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { computeAll } from '../src/composables/useGematria.js';
 import { calculatePrayerSelection, positionSelectionPopover, readPrayerSelection } from '../src/utils/prayerSelection.js';
+import { useBaseWords } from '../src/composables/useBaseWords.js';
+import { effectScope } from 'vue';
+import { readFileSync } from 'node:fs';
 
 for (const text of ['שמע', 'שמע ישראל', 'שְׁמַע יִשְׂרָאֵל,', 'שְׁמַ', 'ראל', ' ה׳ אֱלֹהֵינוּ! ', 'ברוך־שם', 'ברוך\nשם', 'ךםןףץ']) {
   test(`prayer calculation reuses the exact calculator result: ${JSON.stringify(text)}`, () => {
@@ -45,4 +48,41 @@ test('RTL edges and zoomed visual viewports clamp the result inside visible boun
 test('offscreen and empty rect lists cannot create detached floating controls', () => {
   assert.equal(positionSelectionPopover([], { width: 100, height: 40 }, viewport), null);
   assert.equal(positionSelectionPopover([rectangle(900)], { width: 100, height: 40 }, viewport), null);
+});
+
+test('shared Yesod persistence optionally preserves exact selected text without changing ordinary callers', async () => {
+  const originalFetch = globalThis.fetch;
+  const scope = effectScope();
+  let payload;
+  let status = 200;
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, '/api/base-words');
+    payload = JSON.parse(options.body);
+    return { status, ok: status === 200, json: async () => ({ item: { id: 7, originalText: payload.originalText } }) };
+  };
+  try {
+    const selected = scope.run(() => useBaseWords(0, false, { preserveOriginalText: true }));
+    const ordinary = scope.run(() => useBaseWords(0, false));
+    const exact = '  שְׁמַע, ישראל!  ';
+    assert.equal((await selected.save(exact)).ok, true);
+    assert.deepEqual(payload, { originalText: exact });
+    assert.equal(selected.items.value[0].originalText, exact);
+    await ordinary.save(exact, 'calculator');
+    assert.deepEqual(payload, { originalText: exact.trim(), sourceType: 'calculator' });
+    status = 409;
+    assert.equal((await selected.save(exact)).duplicate, true);
+    assert.equal(selected.items.value.length, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    scope.stop();
+  }
+});
+
+test('prayer controller uses canonical Milui and saved settings rather than another engine', () => {
+  const controller = readFileSync(new URL('../src/components/PrayerSelectionCalculator.vue', import.meta.url), 'utf8');
+  assert.match(controller, /calculateMilui\(snapshot\.value\.text, miluiMapping\.value\)/);
+  assert.match(controller, /getCommonMiluiForms\(snapshot\.value\.text, miluiMapping\.value\)/);
+  assert.match(controller, /normalizeMiluiMapping\(payload\.mapping\)/);
+  assert.match(controller, /\/api\/settings\/milui/);
+  assert.doesNotMatch(controller, /MILUI_DEFAULT_MAPPING|LETTER_VALUES/);
 });

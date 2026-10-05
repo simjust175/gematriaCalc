@@ -9,17 +9,29 @@
       :position="position"
       :save-state="saveState"
       :save-error="saveError"
+      :yesod-state="yesodStatus"
+      :yesod-error="yesodError || baseWords.error.value"
+      :milui-calculation="miluiCalculation"
+      :milui-forms="miluiForms"
+      :havayah-presets="havayahPresets"
+      :milui-state="miluiState"
+      :milui-error="miluiError"
       @calculate="calculate"
       @dismiss="dismiss"
       @save="save"
+      @save-yesod="saveYesod"
+      @load-milui="loadMilui"
     />
   </Teleport>
 </template>
 
 <script setup>
-import { nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
 import SelectionGematriaPopover from './SelectionGematriaPopover.vue';
 import { calculatePrayerSelection, positionSelectionPopover, readPrayerSelection } from '@/utils/prayerSelection.js';
+import { normalize } from '@/composables/useGematria.js';
+import { useBaseWords } from '@/composables/useBaseWords.js';
+import { calculateMilui, normalizeMiluiMapping, getCommonMiluiForms, containsStandaloneHavayah, CANONICAL_HAVAYAH_MILUI } from '@/utils/milui.js';
 
 const props = defineProps({ root: { default: null } });
 const snapshot = shallowRef(null);
@@ -29,6 +41,23 @@ const position = ref({ left: -1000, top: -1000 });
 const popover = ref(null);
 const saveState = ref('idle');
 const saveError = ref('');
+const yesodState = ref('idle');
+const yesodError = ref('');
+const baseWords = useBaseWords(ref(0), computed(() => Boolean(result.value)), { preserveOriginalText: true });
+const alreadyYesod = computed(() => Boolean(snapshot.value && baseWords.items.value.some(
+  item => item.normalizedText === normalize(snapshot.value.text),
+)));
+const yesodStatus = computed(() => baseWords.loading.value ? 'checking'
+  : alreadyYesod.value ? 'duplicate' : yesodState.value);
+const miluiState = ref('idle');
+const miluiError = ref('');
+const miluiMapping = shallowRef(null);
+const miluiCalculation = computed(() => result.value && miluiMapping.value
+  ? calculateMilui(snapshot.value.text, miluiMapping.value) : null);
+const miluiForms = computed(() => miluiCalculation.value
+  ? getCommonMiluiForms(snapshot.value.text, miluiMapping.value) : []);
+const havayahPresets = computed(() => miluiCalculation.value && containsStandaloneHavayah(snapshot.value.text)
+  ? CANONICAL_HAVAYAH_MILUI : []);
 let selectionTimer;
 let pointerSelecting = false;
 let touch = false;
@@ -36,6 +65,7 @@ let ignoreUntil = 0;
 let observer;
 let saveRequest = 0;
 let saveAbort;
+let miluiAbort;
 
 function dismiss() {
   clearTimeout(selectionTimer);
@@ -43,8 +73,67 @@ function dismiss() {
   result.value = null;
   saveState.value = 'idle';
   saveError.value = '';
+  yesodState.value = 'idle';
+  yesodError.value = '';
+  miluiState.value = 'idle';
+  miluiError.value = '';
+  miluiMapping.value = null;
   saveRequest += 1;
   saveAbort?.abort();
+  miluiAbort?.abort();
+}
+
+async function saveYesod() {
+  if (!snapshot.value || !result.value || baseWords.loading.value
+    || alreadyYesod.value || ['loading', 'saved', 'duplicate'].includes(yesodState.value)) return;
+  const selection = snapshot.value;
+  yesodState.value = 'loading';
+  yesodError.value = '';
+  try {
+    // If the initial status check failed, retry it before creating anything.
+    if (baseWords.error.value) {
+      await baseWords.load();
+      if (snapshot.value !== selection) return;
+      if (baseWords.error.value) throw new Error('load');
+      if (alreadyYesod.value) { yesodState.value = 'duplicate'; return; }
+    }
+    // Omit sourceType: the existing API's manual classification is supported;
+    // introducing a prayer-specific source type would require a server change.
+    const saved = await baseWords.save(selection.text);
+    if (snapshot.value !== selection) return;
+    yesodState.value = saved.ok ? 'saved' : saved.duplicate ? 'duplicate' : 'idle';
+    if (!saved.ok && !saved.duplicate) yesodError.value = saved.message;
+  } catch {
+    if (snapshot.value !== selection) return;
+    yesodState.value = 'idle';
+    yesodError.value = 'לא ניתן לשמור כיסוד כרגע. נסו שוב.';
+  }
+}
+
+async function loadMilui() {
+  if (!snapshot.value || !result.value || ['loading', 'ready'].includes(miluiState.value)) return;
+  const selection = snapshot.value;
+  miluiState.value = 'loading';
+  miluiError.value = '';
+  miluiAbort = new AbortController();
+  try {
+    const response = await fetch('/api/settings/milui', { signal: miluiAbort.signal });
+    if (!response.ok) throw new Error('load');
+    const payload = await response.json();
+    const checked = normalizeMiluiMapping(payload.mapping);
+    if (!checked.valid) throw new Error('invalid_saved_mapping');
+    if (snapshot.value !== selection) return;
+    miluiMapping.value = checked.mapping;
+    miluiState.value = 'ready';
+  } catch (error) {
+    if (snapshot.value !== selection || error.name === 'AbortError') return;
+    miluiState.value = 'error';
+    miluiError.value = 'לא ניתן לטעון את הגדרות המילוי';
+  }
+}
+
+function refreshYesod() {
+  if (result.value) baseWords.load();
 }
 
 async function readSelection() {
@@ -157,6 +246,7 @@ watch(() => popover.value?.element, element => {
 }, { flush: 'post' });
 onMounted(() => {
   document.addEventListener('selectionchange', scheduleSelection);
+  window.addEventListener('base-words-changed', refreshYesod);
   document.addEventListener('pointerdown', onPointerDown, true);
   document.addEventListener('pointerup', onPointerUp, true);
   document.addEventListener('pointercancel', onPointerUp, true);
@@ -170,6 +260,7 @@ onBeforeUnmount(() => {
   dismiss();
   observer?.disconnect();
   document.removeEventListener('selectionchange', scheduleSelection);
+  window.removeEventListener('base-words-changed', refreshYesod);
   document.removeEventListener('pointerdown', onPointerDown, true);
   document.removeEventListener('pointerup', onPointerUp, true);
   document.removeEventListener('pointercancel', onPointerUp, true);
