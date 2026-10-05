@@ -149,7 +149,11 @@
           :aria-busy="saveState === 'loading' ? 'true' : 'false'"
           @click="emit('save')"
         >
-          <span class="save-icon" aria-hidden="true">{{ saveState === 'saved' || saveState === 'duplicate' ? '✓' : '↧' }}</span>
+          <span
+            class="save-icon mdi"
+            :class="saveState === 'saved' || saveState === 'duplicate' ? 'mdi-check' : 'mdi-lock'"
+            aria-hidden="true"
+          ></span>
           {{ saveLabel }}
         </button>
         <div class="yesod-action">
