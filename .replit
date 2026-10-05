@@ -78,3 +78,8 @@ timeoutMs = 180000
 deploymentTarget = "autoscale"
 run = ["bash", "-c", "NODE_ENV=production node server/index.js"]
 build = ["npm", "run", "build"]
+
+[userenv]
+
+[userenv.production]
+TEFILLOT_ENABLED = "true"
