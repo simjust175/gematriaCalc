@@ -354,3 +354,116 @@ test('native gold selection is limited to prayer units and survives popup intera
   await expect(page.locator('.milui-number')).toBeVisible();
   expect(await page.evaluate(() => window.getSelection().toString())).toBe(text);
 });
+
+test('Milui chips instantly select one, several, or all types without changing calculations or saves', async ({ page }, testInfo) => {
+  await openReader(page);
+  await page.route('**/api/settings/milui', route => route.fulfill({ json: { mapping: MILUI_DEFAULT_MAPPING } }));
+  const text = await selectText(page);
+  await calculate(page);
+  await page.locator('.milui-trigger').click();
+  const filters = page.getByRole('group', { name: 'סינון סוגי מילוי' });
+  const all = filters.getByRole('button', { name: 'הכל', exact: true });
+  const primary = filters.getByRole('button', { name: 'מילוי רגיל', exact: true });
+  const av = filters.getByRole('button', { name: 'מילוי יודי״ן', exact: true });
+  const sag = filters.getByRole('button', { name: 'מילוי יודי״ן־אל״ף', exact: true });
+  await expect(all).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.milui-list .milui-result-row')).toHaveCount(4);
+  await av.click();
+  await expect(all).toHaveAttribute('aria-pressed', 'false');
+  await expect(av).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.milui-list .milui-result-row')).toHaveCount(1);
+  await expect(page.locator('.milui-primary')).toHaveCount(0);
+  const forms = getCommonMiluiForms(text);
+  await expect(page.locator('.milui-form-value')).toHaveText(forms.find(form => form.id === 'av').calculation.fullGematria.toLocaleString('he-IL'));
+  await sag.click();
+  await expect(page.locator('.milui-list .milui-result-row')).toHaveCount(2);
+  await expect(av).toHaveAttribute('aria-pressed', 'true');
+  await expect(sag).toHaveAttribute('aria-pressed', 'true');
+  await av.click();
+  await expect(page.locator('.milui-list .milui-result-row')).toHaveCount(1);
+  await sag.click();
+  await expect(all).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.milui-list .milui-result-row')).toHaveCount(4);
+  await primary.click();
+  await expect(page.locator('.milui-list .milui-result-row')).toHaveCount(1);
+  await expect(page.locator('.milui-number')).toHaveText(calculateMilui(text).fullGematria.toLocaleString('he-IL'));
+  await expect(page.locator('.milui-filling')).toBeVisible();
+  await sag.click();
+  await all.click();
+  await expect(primary).toHaveAttribute('aria-pressed', 'false');
+  await expect(sag).toHaveAttribute('aria-pressed', 'false');
+  await expect(all).toHaveAttribute('aria-pressed', 'true');
+  await assertResult(page, text);
+  await expect(page.getByRole('button', { name: 'שמור', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'שמור כיסוד', exact: true })).toBeEnabled();
+  expect(await page.evaluate(() => window.getSelection().toString())).toBe(text);
+  await page.screenshot({ path: `screenshots/milui-filter-${testInfo.project.name}.png` });
+  await av.click();
+  await page.locator('.milui-trigger').click();
+  await page.locator('.milui-trigger').click();
+  await expect(av).toHaveAttribute('aria-pressed', 'true');
+  await page.waitForTimeout(350);
+  await selectText(page, '.prayer-text p', 0, 5);
+  await calculate(page);
+  await page.locator('.milui-trigger').click();
+  await expect(all).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('shared common/Havayah type chips filter both result sets without duplicate chips', async ({ page }) => {
+  await openReader(page);
+  await page.route('**/api/settings/milui', route => route.fulfill({ json: { mapping: MILUI_DEFAULT_MAPPING } }));
+  await page.locator('.prayer-text p').first().evaluate(el => { el.textContent = 'יְהוָה'; });
+  await selectText(page);
+  await calculate(page);
+  await page.locator('.milui-trigger').click();
+  const filters = page.getByRole('group', { name: 'סינון סוגי מילוי' });
+  await expect(filters.getByRole('button')).toHaveCount(6);
+  const av = filters.getByRole('button', { name: 'מילוי יודי״ן', exact: true });
+  await expect(av).toHaveCount(1);
+  await av.click();
+  await expect(page.locator('.milui-list:not(.havayah-list) .milui-result-row')).toHaveCount(1);
+  await expect(page.locator('.havayah-list .milui-result-row')).toHaveCount(1);
+  await expect(page.locator('.havayah-list .milui-form-value')).toHaveText('72');
+  await av.click();
+  await filters.getByRole('button', { name: 'מילוי אלפי״ן', exact: true }).click();
+  await expect(page.locator('.milui-list:not(.havayah-list)')).toHaveCount(0);
+  await expect(page.locator('.milui-primary')).toHaveCount(0);
+  await expect(page.locator('.havayah-list .milui-result-row')).toHaveCount(1);
+  await expect(page.locator('.havayah-list .milui-form-value')).toHaveText('45');
+});
+
+test('one available Milui type hides filters; changing available types cannot leave empty results', async ({ page }) => {
+  // Mount the real component with its public props to cover the one-type state,
+  // which the ordinary canonical engine's four common forms do not produce.
+  await page.goto('/');
+  const calculation = calculateMilui('אב');
+  const forms = getCommonMiluiForms('אב');
+  await page.evaluate(async ({ calculation, forms }) => {
+    const url = '/src/components/SelectionGematriaPopover.vue';
+    const source = await (await fetch(url)).text();
+    const vueUrl = source.match(/from\s+["']([^"']*\/vue\.js[^"']*)["']/)?.[1];
+    if (!vueUrl) throw new Error('Cannot locate component Vue runtime');
+    const { createApp, h, reactive } = await import(vueUrl);
+    const { default: Popover } = await import(url);
+    const props = reactive({
+      mode: 'result', text: 'אב', miluiCalculation: calculation,
+      miluiForms: [forms[0]], miluiState: 'ready', position: { left: 12, top: 12 },
+    });
+    const host = document.createElement('div');
+    document.body.append(host);
+    createApp({ render: () => h(Popover, props) }).mount(host);
+    window.updateMiluiTestProps = patch => Object.assign(props, patch);
+  }, { calculation, forms });
+  await page.locator('.milui-trigger').click();
+  await expect(page.getByRole('group', { name: 'סינון סוגי מילוי' })).toHaveCount(0);
+  await expect(page.locator('.milui-number')).toHaveText(calculation.fullGematria.toLocaleString('he-IL'));
+  await page.evaluate(forms => window.updateMiluiTestProps({ miluiForms: forms }), forms);
+  const filters = page.getByRole('group', { name: 'סינון סוגי מילוי' });
+  await expect(filters).toBeVisible();
+  await filters.getByRole('button', { name: 'מילוי יודי״ן', exact: true }).click();
+  await expect(page.locator('.milui-primary')).toHaveCount(0);
+  await page.evaluate(form => window.updateMiluiTestProps({ miluiForms: [form] }), forms[0]);
+  await expect(filters).toHaveCount(0);
+  await expect(page.locator('.milui-number')).toHaveText(calculation.fullGematria.toLocaleString('he-IL'));
+  await expect(page.locator('.milui-result-row')).toHaveCount(1);
+});

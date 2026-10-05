@@ -88,33 +88,59 @@
             <span>{{ miluiError || 'לא ניתן לטעון את חישוב המילוי כרגע' }}</span>
             <button type="button" class="inline-retry" @click="emit('load-milui')">נסו שוב</button>
           </div>
-          <template v-else-if="miluiCalculation">
-            <div class="milui-primary">
-              <span class="milui-caption">מילוי רגיל · סך הכול</span>
-              <span class="milui-expansion" lang="he">{{ miluiCalculation.expandedText }}</span>
-              <div class="milui-number-row">
-                <span class="milui-number">{{ formatNumber(miluiCalculation.fullGematria) }}</span>
-                <span v-if="miluiCalculation.fullHebrewNumber" class="milui-hebrew-total">{{ miluiCalculation.fullHebrewNumber }}</span>
-              </div>
-            </div>
-            <div class="milui-filling">
-              <span>מילוי בלבד</span>
-              <strong>{{ formatNumber(miluiCalculation.fillingOnlyGematria) }}</strong>
-              <span v-if="miluiCalculation.fillingOnlyHebrewNumber">{{ miluiCalculation.fillingOnlyHebrewNumber }}</span>
+          <template v-else-if="miluiCalculation || filteredMiluiForms.length || filteredHavayahPresets.length">
+            <div
+              v-if="showMiluiTypeFilters"
+              class="milui-type-filters"
+              role="group"
+              aria-label="סינון סוגי מילוי"
+            >
+              <button
+                class="milui-filter-chip"
+                :class="{ 'milui-filter-chip--selected': allMiluiTypesSelected }"
+                type="button"
+                :aria-pressed="allMiluiTypesSelected"
+                @click="selectedMiluiTypes = []"
+              >הכל</button>
+              <button
+                v-for="type in availableMiluiTypes"
+                :key="type.id"
+                class="milui-filter-chip"
+                :class="{ 'milui-filter-chip--selected': isMiluiTypeSelected(type.id) }"
+                type="button"
+                :aria-pressed="isMiluiTypeSelected(type.id)"
+                @click="toggleMiluiType(type.id)"
+              >{{ type.label }}</button>
             </div>
 
-            <div v-if="miluiForms.length" class="milui-list">
+            <template v-if="miluiCalculation && isMiluiTypeVisible('primary')">
+              <div class="milui-primary">
+                <span class="milui-caption">מילוי רגיל · סך הכול</span>
+                <span class="milui-expansion" lang="he">{{ miluiCalculation.expandedText }}</span>
+                <div class="milui-number-row">
+                  <span class="milui-number">{{ formatNumber(miluiCalculation.fullGematria) }}</span>
+                  <span v-if="miluiCalculation.fullHebrewNumber" class="milui-hebrew-total">{{ miluiCalculation.fullHebrewNumber }}</span>
+                </div>
+              </div>
+              <div class="milui-filling">
+                <span>מילוי בלבד</span>
+                <strong>{{ formatNumber(miluiCalculation.fillingOnlyGematria) }}</strong>
+                <span v-if="miluiCalculation.fillingOnlyHebrewNumber">{{ miluiCalculation.fillingOnlyHebrewNumber }}</span>
+              </div>
+            </template>
+
+            <div v-if="filteredMiluiForms.length" class="milui-list">
               <span class="milui-section-label">צורות מילוי נפוצות</span>
-              <div v-for="form in miluiForms" :key="form.id" class="milui-result-row">
+              <div v-for="form in filteredMiluiForms" :key="form.id" class="milui-result-row">
                 <span class="milui-form-name">{{ form.label }}<small v-if="form.primary"> · בסיס</small></span>
                 <span class="milui-form-value" dir="ltr">{{ formatNumber(form.calculation?.fullGematria) }}</span>
                 <span class="milui-form-spelling" lang="he">{{ form.calculation?.expandedText }}</span>
               </div>
             </div>
 
-            <div v-if="havayahPresets.length" class="milui-list havayah-list">
+            <div v-if="filteredHavayahPresets.length" class="milui-list havayah-list">
               <span class="milui-section-label">מילויי הוי״ה</span>
-              <div v-for="preset in havayahPresets" :key="preset.id" class="milui-result-row">
+              <div v-for="preset in filteredHavayahPresets" :key="preset.id" class="milui-result-row">
                 <span class="milui-form-name">{{ preset.label }}</span>
                 <span class="milui-form-value" dir="ltr">
                   {{ formatNumber(preset.calculation?.fullGematria ?? preset.fullGematria ?? preset.value) }}
@@ -125,7 +151,7 @@
               </div>
             </div>
 
-            <details v-if="miluiCalculation.words?.length" class="milui-words">
+            <details v-if="miluiCalculation && isMiluiTypeVisible('primary') && miluiCalculation.words?.length" class="milui-words">
               <summary>פירוט לפי מילים</summary>
               <div v-for="word in miluiCalculation.words" :key="`${word.position}-${word.word}`" class="milui-word-row">
                 <span>{{ word.word }}</span>
@@ -201,7 +227,58 @@ const props = defineProps({
 const emit = defineEmits(['calculate', 'dismiss', 'save', 'save-yesod', 'load-milui']);
 const root = ref(null);
 const miluiOpen = ref(false);
-watch(() => [props.text, props.mode], () => { miluiOpen.value = false; });
+const selectedMiluiTypes = ref([]);
+watch(() => [props.text, props.mode], () => {
+  miluiOpen.value = false;
+  selectedMiluiTypes.value = [];
+});
+
+function canonicalMiluiTypeId(record) {
+  return record.id;
+}
+const availableMiluiTypes = computed(() => {
+  const types = [];
+  const seen = new Set();
+  if (props.miluiCalculation) {
+    seen.add('primary');
+    types.push({ id: 'primary', label: 'מילוי רגיל' });
+  }
+  for (const record of [...props.miluiForms, ...props.havayahPresets]) {
+    const id = canonicalMiluiTypeId(record);
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    types.push({ id, label: id === 'primary' ? 'מילוי רגיל' : record.label });
+  }
+  return types;
+});
+const showMiluiTypeFilters = computed(() => props.miluiState === 'ready' && availableMiluiTypes.value.length > 1);
+const allMiluiTypesSelected = computed(() => selectedMiluiTypes.value.length === 0);
+function isMiluiTypeSelected(id) {
+  return selectedMiluiTypes.value.includes(id);
+}
+function isMiluiTypeVisible(id) {
+  return allMiluiTypesSelected.value || isMiluiTypeSelected(id);
+}
+function toggleMiluiType(id) {
+  if (allMiluiTypesSelected.value) {
+    selectedMiluiTypes.value = [id];
+    return;
+  }
+  const next = selectedMiluiTypes.value.includes(id)
+    ? selectedMiluiTypes.value.filter(selected => selected !== id)
+    : [...selectedMiluiTypes.value, id];
+  selectedMiluiTypes.value = next.length ? next : [];
+}
+const filteredMiluiForms = computed(() => props.miluiForms.filter(form =>
+  isMiluiTypeVisible(canonicalMiluiTypeId(form))));
+const filteredHavayahPresets = computed(() => props.havayahPresets.filter(preset =>
+  isMiluiTypeVisible(canonicalMiluiTypeId(preset))));
+watch(() => availableMiluiTypes.value.map(type => type.id).join('|'), () => {
+  if (!selectedMiluiTypes.value.length) return;
+  const available = new Set(availableMiluiTypes.value.map(type => type.id));
+  const reconciled = selectedMiluiTypes.value.filter(id => available.has(id));
+  selectedMiluiTypes.value = reconciled.length ? reconciled : [];
+});
 
 const rootStyle = computed(() => ({
   left: `${Number(props.position?.left) || 0}px`,
@@ -456,6 +533,28 @@ defineExpose({ element: root });
   padding: 11px 14px 13px;
   background: #fffdf8;
 }
+.milui-type-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 0 0 10px;
+}
+.milui-filter-chip {
+  min-height: 25px;
+  padding: 3px 9px;
+  border: 1px solid #e4dcc9;
+  border-radius: 999px;
+  background: #fffdf8;
+  color: #657084;
+  font: inherit;
+  font-size: .67rem;
+  font-weight: 650;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+.milui-filter-chip:hover { border-color: #c6ae73; background: #fbf6e9; color: #765812; }
+.milui-filter-chip--selected { border-color: #cbb477; background: #f6efdE; color: #745714; }
 .milui-state { margin: 0; color: #777064; font-size: .74rem; }
 .milui-error { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #9b413a; font-size: .72rem; line-height: 1.4; }
 .inline-retry, .yesod-retry {
@@ -573,6 +672,7 @@ defineExpose({ element: root });
 .save-button:focus-visible,
 .yesod-button:focus-visible,
 .milui-trigger:focus-visible,
+.milui-filter-chip:focus-visible,
 .inline-retry:focus-visible,
 .yesod-retry:focus-visible {
   outline: 2px solid #a17b30;
@@ -589,6 +689,6 @@ defineExpose({ element: root });
 }
 @media (prefers-reduced-motion: reduce) {
   .selection-popover { animation: none; }
-  .selection-action, .close-button, .save-button, .yesod-button, .milui-chevron { transition: none; }
+  .selection-action, .close-button, .save-button, .yesod-button, .milui-chevron, .milui-filter-chip { transition: none; }
 }
 </style>
