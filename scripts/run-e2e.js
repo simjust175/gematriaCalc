@@ -123,6 +123,32 @@ async function prepareSchema() {
       'SELECT setval($1::regclass, $2::bigint, $3::boolean)',
       [`${schema}.milui_mapping_versions_version_seq`, highest ?? 1, highest !== null]
     );
+    // LIKE INCLUDING ALL omits foreign keys. Recreate them inside the
+    // disposable schema so cascade/ownership tests exercise real constraints
+    // without referencing or modifying any public table.
+    const foreignKeys = await client.query(
+      `SELECT source.relname AS table_name, constraint_row.conname,
+              pg_get_constraintdef(constraint_row.oid) AS definition
+       FROM pg_constraint constraint_row
+       JOIN pg_class source ON source.oid = constraint_row.conrelid
+       JOIN pg_namespace namespace ON namespace.oid = source.relnamespace
+       JOIN pg_class target ON target.oid = constraint_row.confrelid
+       WHERE constraint_row.contype = 'f'
+         AND namespace.nspname = 'public'
+         AND source.relname = ANY($1::text[])
+         AND target.relname = ANY($1::text[])`,
+      [tablesToCopy]
+    );
+    for (const foreignKey of foreignKeys.rows) {
+      const definition = foreignKey.definition.replace(
+        /REFERENCES\s+(?:public\.)?("?[a-z_]+"?)/,
+        `REFERENCES ${schemaIdentifier}.$1`
+      );
+      await client.query(
+        `ALTER TABLE ${schemaIdentifier}."${foreignKey.table_name}"
+         ADD CONSTRAINT "${foreignKey.conname}" ${definition}`
+      );
+    }
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {});
@@ -148,11 +174,16 @@ const playwrightCli = fileURLToPath(
   new URL('../node_modules/@playwright/test/cli.js', import.meta.url)
 );
 const requestedTests = process.argv.slice(2);
-const child = spawn(process.execPath, [playwrightCli, 'test', ...requestedTests], {
+const apiMode = requestedTests[0] === '--api';
+if (apiMode) requestedTests.shift();
+const child = spawn(process.execPath, apiMode
+  ? ['--test', '--test-concurrency=1', ...requestedTests]
+  : [playwrightCli, 'test', ...requestedTests], {
   stdio: 'inherit',
   env: {
     ...process.env,
     E2E_SCHEMA: schema,
+    ...(apiMode ? { PGOPTIONS: `-c search_path=${schema}` } : {}),
   },
 });
 

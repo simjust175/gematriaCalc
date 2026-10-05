@@ -343,11 +343,13 @@ const chapterVersesError = ref('');
 let chapterRequestId = 0;
 let curatedStateRequestId = 0;
 let curatedStateTimer;
-const filterOptions = [
+const filterOptions = computed(() => [
   { value: 'all', label: 'הכול' },
   { value: 'whole_word', label: 'מילה שלמה' },
   { value: 'whole_phrase', label: 'מילים שלימות' },
-];
+  ...(source.value !== 'tefillot' && method.value === 'gematria'
+    ? [{ value: 'whole_verse', label: 'פסוק שלם' }] : []),
+]);
 const method = ref('gematria');
 const source = ref('all');
 const tefillotAvailable = ref(false);

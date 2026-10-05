@@ -1,13 +1,13 @@
 import { findGematriaRanges, findWordEdgeRanges } from './tanachGematriaSearch.js';
 import { createTanachCursor } from '../src/composables/useTanachCursor.js';
-import { toHebrewNumber } from '../src/composables/useGematria.js';
+import { toHebrewNumber, normalize, calcGematria } from '../src/composables/useGematria.js';
 import { getCurrentWeeklyParshah } from './tanachWeeklyParsha.js';
 import { TANACH_PARSHIOT } from './tanachParshiot.js';
 import { normalizeDerivedLetters } from './derivedLetterMatching.js';
 
 export const MAX_GEMATRIA_PAGE_SIZE = 50;
 
-const VALID_TYPES = new Set(['all', 'whole_word', 'whole_phrase', 'partial']);
+const VALID_TYPES = new Set(['all', 'whole_word', 'whole_phrase', 'whole_verse', 'partial']);
 const VALID_METHODS = new Set(['gematria', 'initials', 'finals']);
 const MAX_CACHED_TARGETS = 6;
 const MAX_CACHED_MATCH_REFERENCES = 200000;
@@ -69,6 +69,14 @@ async function loadCorpus(db) {
     }
     throw error;
   }
+}
+export { loadCorpus as loadTanachCorpus };
+
+export function isWholeVerseMatch(text, match, target) {
+  if (match.start !== 0) return false;
+  const cursor = createTanachCursor(text);
+  return cursor.count > 0 && match.start === 0 && match.end === cursor.count - 1
+    && calcGematria(normalize(text)) === target;
 }
 
 async function ensureCurrentRevision(db, revision) {
@@ -364,6 +372,7 @@ export async function searchTanachGematria(db, options, mayRetry = true) {
           start: match.start,
           end: match.end,
           type: match.classification,
+          wholeVerse: method === 'gematria' && isWholeVerseMatch(corpus[verseIndex].display_text, match, value),
         });
       }
     }
@@ -376,7 +385,7 @@ export async function searchTanachGematria(db, options, mayRetry = true) {
   const manualParshah = parshaId ? PARSHAH_BY_ID.get(parshaId) : null;
   const offset = (page - 1) * limit;
   const results = [];
-  const counts = { all: 0, whole_word: 0, whole_phrase: 0, partial: 0 };
+  const counts = { all: 0, whole_word: 0, whole_phrase: 0, whole_verse: 0, partial: 0 };
   for (const match of entry.matches) {
     const verse = corpus[match.verseIndex];
     if (normalizedSearch && !verseSearchKey(verse).includes(normalizedSearch)) continue;
@@ -388,13 +397,14 @@ export async function searchTanachGematria(db, options, mayRetry = true) {
     if (manualParshah && !isVerseInParshah(verse, { portions: [manualParshah] })) continue;
     if (currentParshah && !isVerseInParshah(verse, weeklyParshah)) continue;
     counts[match.type] += 1;
+    if (match.wholeVerse) counts.whole_verse += 1;
     if (match.type !== 'partial') counts.all += 1;
     // "all" means every complete textual match, not every internal range.
     // Keep the explicit partial classification available to callers that
     // request it, but never let partial-word ranges affect all-result counts,
     // pagination, or hasMore.
     if (type === 'all' && match.type === 'partial') continue;
-    if (type !== 'all' && match.type !== type) continue;
+    if (type === 'whole_verse' ? !match.wholeVerse : type !== 'all' && match.type !== type) continue;
     if (counts[type] - 1 >= offset && results.length < limit) {
       results.push(serializeMatch(verse, match));
     }

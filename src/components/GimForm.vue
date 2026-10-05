@@ -8,19 +8,40 @@
 
         <!-- Input card -->
         <div class="input-card" :class="{ 'input-card--filled': hasInput }">
-          <textarea
-            v-model="inputText"
-            class="heb-input"
-            :class="{ 'heb-input--active': hasInput }"
-            placeholder="הקלד מילה, משפט או מספר..."
-            ref="textareaRef"
-            dir="rtl"
-            autocomplete="off"
-            autocorrect="off"
-            spellcheck="false"
-            @input="resizeTextarea"
-            @keydown="onHebrewKeydown"
-          ></textarea>
+          <div class="calculator-input-field">
+            <textarea
+              v-model="inputText"
+              class="heb-input"
+              :class="{ 'heb-input--active': hasInput }"
+              placeholder="הקלד מילה, משפט או מספר..."
+              ref="textareaRef"
+              dir="rtl"
+              autocomplete="off"
+              autocorrect="off"
+              spellcheck="false"
+              role="combobox"
+              aria-autocomplete="list"
+              :aria-expanded="corpusOpen"
+              aria-controls="calculator-corpus-suggestions"
+              :aria-activedescendant="corpusActiveIndex >= 0 ? `corpus-suggestion-${corpusActiveIndex}` : undefined"
+              @input="resizeTextarea"
+              @keydown="handleInputKeydown"
+              @focus="corpusSearch"
+              @blur="corpusDismiss"
+              @compositionstart="corpusCompositionStart"
+              @compositionend="corpusCompositionEnd"
+            ></textarea>
+            <CorpusAutocomplete
+              :suggestions="corpusSuggestions"
+              :open="corpusOpen"
+              :active-index="corpusActiveIndex"
+              :loading="corpusLoading"
+              :error="corpusError"
+              @select="corpusSelect"
+              @activate="setCorpusActiveIndex"
+              @dismiss="corpusDismiss"
+            />
+          </div>
           <label
             class="keyboard-toggle"
             title="מאפשר להקליד עברית גם כשהמקלדת במצב אנגלית"
@@ -251,6 +272,8 @@ import MatchPanel from './MatchPanel.vue';
 import TanachGematriaMatches from './TanachGematriaMatches.vue';
 import MiluiPanel from './MiluiPanel.vue';
 import MiluiSettings from './MiluiSettings.vue';
+import CorpusAutocomplete from './CorpusAutocomplete.vue';
+import { useCorpusAutocomplete } from '@/composables/useCorpusAutocomplete.js';
 import {
   CANONICAL_HAVAYAH_MILUI,
   MILUI_DEFAULT_MAPPING,
@@ -282,6 +305,25 @@ function persistInput(value) {
 const inputText   = ref(readPersistedInput());
 const textareaRef = ref(null);
 const { automaticHebrewKeyboard, onHebrewKeydown } = useAutomaticHebrewKeyboard();
+const {
+  suggestions: corpusSuggestions,
+  open: corpusOpen,
+  activeIndex: corpusActiveIndex,
+  loading: corpusLoading,
+  error: corpusError,
+  onKeydown: corpusOnKeydown,
+  select: corpusSelect,
+  dismiss: corpusDismiss,
+  search: corpusSearch,
+  onCompositionStart: corpusCompositionStart,
+  onCompositionEnd: corpusCompositionEnd,
+} = useCorpusAutocomplete(inputText, {
+  onSelect: async () => {
+    await nextTick();
+    resizeTextarea();
+    textareaRef.value?.focus({ preventScroll: true });
+  },
+});
 const expandedWords = ref({});
 const saveStatus  = ref('idle');   // idle | loading | saved
 const saveError   = ref('');
@@ -414,6 +456,15 @@ function resizeTextarea() {
   if (!el) return;
   el.style.height = 'auto';
   el.style.height = Math.max(84, el.scrollHeight) + 'px';
+}
+
+function handleInputKeydown(event) {
+  if (corpusOnKeydown(event)) return;
+  onHebrewKeydown(event);
+}
+
+function setCorpusActiveIndex(index) {
+  corpusActiveIndex.value = index;
 }
 
 // ── Toggle word letter breakdown ─────────────────────────────────────────────
@@ -564,6 +615,8 @@ async function saveAsBaseWord() {
 }
 
 /* ── Input card ──────────────────────────────────────────────────────────── */
+.calculator-input-field { position: relative; }
+
 .input-card {
   background: #fff;
   border: 2px solid var(--border);

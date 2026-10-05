@@ -122,7 +122,7 @@ test('Kollel switch keeps its effective target, active state, and corpus counts 
   await expect(kollel).toHaveText('כולל');
   await expect(kollel).toHaveAttribute('aria-checked', 'false');
   await expect(discovery.locator('.total-mark strong')).toHaveText('697');
-  await expect(filterCounts).toHaveText(['697', '497', '200']);
+  await expect(filterCounts).toHaveText(['697', '497', '200', '0']);
 
   const plusOneResponsePromise = page.waitForResponse(response => (
     response.url().includes('/api/tanach/gematria-matches')
@@ -137,7 +137,7 @@ test('Kollel switch keeps its effective target, active state, and corpus counts 
   expect((await plusOneResponse.json()).target).toBe(45);
   await expect(discovery.getByRole('heading')).toContainText('45');
   await expect(discovery.locator('.total-mark strong')).toHaveText('1,722');
-  await expect(filterCounts).toHaveText(['1722', '1456', '266']);
+  await expect(filterCounts).toHaveText(['1722', '1456', '266', '0']);
   await expect(kollel).toHaveAttribute('aria-busy', 'false');
   await expect(kollel.locator('.mdi-check')).toBeVisible();
 
@@ -152,7 +152,7 @@ test('Kollel switch keeps its effective target, active state, and corpus counts 
   expect((await restoredResponse.json()).target).toBe(44);
   await expect(discovery.getByRole('heading')).toContainText('44');
   await expect(discovery.locator('.total-mark strong')).toHaveText('697');
-  await expect(filterCounts).toHaveText(['697', '497', '200']);
+  await expect(filterCounts).toHaveText(['697', '497', '200', '0']);
 });
 
 test('calculator discovery switches intentionally between gematria and letter sequences', async ({ page }, testInfo) => {

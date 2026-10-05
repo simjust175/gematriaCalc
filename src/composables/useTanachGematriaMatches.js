@@ -1,6 +1,6 @@
 import { computed, getCurrentScope, onScopeDispose, ref, watch } from 'vue';
 
-const FILTERS = ['all', 'whole_word', 'whole_phrase', 'partial'];
+const FILTERS = ['all', 'whole_word', 'whole_phrase', 'whole_verse', 'partial'];
 
 export function useTanachGematriaMatches(targetRef, options = {}) {
   const fetchImpl = options.fetchImpl || globalThis.fetch;
@@ -133,6 +133,7 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
       }
       if (source !== 'tanach' && tefillotAvailable()) {
         const tefillotParams = new URLSearchParams(params);
+        if (filter.value === 'whole_verse') tefillotParams.set('type', 'all');
         for (const key of ['book_order', 'parsha_id', 'chapter_book', 'chapter', 'verse', 'parsha']) {
           tefillotParams.delete(key);
         }
@@ -163,8 +164,11 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
         sourceWarning.value = 'חלק מהמקורות לא נטענו. מוצגות רק התוצאות שהתקבלו.';
       }
       const bySource = Object.fromEntries(payloads.map(item => [item.source, item.data]));
+      if (filter.value === 'whole_verse' && !bySource.tanach) {
+        throw new Error('לא ניתן לטעון התאמות מן התנ״ך');
+      }
       const tanachResults = (bySource.tanach?.results || []).map(item => ({ ...item, sourceType: 'tanach' }));
-      const tefillotResults = bySource.tefillot?.results || [];
+      const tefillotResults = filter.value === 'whole_verse' ? [] : bySource.tefillot?.results || [];
       const incoming = [];
       for (let index = 0; index < Math.max(tanachResults.length, tefillotResults.length); index += 1) {
         if (tanachResults[index]) incoming.push(tanachResults[index]);
@@ -172,8 +176,9 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
       }
       results.value = append ? [...results.value, ...incoming] : incoming;
       if (!(append && outcomes.some(outcome => outcome.status === 'rejected'))) {
-        counts.value = ['all', 'whole_word', 'whole_phrase', 'partial'].reduce((result, key) => {
-          result[key] = Number(bySource.tanach?.counts?.[key] || 0) + Number(bySource.tefillot?.counts?.[key] || 0);
+        counts.value = ['all', 'whole_word', 'whole_phrase', 'whole_verse', 'partial'].reduce((result, key) => {
+          result[key] = Number(bySource.tanach?.counts?.[key] || 0)
+            + (key === 'whole_verse' ? 0 : Number(bySource.tefillot?.counts?.[key] || 0));
           return result;
         }, {});
       }
@@ -181,13 +186,13 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
         tanach: bySource.tanach
           ? Number(bySource.tanach.total || 0)
           : (append ? sourceCounts.value.tanach : 0),
-        tefillot: bySource.tefillot
+        tefillot: filter.value === 'whole_verse' ? 0 : bySource.tefillot
           ? Number(bySource.tefillot.total || 0)
           : (append ? sourceCounts.value.tefillot : 0),
       };
       total.value = sourceCounts.value.tanach + sourceCounts.value.tefillot;
       page.value = nextPage;
-      hasMore.value = payloads.some(item => item.data.hasMore === true);
+      hasMore.value = payloads.some(item => (filter.value !== 'whole_verse' || item.source === 'tanach') && item.data.hasMore === true);
       weeklyParshah.value = bySource.tanach?.weeklyParshah
         || (append ? weeklyParshah.value : null);
     } catch (reason) {
@@ -224,6 +229,7 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
 
   function setFilter(nextFilter) {
     if (!FILTERS.includes(nextFilter) || filter.value === nextFilter) return;
+    if (nextFilter === 'whole_verse' && (currentSource() === 'tefillot' || currentMethod() !== 'gematria')) return;
     filter.value = nextFilter;
     schedule();
   }
@@ -319,6 +325,9 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
       includeKollel.value,
     ],
     () => {
+      if (filter.value === 'whole_verse' && (currentSource() === 'tefillot' || currentMethod() !== 'gematria')) {
+        filter.value = 'all';
+      }
       if (includeKollel.value && !kollelAvailable.value) {
         includeKollel.value = false;
         return;

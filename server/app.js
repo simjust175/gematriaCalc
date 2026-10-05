@@ -21,6 +21,7 @@ import {
 } from './multipleDiscovery.js';
 import { registerBaseWordRoutes } from './baseWords.js';
 import { registerTefillotRoutes } from './tefillot.js';
+import { registerCorpusSuggestionRoutes } from './corpusSuggestions.js';
 import {
   getExplicitMiluiMatches,
   recordMiluiSaveMode,
@@ -302,6 +303,8 @@ app.get('/api/tanach/verse', requireAuth, async (req, res) => {
 });
 
 /** GET /api/tanach/search?q=...&limit=20 */
+registerCorpusSuggestionRoutes(app, { pool, requireAuth });
+
 app.get('/api/tanach/search', requireAuth, async (req, res) => {
   try {
     const query = typeof req.query.q === 'string' ? req.query.q.trim() : '';

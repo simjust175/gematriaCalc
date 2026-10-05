@@ -66,6 +66,7 @@ async function loadCorpus(db) {
   }
   return { corpus: await corpusCache.promise, revision };
 }
+export { loadCorpus as loadTefillotCorpus };
 
 function normalizeFilter(value) {
   return typeof value === 'string' ? value : '';
