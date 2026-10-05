@@ -89,11 +89,12 @@
             טוען טקסט...
           </div>
           <p v-else-if="sectionError" class="section-state section-error" role="alert">{{ sectionError }}</p>
-          <article v-else-if="units.length" class="prayer-text" lang="he">
+          <article v-else-if="units.length" ref="prayerText" class="prayer-text" lang="he">
             <p
               v-for="unit in units"
               :key="unit.id"
               :data-unit-id="unit.id"
+              data-prayer-unit
               :class="{ 'matched-unit': Number(unit.id) === highlightedMatch?.unitId }"
             >
               <template v-if="Number(unit.id) === highlightedMatch?.unitId">
@@ -118,12 +119,14 @@
         </details>
       </main>
     </div>
+    <PrayerSelectionCalculator :root="prayerText" />
   </div>
 </template>
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { createTanachCursor } from '@/composables/useTanachCursor.js';
+import PrayerSelectionCalculator from './PrayerSelectionCalculator.vue';
 
 const props = defineProps({
   openReference: { type: Object, default: null },
@@ -140,6 +143,7 @@ const catalogError = ref('');
 const sectionError = ref('');
 const highlightedMatch = ref(null);
 const readerCard = ref(null);
+const prayerText = ref(null);
 const readerHeading = ref(null);
 const stickyTitle = ref(null);
 const stickyOffset = ref(0);
