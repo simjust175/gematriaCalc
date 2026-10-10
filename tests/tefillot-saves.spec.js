@@ -17,9 +17,9 @@ async function clean(page) {
     expect((await page.request.delete(`/api/entries/${entry.id}`)).ok()).toBe(true);
   }
 }
-async function discover(page, corpus) {
+async function discover(page, corpus, input = 'דם') {
   await page.locator('.app-header').getByRole('button', { name: 'מחשבון', exact: true }).click();
-  await page.locator('.heb-input').fill('דם');
+  await page.locator('.heb-input').fill(input);
   const discovery = page.locator('.gematria-discovery');
   await discovery.locator('.source-selector').getByRole('button', {
     name: corpus === 'tefillot' ? 'תפילות' : 'תנ״ך', exact: true,
@@ -30,6 +30,120 @@ async function discover(page, corpus) {
   await expect(card).toBeVisible();
   return card;
 }
+
+for (const input of ['דם', '44']) {
+  test(`two independent Tefillot match saves persist, refresh, and remove separately for ${input}`, async ({ page }, testInfo) => {
+    await login(page);
+    await clean(page);
+    await discover(page, 'tefillot', input);
+    const cards = page.locator('.match-card:not(.skeleton-card)').filter({ has: page.locator('.source-badge--tefillot') });
+    await expect(cards.nth(1)).toBeVisible();
+    const saved = [];
+    for (let index = 0; index < 2; index++) {
+      const saving = page.waitForResponse(response => response.request().method() === 'POST'
+        && new URL(response.url()).pathname === '/api/entries/curated-matches');
+      await cards.nth(index).getByRole('button', { name: 'שמור התאמה', exact: true }).click();
+      const response = await saving;
+      expect(response.status()).toBe(200);
+      saved.push(await response.json());
+      await expect(cards.nth(index).getByRole('button', { name: 'נשמרה', exact: true })).toBeDisabled();
+      await expect(cards.nth(index)).toHaveClass(/curated-saved-card/);
+      await expect(cards.nth(0).getByRole('button', { name: 'נשמרה', exact: true })).toBeDisabled();
+    }
+    expect(saved[0].parentId).toBe(saved[1].parentId);
+    await expect(cards.filter({ has: page.getByRole('button', { name: 'נבחרה', exact: true }) })).toHaveCount(0);
+    await page.screenshot({ path: testInfo.outputPath(`two-saved-prayer-matches-${input}.png`), animations: 'disabled' });
+    await page.reload();
+    await discover(page, 'tefillot', input);
+    for (let index = 0; index < 2; index++) {
+      await expect(cards.nth(index).getByRole('button', { name: 'נשמרה', exact: true })).toBeDisabled();
+      await expect(cards.nth(index)).toHaveClass(/curated-saved-card/);
+    }
+    await page.locator('.app-header').getByRole('button', { name: 'שמורים', exact: true }).click();
+    const parent = page.locator(`[data-entry-id="${saved[0].parentId}"]`);
+    await expect(parent).toContainText('2 התאמות שמורות');
+    await parent.getByRole('button', { name: 'פתח פירוט', exact: true }).click();
+    const children = page.locator(`[data-detail-entry-id="${saved[0].parentId}"] .curated-match`);
+    await expect(children).toHaveCount(2);
+    await children.nth(0).getByRole('button', { name: 'הסר', exact: true }).click();
+    const removing = page.waitForResponse(response => response.request().method() === 'DELETE'
+      && response.url().includes(`/curated-matches/${saved[0].matches[0].id}?source=tefillot`));
+    await children.nth(0).getByRole('button', { name: 'אישור', exact: true }).click();
+    expect((await removing).ok()).toBe(true);
+    await expect(children).toHaveCount(1);
+    await expect(parent).toContainText('1 התאמות שמורות');
+    await discover(page, 'tefillot', input);
+    await expect(cards.nth(0).getByRole('button', { name: 'שמור התאמה', exact: true })).toBeEnabled();
+    await expect(cards.nth(0)).not.toHaveClass(/curated-saved-card|curated-selected-card/);
+    await expect(cards.nth(1).getByRole('button', { name: 'נשמרה', exact: true })).toBeDisabled();
+    await expect(cards.nth(1)).toHaveClass(/curated-saved-card/);
+    await page.reload();
+    await discover(page, 'tefillot', input);
+    await expect(cards.nth(0).getByRole('button', { name: 'שמור התאמה', exact: true })).toBeEnabled();
+    await expect(cards.nth(1).getByRole('button', { name: 'נשמרה', exact: true })).toBeDisabled();
+    await clean(page);
+  });
+}
+
+test('Tefillot failed single save shows pending/error, never false selection, then retries against the real API', async ({ page }) => {
+  await login(page);
+  await clean(page);
+  const card = await discover(page, 'tefillot', '44');
+  let release;
+  const pending = new Promise(resolve => { release = resolve; });
+  await page.route('**/api/entries/curated-matches', async route => {
+    await pending;
+    await route.fulfill({ status: 503, json: { error: 'tefillot_unavailable' } });
+  });
+  await card.getByRole('button', { name: 'שמור התאמה', exact: true }).click();
+  await expect(card.getByRole('button', { name: 'שומר…', exact: true })).toBeDisabled();
+  await expect(card.getByRole('button', { name: 'שומר…', exact: true })).toHaveAttribute('aria-busy', 'true');
+  await expect(card).not.toHaveClass(/curated-saved-card|curated-selected-card/);
+  await expect(card.getByRole('button', { name: 'נבחרה', exact: true })).toHaveCount(0);
+  release();
+  await expect(card.getByRole('alert')).toContainText('שמירת תפילות אינה זמינה');
+  await expect(card.getByRole('button', { name: 'שמור התאמה', exact: true })).toBeEnabled();
+  await expect(card).not.toHaveClass(/curated-saved-card|curated-selected-card/);
+  const entries = await page.request.get('/api/entries?parentOriginalText=44');
+  expect((await entries.json()).entries).toHaveLength(0);
+  await page.unroute('**/api/entries/curated-matches');
+  const saving = page.waitForResponse(response => response.request().method() === 'POST'
+    && new URL(response.url()).pathname === '/api/entries/curated-matches');
+  await card.getByRole('button', { name: 'שמור התאמה', exact: true }).click();
+  expect((await saving).ok()).toBe(true);
+  await expect(card.getByRole('button', { name: 'נשמרה', exact: true })).toBeDisabled();
+  await expect(card.getByRole('alert')).toHaveCount(0);
+  await expect(card).toHaveClass(/curated-saved-card/);
+  await clean(page);
+});
+
+test('Tefillot נבחרה is reserved for explicit bulk selection and becomes saved only after commit', async ({ page }) => {
+  await login(page);
+  await clean(page);
+  await discover(page, 'tefillot', '44');
+  const discovery = page.locator('.gematria-discovery');
+  const cards = discovery.locator('.match-card:not(.skeleton-card)');
+  let requests = 0;
+  page.on('request', request => {
+    if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/entries/curated-matches') requests++;
+  });
+  await discovery.getByRole('button', { name: 'בחירה מרובה', exact: true }).click();
+  for (let index = 0; index < 2; index++) {
+    await cards.nth(index).getByRole('button', { name: 'שמור התאמה', exact: true }).click();
+    await expect(cards.nth(index).getByRole('button', { name: 'נבחרה', exact: true })).toBeEnabled();
+    await expect(cards.nth(index)).toHaveClass(/curated-selected-card/);
+    await expect(cards.nth(index)).not.toHaveClass(/curated-saved-card/);
+  }
+  expect(requests).toBe(0);
+  await discovery.getByRole('button', { name: 'שמור התאמות נבחרות', exact: true }).click();
+  for (let index = 0; index < 2; index++) {
+    await expect(cards.nth(index).getByRole('button', { name: 'נשמרה', exact: true })).toBeDisabled();
+    await expect(cards.nth(index)).toHaveClass(/curated-saved-card/);
+    await expect(cards.nth(index)).not.toHaveClass(/curated-selected-card/);
+  }
+  expect(requests).toBe(1);
+  await clean(page);
+});
 for (const corpus of ['tefillot', 'tanach']) {
   test(`${corpus} result range and match save, duplicate state survives refresh, library reopen and remove`, async ({ page }, testInfo) => {
     await login(page);

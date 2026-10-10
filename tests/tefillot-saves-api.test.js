@@ -76,6 +76,9 @@ test('Tefillot and Tanach range/link saves, duplicates, persistent state, remova
   assert.notEqual(prayerEntry.full_gematria, 1);
   const parent = reload.body.entries.find(entry => entry.id === bulk.body.parentId);
   assert.equal(parent.curated_match_count, 2);
+  const { ensureActiveMiluiCoverage, getMiluiIndexReport } = await import('../server/miluiIndex.js');
+  await ensureActiveMiluiCoverage(pool, { force: true });
+  assert.equal((await getMiluiIndexReport(pool)).missing, 0, 'numeric prayer calculations must not suppress existing Hebrew מילוי matching');
   const child = parent.curated_matches.find(match => match.sourceType === 'tefillot');
   const bibleChild = parent.curated_matches.find(match => match.tanachContext);
   assert.equal(child.tefillotContext.unitId, context.unitId);
@@ -107,4 +110,46 @@ test('Tefillot and Tanach range/link saves, duplicates, persistent state, remova
   process.env.TEFILLOT_ENABLED = 'false';
   assert.equal((await agent.post('/api/entries').send({ originalText: text, tefillotContext: context })).status, 503);
   process.env.TEFILLOT_ENABLED = 'true';
+});
+
+test('numeric Tefillot searches save distinct matches under the same calculation without changing Tanach or ordinary numeric saves', async () => {
+  const agent = request.agent(app);
+  await agent.post('/api/auth/login').send({ password: 'isolated-tefillot-save-test' });
+  const discovery = await agent.get('/api/tefillot/gematria-matches').query({ value: 44, limit: 12 });
+  assert.equal(discovery.status, 200);
+  const [a, b] = discovery.body.results;
+  assert.ok(a && b);
+  const match = item => ({
+    originalText: item.text, reasonCode: 'full_gematria',
+    tefillotContext: { unitId: item.unitId, start: item.start, end: item.end },
+  });
+  const first = await agent.post('/api/entries/curated-matches').send({ parentOriginalText: '44', matches: [match(a)] });
+  assert.equal(first.status, 200, JSON.stringify(first.body));
+  const second = await agent.post('/api/entries/curated-matches').send({ parentOriginalText: '44', matches: [match(b)] });
+  assert.equal(second.status, 200, JSON.stringify(second.body));
+  assert.equal(second.body.parentId, first.body.parentId);
+  const listed = await agent.get('/api/entries').query({ parentOriginalText: '44' });
+  const parent = listed.body.entries.find(entry => entry.id === first.body.parentId);
+  assert.equal(parent.full_gematria, 44);
+  assert.equal(parent.normalized_text, '44');
+  assert.equal(parent.curated_match_count, 2);
+  const { ensureActiveMiluiCoverage, getMiluiIndexReport } = await import('../server/miluiIndex.js');
+  await ensureActiveMiluiCoverage(pool, { force: true });
+  assert.equal((await getMiluiIndexReport(pool)).missing, 0, 'numeric parents have no Hebrew מילוי and must not count as missing index rows');
+  const duplicate = await agent.post('/api/entries/curated-matches').send({ parentOriginalText: '44', matches: [match(a)] });
+  assert.equal(duplicate.body.matches[0].id, first.body.matches[0].id);
+  assert.equal((await agent.get('/api/entries').query({ parentOriginalText: '44' })).body.entries[0].curated_match_count, 2);
+  await agent.delete(`/api/entries/${parent.id}/curated-matches/${first.body.matches[0].id}?source=tefillot`);
+  const remaining = (await agent.get('/api/entries').query({ parentOriginalText: '44' })).body.entries[0];
+  assert.equal(remaining.curated_match_count, 1);
+  assert.equal(remaining.curated_matches[0].id, second.body.matches[0].id);
+  const bibleMatch = { originalText: 'אבג', tanachContext: { bookSlug: 'Genesis', chapter: 1, verse: 1, start: 0, end: 2 }, reasonCode: 'full_gematria' };
+  const bibleSave = await agent.post('/api/entries/curated-matches').send({ parentOriginalText: '44', matches: [bibleMatch] });
+  assert.equal(bibleSave.status, 400);
+  assert.equal(bibleSave.body.error, 'invalid_parent');
+  assert.equal((await agent.post('/api/entries/curated-matches').send({ parentOriginalText: '44', matches: [match(a), bibleMatch] })).status, 400);
+  const ordinarySave = await agent.post('/api/entries').send({ originalText: '44' });
+  assert.equal(ordinarySave.status, 400);
+  assert.equal(ordinarySave.body.error, 'numeric_entry_not_supported');
+  await agent.delete(`/api/entries/${parent.id}`);
 });

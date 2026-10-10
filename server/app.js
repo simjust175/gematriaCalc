@@ -899,7 +899,8 @@ app.post('/api/entries/curated-matches', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'missing_fields' });
     }
     const parentCalculated = computeAll(parentOriginalText);
-    if (!parentCalculated || parentCalculated.inputMode === 'numeric') {
+    const prayerOnly = matches.every(match => match?.tefillotContext && !match.tanachContext);
+    if (!parentCalculated || (parentCalculated.inputMode === 'numeric' && !prayerOnly)) {
       return res.status(400).json({ error: 'invalid_parent' });
     }
     for (const match of matches) {
@@ -1108,7 +1109,7 @@ app.get('/api/entries', requireAuth, async (req, res) => {
     let searchParams = [];
     if (typeof req.query.parentOriginalText === 'string') {
       whereSql = `WHERE ${manualEntryCondition('se')} AND se.normalized_text = $1`;
-      searchParams = [normalize(req.query.parentOriginalText)];
+      searchParams = [computeAll(req.query.parentOriginalText)?.normalizedText || normalize(req.query.parentOriginalText)];
     } else if (rawSearch) {
       if (/^\d+$/.test(rawSearch)) {
         const value = Number(rawSearch);

@@ -115,12 +115,14 @@ async function getVersion(db, version) {
 }
 
 async function indexMissingRows(db, version, mapping) {
+  // Numeric calculation parents can own Tefillot links, but have no Hebrew
+  // letters to expand. They must not disable coverage for real Hebrew entries.
   const missing = await db.query(
     `SELECT se.id, se.original_text
      FROM saved_entries se
      LEFT JOIN saved_entry_milui_index idx
        ON idx.saved_entry_id = se.id AND idx.mapping_version = $1
-     WHERE idx.saved_entry_id IS NULL
+     WHERE idx.saved_entry_id IS NULL AND se.normalized_text !~ '^[0-9]+$'
      ORDER BY se.id`,
     [version]
   );
@@ -155,7 +157,7 @@ async function indexMissingRows(db, version, mapping) {
 async function getCoverage(db, version) {
   const result = await db.query(
     `SELECT
-       (SELECT COUNT(*)::int FROM saved_entries) AS saved_entries,
+       (SELECT COUNT(*)::int FROM saved_entries WHERE normalized_text !~ '^[0-9]+$') AS saved_entries,
        (SELECT COUNT(*)::int
         FROM saved_entry_milui_index
         WHERE mapping_version = $1) AS indexed_entries`,
@@ -415,7 +417,7 @@ export async function rebuildAndActivateMiluiMapping(
 export async function indexSavedEntryForCurrentVersions(entryId, db = pool) {
   if (!schemaAvailable && !(await detectSchema(db))) return { indexed: 0, skipped: true };
   const entryResult = await db.query(
-    `SELECT id, original_text FROM saved_entries WHERE id = $1`,
+    `SELECT id, original_text FROM saved_entries WHERE id = $1 AND normalized_text !~ '^[0-9]+$'`,
     [entryId]
   );
   const entry = entryResult.rows[0];
@@ -472,7 +474,7 @@ export async function getActiveMiluiMatches(currentValue, db = pool) {
   await ensureActiveMiluiCoverage(db);
   const readHealth = () => db.query(
     `SELECT state.matching_enabled,
-            (SELECT COUNT(*)::int FROM saved_entries) AS saved_entries,
+            (SELECT COUNT(*)::int FROM saved_entries WHERE normalized_text !~ '^[0-9]+$') AS saved_entries,
             (SELECT COUNT(*)::int
              FROM saved_entry_milui_index
              WHERE mapping_version = state.active_version) AS indexed_entries
@@ -582,7 +584,7 @@ export async function getActiveMiluiMultipleSources(currentValue, db = pool) {
 
   const readHealth = () => db.query(
     `SELECT state.matching_enabled,
-            (SELECT COUNT(*)::int FROM saved_entries) AS saved_entries,
+            (SELECT COUNT(*)::int FROM saved_entries WHERE normalized_text !~ '^[0-9]+$') AS saved_entries,
             (SELECT COUNT(*)::int
              FROM saved_entry_milui_index
              WHERE mapping_version = state.active_version) AS indexed_entries
@@ -643,7 +645,7 @@ export async function getMiluiIndexReport(db = pool) {
   const result = await db.query(
     `SELECT state.active_version,
             state.matching_enabled,
-            (SELECT COUNT(*)::int FROM saved_entries) AS saved_entries,
+            (SELECT COUNT(*)::int FROM saved_entries WHERE normalized_text !~ '^[0-9]+$') AS saved_entries,
             (SELECT COUNT(*)::int
              FROM saved_entry_milui_index
              WHERE mapping_version = state.active_version) AS indexed_entries

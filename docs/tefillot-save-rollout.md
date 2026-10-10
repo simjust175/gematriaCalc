@@ -35,6 +35,12 @@ No production database connection or schema mutation is part of this work.
   a normal library entry. Repeated occurrence saves return 409 with its entry ID.
 - “שמור התאמה”: attaches the exact cited result to the calculator's saved manual
   parent, creating that parent if needed. Mixed Tanach/prayer bulk saves are atomic.
+- Numeric searches may own prayer-only match links in that same model. Ordinary
+  numeric phrase saves and numeric-parent Tanach/mixed saves remain disallowed.
+  Numeric parents have no Hebrew מילוי and are excluded from its index coverage.
+- Prayer single-save actions show “שומר…” while pending and “נשמרה” only after a
+  successful API response. Confirmed prayer cards retain their saved styling;
+  failed requests show a card-level error. “נבחרה” is reserved for bulk selection.
 - The library returns one unified curated list with source-qualified child
   identities. Prayer links are removed through the existing child DELETE path
   with `?source=tefillot`; Tanach DELETE requests are unchanged.
