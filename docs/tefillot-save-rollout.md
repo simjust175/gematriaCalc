@@ -4,7 +4,11 @@ The implementation shares the existing save UX and APIs. It does not change
 password/session authentication, run schema migrations at startup/post-merge,
 or publish the application.
 
-## Prepared migration (not applied to development or production)
+## Migration status
+
+Applied to development only with explicit user approval on 2026-10-10.
+Existing saved entries and Tanach links were checked for unchanged content.
+Production was not accessed or migrated, and nothing was published.
 
 `server/migrations/20261010_add_tefillot_saves.sql` adds:
 
@@ -19,8 +23,8 @@ Tanach coordinate fields, indexes, and child table remain unchanged. Prayer
 metadata is read from the canonical referenced corpus, not trusted from browser
 labels. Corpus units referenced by saved items cannot be deleted accidentally.
 
-Apply the migration only after separate explicit database approval. It is not
-listed in `scripts/post-merge.sh`. Until provisioned, Tanach/manual library
+Any further application requires separate explicit database approval. It is not
+listed in `scripts/post-merge.sh`. On an unprovisioned database, Tanach/manual library
 behavior remains available and prayer saves return
 `503 tefillot_save_schema_required` with a clear UI message, never a fake success.
 No production database connection or schema mutation is part of this work.
@@ -44,13 +48,15 @@ No production database connection or schema mutation is part of this work.
 ## Isolated verification
 
 - `npm test`
-- `npm run test:api` (unchanged schema / existing Tanach regression suite)
+- `npm run test:api` (existing Tanach regression suite)
 - `node scripts/run-e2e.js --api tests/tefillot-saves-legacy-api.test.js`
 - `npm run test:tefillot:saves:api`
 - `npm run test:tefillot:saves:browser`
 
 The two save suites opt into `E2E_TEFILLOT_SAVES=true`. The existing harness
 prepares a disposable schema, verifies its active schema, applies the prepared
-migration there only, and removes that schema afterward. It never migrates
+migration there only if not already copied from development, and removes that
+schema afterward. The legacy API regression reconstructs the old schema only
+inside its guarded disposable copy. The test harness never migrates
 `public`, development app data, or production. An imported licensed corpus
 must already be available to copy as reference data.

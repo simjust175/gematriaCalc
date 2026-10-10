@@ -11,6 +11,22 @@ const { tefillotSaveSchemaReady } = await import('../server/tefillotSaveContext.
 after(() => pool.end());
 test('unmigrated app retains library/manual saves; prayer save returns explicit 503 without schema/data changes', async () => {
   assert.equal((await pool.query('SELECT current_schema() AS schema')).rows[0].schema, process.env.E2E_SCHEMA);
+  if (await tefillotSaveSchemaReady(pool)) {
+    // Reconstruct the old shape ONLY inside the guarded disposable schema,
+    // so this regression still runs after development has been migrated.
+    const schema = `"${process.env.E2E_SCHEMA}"`;
+    await pool.query(`
+      BEGIN;
+      DROP TABLE ${schema}.curated_tefillot_matches;
+      ALTER TABLE ${schema}.saved_entries
+        DROP COLUMN tefillot_unit_id,
+        DROP COLUMN tefillot_start,
+        DROP COLUMN tefillot_end;
+      CREATE UNIQUE INDEX idx_legacy_manual_text_unique
+        ON ${schema}.saved_entries (normalized_text) WHERE tanach_book_slug IS NULL;
+      COMMIT;
+    `);
+  }
   assert.equal(await tefillotSaveSchemaReady(pool), false);
   const agent = request.agent(app);
   await agent.post('/api/auth/login').send({ password: 'legacy-save-readiness-test' });
