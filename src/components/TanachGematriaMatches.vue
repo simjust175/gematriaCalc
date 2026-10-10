@@ -197,7 +197,7 @@
     <p v-if="sourceWarning" class="range-filter-error" role="status">{{ sourceWarning }}</p>
 
     <button
-      v-if="source !== 'tefillot' && results.length && !error"
+      v-if="results.length && !error"
       type="button"
       class="selection-mode-toggle"
       :aria-pressed="selectionMode"
@@ -270,18 +270,16 @@
             פתח בקורא
           </button>
           <button
-            v-if="result.sourceType !== 'tefillot'"
             type="button"
             class="save-action"
-            :class="{ saved: savedKeys.has(resultKey(result)), saving: savingKey === resultKey(result) }"
-            :disabled="savingKey === resultKey(result) || savedKeys.has(resultKey(result))"
+            :class="{ saved: savedKeys.has(canonicalSourceKey(result)), saving: savingKey === resultKey(result) }"
+            :disabled="savingKey === resultKey(result) || savedKeys.has(canonicalSourceKey(result))"
             @click="saveResult(result, resultKey(result))"
           >
-            <span class="mdi" :class="savedKeys.has(resultKey(result)) ? 'mdi-bookmark-check-outline' : 'mdi-bookmark-outline'" aria-hidden="true"></span>
-            {{ savedKeys.has(resultKey(result)) ? 'נשמר' : 'שמור טווח' }}
+            <span class="mdi" :class="savedKeys.has(canonicalSourceKey(result)) ? 'mdi-bookmark-check-outline' : 'mdi-bookmark-outline'" aria-hidden="true"></span>
+            {{ savedKeys.has(canonicalSourceKey(result)) ? 'נשמר' : 'שמור טווח' }}
           </button>
           <button
-            v-if="result.sourceType !== 'tefillot'"
             type="button"
             class="curated-action"
             :class="{ selected: selectedKeys.has(resultKey(result)) || curatedSavedKeys.has(curatedStateKey(result)), saved: curatedSavedKeys.has(curatedStateKey(result)) }"
@@ -293,7 +291,7 @@
             {{ curatedSavedKeys.has(curatedStateKey(result)) ? 'נשמרה' : selectedKeys.has(resultKey(result)) ? 'נבחרה' : 'שמור התאמה' }}
           </button>
         </footer>
-        <span v-if="saveErrors.has(resultKey(result))" class="save-error" role="status">לא ניתן לשמור כרגע</span>
+        <span v-if="saveErrors.has(resultKey(result))" class="save-error" role="status">{{ savedRangeMessage || 'לא ניתן לשמור כרגע' }}</span>
       </article>
     </div>
     <div v-if="selectedKeys.size" class="curated-save-bar" role="status">
@@ -317,6 +315,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useTanachGematriaMatches } from '@/composables/useTanachGematriaMatches.js';
 import { normalize, toHebrewNumber } from '@/composables/useGematria.js';
 import { mapFinalsToOriginalText, mapInitialsToOriginalText } from '@/utils/initialsHighlight.js';
+import { savedRangeKey, tanachContextOf, tefillotContextOf } from '@/utils/tefillotContext.js';
 import TanachScopeSelect from './TanachScopeSelect.vue';
 
 const props = defineProps({
@@ -328,6 +327,7 @@ const emit = defineEmits(['open', 'openTefillot', 'saved']);
 const savedKeys = ref(new Set());
 const saveErrors = ref(new Set());
 const savingKey = ref('');
+const savedRangeMessage = ref('');
 const selectedKeys = ref(new Set());
 const curatedSavedKeys = ref(new Set());
 const selectionMode = ref(false);
@@ -343,6 +343,7 @@ const chapterVersesError = ref('');
 let chapterRequestId = 0;
 let curatedStateRequestId = 0;
 let curatedStateTimer;
+let rangeStateRequestId = 0;
 const filterOptions = computed(() => [
   { value: 'all', label: 'הכול' },
   { value: 'whole_word', label: 'מילה שלמה' },
@@ -438,6 +439,13 @@ watch([method, () => props.sourceText], () => {
   window.clearTimeout(curatedStateTimer);
   curatedStateTimer = window.setTimeout(syncCuratedSavedState, 250);
 }, { immediate: true });
+watch(results, () => {
+  window.clearTimeout(curatedStateTimer);
+  curatedStateTimer = window.setTimeout(() => {
+    syncSavedRangeState();
+    syncCuratedSavedState();
+  }, 120);
+}, { deep: true });
 const selectedBook = computed(() => (
   rangeMetadata.value.canonicalBooks?.find(book => Number(book.order) === Number(bookOrder.value)) || null
 ));
@@ -493,6 +501,29 @@ onMounted(async () => {
     // Until corpus readiness is verified, the client stays on Tanach only.
   }
 });
+
+async function syncSavedRangeState() {
+  const requestId = ++rangeStateRequestId;
+  const refs = results.value
+    .map(item => ({ item, key: savedRangeKey(item) }))
+    .filter(ref => ref.key);
+  const next = new Set();
+  try {
+    for (let index = 0; index < refs.length; index += 50) {
+      const batch = refs.slice(index, index + 50);
+      const keys = batch.map(({ item }) => item.sourceType === 'tefillot'
+        ? { tefillotContext: tefillotContextOf(item) }
+        : { tanachContext: tanachContextOf(item) });
+      const response = await fetch(`/api/entries/saved-ranges?keys=${encodeURIComponent(JSON.stringify(keys))}`);
+      if (!response.ok) return;
+      const payload = await response.json();
+      for (const saved of payload.saved || []) next.add(saved.key);
+    }
+    if (requestId === rangeStateRequestId) savedKeys.value = next;
+  } catch {
+    // Keep saving available if background hydration fails.
+  }
+}
 
 async function loadRangeMetadata() {
   rangeMetadataLoading.value = true;
@@ -571,11 +602,10 @@ function highlightedParts(text) {
   return parts || [{ text, segments: null }];
 }
 function resultKey(item) {
-  return item.id || `${item.bookSlug || item.book || ''}-${item.chapter}-${item.verse}-${item.start}-${item.end}`;
+  return `${item.sourceType || 'tanach'}:${item.id || savedRangeKey(item) || `${item.bookSlug || item.book || ''}-${item.chapter}-${item.verse}-${item.start}-${item.end}`}`;
 }
 function canonicalSourceKey(item) {
-  const context = item.tanach_context || item.tanachContext || item;
-  return `${context.bookSlug || context.book_slug || item.bookSlug || item.book || ''}-${context.chapter}-${context.verse}-${context.start}-${context.end}`;
+  return savedRangeKey(item) || `manual:${resultKey(item)}`;
 }
 function openResult(item) {
   if (item.sourceType === 'tefillot') emit('openTefillot', item);
@@ -594,19 +624,29 @@ function curatedStateKey(item, savedReason = reasonCode(), parentText = props.so
 async function syncCuratedSavedState() {
   const parentText = props.sourceText;
   const requestId = ++curatedStateRequestId;
-  if (!parentText.trim()) return;
+  if (!parentText.trim()) {
+    curatedSavedKeys.value = new Set();
+    return;
+  }
   try {
-    const params = new URLSearchParams({ search: parentText, limit: '100', offset: '0' });
+    const params = new URLSearchParams({
+      search: parentText, parentOriginalText: parentText, limit: '100', offset: '0',
+    });
     const response = await fetch(`/api/entries?${params}`);
     if (!response.ok) return;
     const payload = await response.json();
     if (requestId !== curatedStateRequestId || parentText !== props.sourceText) return;
     const normalizedParent = normalize(parentText);
     const parent = (payload.entries || []).find(entry =>
-      !entry.tanach_book_slug && entry.normalized_text === normalizedParent
+       !entry.tanach_book_slug && !tefillotContextOf(entry)
+       && !['tanach', 'tefillot'].includes(entry.sourceType || entry.source_type)
+      && entry.normalized_text === normalizedParent
     );
-    if (!parent) return;
-    const hydrated = new Set(curatedSavedKeys.value);
+    if (!parent) {
+      curatedSavedKeys.value = new Set();
+      return;
+    }
+    const hydrated = new Set();
     for (const match of parent.curated_matches || []) {
       for (const savedReason of match.reasonCodes || match.reason_codes || []) {
         hydrated.add(curatedStateKey(match, savedReason, parentText));
@@ -652,19 +692,16 @@ async function saveCuratedMatches() {
         parentOriginalText: props.sourceText,
         matches: chosen.map(item => ({
           originalText: item.text,
-          tanachContext: {
-            bookSlug: item.bookSlug,
-            chapter: item.chapter,
-            verse: item.verse,
-            start: item.start,
-            end: item.end,
-          },
+          ...(item.sourceType === 'tefillot'
+            ? { tefillotContext: tefillotContextOf(item) }
+            : { tanachContext: tanachContextOf(item) }),
           reasonCode: savedReason,
         })),
       }),
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || 'save');
+    curatedStateRequestId += 1;
     const savedKeysNow = new Set(curatedSavedKeys.value);
     chosen.forEach(item => savedKeysNow.add(curatedStateKey(item, savedReason, savedParentText)));
     curatedSavedKeys.value = savedKeysNow;
@@ -672,9 +709,11 @@ async function saveCuratedMatches() {
       ? (chosen.length > 1 ? 'החישוב וההתאמות נשמרו.' : 'החישוב וההתאמה נשמרו.')
       : (chosen.length > 1 ? 'ההתאמות נשמרו.' : 'ההתאמה נשמרה.');
     selectedKeys.value = new Set();
-  } catch {
+  } catch (error) {
     curatedError.value = true;
-    curatedMessage.value = 'לא ניתן לשמור את ההתאמות כרגע';
+    curatedMessage.value = error.message === 'tefillot_save_schema_required'
+      ? 'שמירת תפילות דורשת עדכון מסד הנתונים. יש להפעיל את מיגרציית התפילות.'
+      : 'לא ניתן לשמור את ההתאמות כרגע';
   } finally {
     curatedSaving.value = false;
   }
@@ -685,6 +724,7 @@ function retry() {
 async function saveResult(item, key) {
   if (savingKey.value) return;
   savingKey.value = key;
+  savedRangeMessage.value = '';
   saveErrors.value = new Set([...saveErrors.value].filter(item => item !== key));
   try {
     const response = await fetch('/api/entries', {
@@ -692,20 +732,21 @@ async function saveResult(item, key) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         originalText: item.text,
-        tanachContext: {
-          bookSlug: item.bookSlug,
-          chapter: item.chapter,
-          verse: item.verse,
-          start: item.start,
-          end: item.end,
-        },
+        ...(item.sourceType === 'tefillot'
+          ? { tefillotContext: tefillotContextOf(item) }
+          : { tanachContext: tanachContextOf(item) }),
       }),
     });
-    if (!response.ok && response.status !== 409) throw new Error('save');
-    savedKeys.value = new Set([...savedKeys.value, key]);
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok && response.status !== 409) throw new Error(payload.error || 'save');
+    rangeStateRequestId += 1;
+    savedKeys.value = new Set([...savedKeys.value, canonicalSourceKey(item)]);
     emit('saved', item);
-  } catch {
+  } catch (error) {
     saveErrors.value = new Set([...saveErrors.value, key]);
+    savedRangeMessage.value = error.message === 'tefillot_save_schema_required'
+      ? 'שמירת תפילות דורשת עדכון מסד הנתונים. יש להפעיל את מיגרציית התפילות.'
+      : '';
   } finally {
     savingKey.value = '';
   }

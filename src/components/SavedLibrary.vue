@@ -119,11 +119,11 @@
               <span>{{ item.group.entries.length }} ערכים שמורים</span>
             </header>
             <div class="group-entries">
-              <template v-for="(entry, index) in item.group.entries" :key="entry.id">
+              <template v-for="(entry, index) in item.group.entries" :key="entryKey(entry)">
                 <SavedEntryCard
                   :entry="entry"
-                  :expanded="expandedId === entry.id"
-                  :menu-open="menuOpenId === entry.id"
+                  :expanded="expandedId === entryKey(entry)"
+                  :menu-open="menuOpenId === entryKey(entry)"
                   :search-query="searchQuery"
                   :shared-value="true"
                   @toggle="toggleExpand"
@@ -136,6 +136,7 @@
                   :entry="expandedEntry"
                   :milui-mapping="miluiMapping"
                    @open-curated="openCurated"
+                    @open-entry-tefillot="openEntryTefillot"
                    @remove-curated="removeCurated"
                    @close="expandedId = null"
                 />
@@ -146,8 +147,8 @@
           <template v-else>
             <SavedEntryCard
               :entry="item.entry"
-              :expanded="expandedId === item.entry.id"
-              :menu-open="menuOpenId === item.entry.id"
+              :expanded="expandedId === entryKey(item.entry)"
+              :menu-open="menuOpenId === entryKey(item.entry)"
               :search-query="searchQuery"
               :shared-value="false"
               @toggle="toggleExpand"
@@ -160,6 +161,7 @@
               :entry="item.detailEntry"
               :milui-mapping="miluiMapping"
                  @open-curated="openCurated"
+                  @open-entry-tefillot="openEntryTefillot"
                  @remove-curated="removeCurated"
                  @close="expandedId = null"
             />
@@ -168,13 +170,13 @@
       </template>
 
       <template v-else>
-        <template v-for="(entry, index) in entries" :key="entry.id">
+        <template v-for="(entry, index) in entries" :key="entryKey(entry)">
           <SavedEntryCard
             :entry="entry"
-            :expanded="expandedId === entry.id"
-            :menu-open="menuOpenId === entry.id"
+            :expanded="expandedId === entryKey(entry)"
+            :menu-open="menuOpenId === entryKey(entry)"
             :search-query="searchQuery"
-            :shared-value="sharedValueIds.has(entry.id)"
+            :shared-value="sharedValueIds.has(entryKey(entry))"
             @toggle="toggleExpand"
             @toggle-menu="toggleMenu"
             @copy="copyEntry"
@@ -185,6 +187,7 @@
             :entry="expandedEntry"
             :milui-mapping="miluiMapping"
                @open-curated="openCurated"
+                @open-entry-tefillot="openEntryTefillot"
                @remove-curated="removeCurated"
                @close="expandedId = null"
           />
@@ -231,6 +234,7 @@ import { useAutomaticHebrewKeyboard } from '@/composables/useAutomaticHebrewKeyb
 import SavedEntryCard from '@/components/SavedEntryCard.vue';
 import SavedEntryDetail from '@/components/SavedEntryDetail.vue';
 import { normalizeMiluiMapping } from '@/utils/milui.js';
+import { tanachContextOf, tefillotContextOf } from '@/utils/tefillotContext.js';
 
 const LIMIT = 100;
 const GROUP_LIMIT = 20;
@@ -254,7 +258,7 @@ const cancelDeleteButton = ref(null);
 const libraryHeading = ref(null);
 const deleteError = ref('');
 const copyNotice = ref('');
-const emit = defineEmits(['open-tanach']);
+const emit = defineEmits(['open-tanach', 'open-tefillot']);
 const miluiMapping = ref(null);
 const offset = ref(0);
 const isWideViewport = ref(true);
@@ -272,7 +276,7 @@ const sharedValueIds = computed(() => {
   }
   return new Set(entries.value
     .filter(entry => Number(entry.value_entry_count) > 1 || counts.get(entry.full_gematria) > 1)
-    .map(entry => entry.id));
+    .map(entryKey));
 });
 
 const groupedEntries = computed(() => {
@@ -292,7 +296,7 @@ const groupedEntries = computed(() => {
 });
 
 const expandedEntry = computed(() =>
-  entries.value.find(entry => entry.id === expandedId.value) || null
+  entries.value.find(entry => entryKey(entry) === expandedId.value) || null
 );
 
 const gridColumns = computed(() =>
@@ -316,7 +320,7 @@ const groupedFlow = computed(() => {
     const entry = group.entries[0];
     occupiedColumns += 1;
     const rowEnd = occupiedColumns === gridColumns.value;
-    flow.push({ key: `entry-${entry.id}`, type: 'unique', entry, rowEnd });
+    flow.push({ key: `entry-${entryKey(entry)}`, type: 'unique', entry, rowEnd });
     if (rowEnd) occupiedColumns = 0;
   }
 
@@ -325,7 +329,7 @@ const groupedFlow = computed(() => {
   }
 
   const selectedIndex = flow.findIndex(item =>
-    item.type === 'unique' && item.entry.id === expandedId.value
+    item.type === 'unique' && entryKey(item.entry) === expandedId.value
   );
   if (selectedIndex >= 0) {
     let rowEndIndex = selectedIndex;
@@ -340,13 +344,17 @@ const groupedFlow = computed(() => {
 
 function shouldShowDetailAfter(index, collection) {
   if (!expandedEntry.value) return false;
-  const selectedIndex = collection.findIndex(entry => entry.id === expandedId.value);
+  const selectedIndex = collection.findIndex(entry => entryKey(entry) === expandedId.value);
   if (selectedIndex < 0) return false;
   const rowEndIndex = Math.min(
     Math.floor(selectedIndex / gridColumns.value) * gridColumns.value + gridColumns.value - 1,
     collection.length - 1
   );
   return index === rowEndIndex;
+}
+
+function entryKey(entry) {
+  return `${entry.sourceType || entry.source_type || 'manual'}:${entry.id}`;
 }
 
 async function fetchEntries(reset = true) {
@@ -435,24 +443,31 @@ function loadMore() {
 }
 
 function curatedContext(match) {
-  return match.tanach_context || match.tanachContext || {
-    bookSlug: match.book_slug || match.bookSlug,
-    chapter: match.chapter,
-    verse: match.verse,
-    start: match.start,
-    end: match.end,
-  };
+  return match.sourceType === 'tefillot' || match.source_type === 'tefillot'
+    ? tefillotContextOf(match)
+    : tanachContextOf(match);
 }
 function openCurated(match) {
-  emit('open-tanach', curatedContext(match));
+  if (match.sourceType === 'tefillot' || match.source_type === 'tefillot') {
+    emit('open-tefillot', curatedContext(match));
+  } else {
+    emit('open-tanach', curatedContext(match));
+  }
+}
+function openEntryTefillot(context) {
+  emit('open-tefillot', context);
 }
 async function removeCurated({ entry, match }) {
   try {
-    const response = await fetch(`/api/entries/${entry.id}/curated-matches/${match.id}`, { method: 'DELETE' });
+    const isPrayer = match.sourceType === 'tefillot' || match.source_type === 'tefillot';
+    const query = isPrayer ? '?source=tefillot' : '';
+    const response = await fetch(`/api/entries/${entry.id}/curated-matches/${match.id}${query}`, { method: 'DELETE' });
     if (!response.ok) throw new Error('remove');
     const current = entries.value.find(item => item.id === entry.id);
     if (current?.curated_matches) {
-      current.curated_matches = current.curated_matches.filter(item => item.id !== match.id);
+      current.curated_matches = current.curated_matches.filter(item =>
+        !(item.id === match.id && (item.sourceType || item.source_type) === (match.sourceType || match.source_type))
+      );
       current.curated_match_count = current.curated_matches.length;
     }
   } catch {
@@ -520,11 +535,11 @@ async function confirmDelete(entry) {
 }
 
 function closeDeleteDialog() {
-  const triggerId = deleteTarget.value?.id;
+  const triggerKey = deleteTarget.value ? entryKey(deleteTarget.value) : '';
   deleteTarget.value = null;
   deleteError.value = '';
   nextTick(() => {
-    document.querySelector(`[data-entry-id="${triggerId}"] .menu-btn`)?.focus();
+    document.querySelector(`[data-entry-key="${triggerKey}"] .menu-btn`)?.focus();
   });
 }
 

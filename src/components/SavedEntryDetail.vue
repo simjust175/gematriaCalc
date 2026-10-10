@@ -19,6 +19,17 @@
         <span class="detail-value">{{ formatTanachReference(entry) }}</span>
         <span class="detail-gematria">אותיות {{ entry.tanach_start + 1 }}–{{ entry.tanach_end + 1 }}</span>
       </div>
+      <div v-else-if="tefillotContext" class="detail-row detail-reference">
+        <span class="detail-label">מקור בתפילה</span>
+        <span class="detail-value">{{ formatTefillotReference(tefillotContext) }}</span>
+        <span class="detail-gematria">אותיות {{ tefillotContext.start + 1 }}–{{ tefillotContext.end + 1 }}</span>
+        <button type="button" class="open-prayer" @click="$emit('open-entry-tefillot', tefillotContext)">פתח בתפילה</button>
+      </div>
+      <div v-if="tefillotContext?.sourceWork || tefillotContext?.sourceReference" class="prayer-source-note">
+        <span v-if="tefillotContext.sourceWork">{{ tefillotContext.sourceWork }}<template v-if="tefillotContext.sourceVersion"> · {{ tefillotContext.sourceVersion }}</template></span>
+        <span v-if="tefillotContext.sourceReference">{{ tefillotContext.sourceReference }}</span>
+        <span v-if="tefillotContext.license">{{ tefillotContext.license }}</span>
+      </div>
       <div class="detail-row">
         <span class="detail-label">ראשי תיבות</span>
         <span class="detail-value">{{ entry.initials }}</span>
@@ -42,13 +53,14 @@
         התאמות נבחרות
         <span>{{ entry.curated_matches.length }}</span>
       </h3>
-      <article v-for="match in entry.curated_matches" :key="match.id" class="curated-match">
+      <article v-for="match in entry.curated_matches" :key="`${match.sourceType || match.source_type || 'tanach'}:${match.id}`" class="curated-match">
         <div class="curated-match__text">{{ match.original_text || match.originalText }}</div>
         <div class="curated-match__meta">
           <span>{{ matchReference(match) }}</span>
+          <span v-if="tefillotContextOf(match)?.sourceReference">{{ tefillotContextOf(match).sourceReference }}</span>
           <span v-for="reason in (match.reason_codes || match.reasonCodes || [])" :key="reason" class="reason-badge">{{ reasonLabel(reason) }}</span>
           <button type="button" @click="$emit('open-curated', match)">פתח בקורא</button>
-          <button v-if="removingId !== match.id" type="button" class="remove-curated" @click="removingId = match.id">הסר</button>
+          <button v-if="removingId !== curatedMatchKey(match)" type="button" class="remove-curated" @click="removingId = curatedMatchKey(match)">הסר</button>
           <template v-else>
             <span class="remove-confirm">להסיר?</span>
             <button type="button" class="remove-confirm-button" @click="$emit('remove-curated', { entry, match }); removingId = null">אישור</button>
@@ -84,12 +96,13 @@
 import { computed, ref } from 'vue';
 import { getWordBreakdown, toHebrewNumber } from '@/composables/useGematria.js';
 import { calculateMilui } from '@/utils/milui.js';
+import { tefillotContextOf } from '@/utils/tefillotContext.js';
 
 const props = defineProps({
   entry: { type: Object, required: true },
   miluiMapping: { type: Object, default: null },
 });
-defineEmits(['close', 'open-curated', 'remove-curated']);
+defineEmits(['close', 'open-curated', 'remove-curated', 'open-entry-tefillot']);
 const removingId = ref(null);
 
 const currentMilui = computed(() => (
@@ -97,6 +110,7 @@ const currentMilui = computed(() => (
     ? calculateMilui(props.entry.original_text, props.miluiMapping)
     : null
 ));
+const tefillotContext = computed(() => tefillotContextOf(props.entry));
 
 function formatDate(iso) {
   if (!iso) return '';
@@ -122,12 +136,20 @@ function reasonLabel(reason) {
     milui_gematria: 'מילוי',
   }[reason] || reason;
 }
+function curatedMatchKey(match) {
+  return `${match.sourceType || match.source_type || 'tanach'}:${match.id}`;
+}
 function matchReference(match) {
+  const prayer = tefillotContextOf(match);
+  if (prayer) return formatTefillotReference(prayer);
   const context = match.tanach_context || match.tanachContext || match;
   const book = match.book_label || match.bookLabel || match.book_name || match.bookName
     || context.book_label || context.bookLabel || context.book_name || context.bookName
     || context.book_slug || context.bookSlug || '';
   return `${book} ${toHebrewNumber(context.chapter)}:${toHebrewNumber(context.verse)}`.trim();
+}
+function formatTefillotReference(context) {
+  return ['תפילות', context.occasionLabel, context.serviceLabel, context.sectionLabel].filter(Boolean).join(' · ');
 }
 </script>
 
@@ -227,6 +249,8 @@ function matchReference(match) {
 .curated-match__meta { align-items: center; display: flex; flex-wrap: wrap; gap: 6px; color: var(--text-secondary); font-size: .72rem; }
 .reason-badge { background: var(--gold-light); border-radius: 999px; color: #80601d; padding: 2px 7px; }
 .curated-match__meta button { border: 0; background: transparent; color: #80601d; cursor: pointer; font: inherit; }
+.open-prayer { margin-inline-start: auto; border: 1px solid #e2d4b2 !important; border-radius: 6px; padding: 3px 8px; color: #765812 !important; }
+.prayer-source-note { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 0 3px; color: var(--text-secondary); font-size: .73rem; }
 .curated-match__meta .remove-curated { color: #9a5b50; }
 .remove-confirm { color: #8b6a2a; }
 .remove-confirm-button, .remove-cancel-button { padding: 2px 5px; }

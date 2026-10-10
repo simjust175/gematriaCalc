@@ -18,3 +18,4 @@
 - [Curated Tanach connections](curated-tanach-connections.md) — saved search results belong to a parent calculation; canonical sources dedupe while reasons accumulate
 - [Tefillot source licensing](tefillot-source-licensing.md) — licensed Siddur Sefard is approved; High Holiday Machzor texts stay deferred while Sefaria reports unknown licenses
 - [Private Tefillot rollout](tefillot-interim-availability.md) — legacy release stays gated; private feature branch may use additive Tefillot schema with production disabled by default
+- [Tefillot save parity](tefillot-save-parity.md) — share Tanach save meanings and library UX; review needed schema changes before applying them to app databases

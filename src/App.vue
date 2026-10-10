@@ -14,7 +14,7 @@
       <AppBar :currentPage="currentPage" @navigate="currentPage = $event" @logout="onLogout" />
       <main class="main-content">
         <GimForm v-if="currentPage === 'calculator'" @open-tanach="openTanachDiscovery" @open-tefillot="openTefillotDiscovery" />
-        <SavedLibrary v-else-if="currentPage === 'library'" @open-tanach="openTanachDiscovery" />
+        <SavedLibrary v-else-if="currentPage === 'library'" @open-tanach="openTanachDiscovery" @open-tefillot="openTefillotDiscovery" />
         <BaseWords v-else-if="currentPage === 'base-words'" />
         <TanachReader
           v-else-if="currentPage === 'tanach'"

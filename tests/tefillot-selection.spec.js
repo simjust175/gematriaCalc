@@ -208,14 +208,16 @@ test('subtle save reuses the existing originalText API and supports duplicate an
   status = 409;
   await page.getByRole('button', { name: 'שמור', exact: true }).click();
   await expect(page.getByRole('button', { name: 'כבר שמור' })).toBeDisabled();
-  expect(payload).toEqual({ originalText: text });
+  expect(payload.originalText).toBe(text);
+  expect(payload.tefillotContext).toMatchObject({ unitId: 1, start: 0, sectionKey: 'shema' });
   await page.waitForTimeout(350);
   const fragment = await selectText(page, '.prayer-text p', 0, 5);
   await calculate(page);
   status = 201;
   await page.getByRole('button', { name: 'שמור', exact: true }).click();
   await expect(page.getByRole('button', { name: 'נשמר', exact: true })).toBeDisabled();
-  expect(payload).toEqual({ originalText: fragment });
+  expect(payload.originalText).toBe(fragment);
+  expect(payload.tefillotContext).toMatchObject({ unitId: 1, start: 0, end: 1 });
 });
 
 test('Yesod checks canonical existing status without creating another entry', async ({ page }) => {

@@ -1,3 +1,4 @@
+import { manualEntryCondition } from './tefillotSaveContext.js';
 import { createHash } from 'node:crypto';
 import {
   calculateMiluiVariant,
@@ -126,7 +127,7 @@ export async function createMiluiInterpretation(input, db) {
   );
   const linked = await db.query(
     `SELECT id FROM saved_entries
-     WHERE tanach_book_slug IS NULL AND normalized_text = $1
+     WHERE ${manualEntryCondition()} AND normalized_text = $1
      ORDER BY id ASC LIMIT 1`,
     [calculation.normalizedText]
   );
@@ -212,7 +213,7 @@ async function ensureSavedEntry(verified, db) {
     )
     : await db.query(
       `SELECT id FROM saved_entries
-       WHERE tanach_book_slug IS NULL AND normalized_text = $1
+        WHERE ${manualEntryCondition()} AND normalized_text = $1
        ORDER BY id ASC LIMIT 1`,
       [calculated.normalizedText]
     );
@@ -258,7 +259,7 @@ async function ensureSavedEntry(verified, db) {
       )
       : await db.query(
         `SELECT id FROM saved_entries
-         WHERE tanach_book_slug IS NULL AND normalized_text = $1
+          WHERE ${manualEntryCondition()} AND normalized_text = $1
          ORDER BY id ASC LIMIT 1`,
         [calculated.normalizedText]
       );
@@ -467,7 +468,7 @@ export async function getExplicitMiluiMatches(total, db) {
          SELECT entry.*
          FROM saved_entries entry
          WHERE entry.id = interpretation.linked_saved_entry_id
-            OR (entry.tanach_book_slug IS NULL
+            OR (${manualEntryCondition('entry')}
                 AND entry.normalized_text = interpretation.normalized_text)
          ORDER BY (entry.id = interpretation.linked_saved_entry_id) DESC, entry.id ASC
          LIMIT 1

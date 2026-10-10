@@ -2,9 +2,10 @@
   <article
     class="entry-card"
     :class="{ expanded, 'has-shared-value': sharedValue }"
+    :data-entry-key="entryKey"
     :data-entry-id="entry.id"
   >
-    <div class="entry-body entry-header" @click="$emit('toggle', entry.id)">
+    <div class="entry-body entry-header" @click="$emit('toggle', entryKey)">
       <div class="entry-main-info">
         <div class="entry-text">
           <template v-for="(part, index) in highlightedPhrase" :key="`${part.text}-${index}`">
@@ -15,6 +16,10 @@
         <div v-if="entry.tanach_book_slug" class="tanach-reference">
           <span class="mdi mdi-book-open-page-variant-outline" aria-hidden="true"></span>
           {{ formatTanachReference(entry) }}
+        </div>
+        <div v-else-if="entry.sourceType === 'tefillot' || entry.source_type === 'tefillot' || entry.tefillot_context || entry.tefillotContext" class="tanach-reference tefillot-reference">
+          <span class="mdi mdi-hands-pray" aria-hidden="true"></span>
+          {{ formatTefillotReference(entry) }}
         </div>
         <div class="entry-gematria">
           <span class="gematria-num">{{ entry.full_gematria }}</span>
@@ -51,7 +56,7 @@
         type="button"
         :aria-expanded="expanded"
         :aria-controls="expanded ? `saved-entry-detail-${entry.id}` : undefined"
-        @click="$emit('toggle', entry.id)"
+        @click="$emit('toggle', entryKey)"
       >
         {{ expanded ? 'סגור' : 'פתח פירוט' }}
         <span
@@ -67,12 +72,12 @@
           type="button"
           :aria-label="`פעולות עבור ${entry.original_text}`"
           :aria-expanded="menuOpen"
-          @click="$emit('toggle-menu', entry.id)"
+          @click="$emit('toggle-menu', entryKey)"
         >
           <span aria-hidden="true">⋯</span>
         </button>
         <div v-if="menuOpen" class="entry-menu" role="menu">
-          <button type="button" role="menuitem" @click="$emit('toggle', entry.id)">
+          <button type="button" role="menuitem" @click="$emit('toggle', entryKey)">
             <span class="mdi mdi-open-in-new" aria-hidden="true"></span>
             {{ expanded ? 'סגור פירוט' : 'פתח פירוט' }}
           </button>
@@ -93,6 +98,7 @@
 <script setup>
 import { computed } from 'vue';
 import { normalize, toHebrewNumber } from '@/composables/useGematria.js';
+import { tefillotContextOf } from '@/utils/tefillotContext.js';
 
 const props = defineProps({
   entry: { type: Object, required: true },
@@ -101,6 +107,7 @@ const props = defineProps({
   searchQuery: { type: String, default: '' },
   sharedValue: { type: Boolean, default: false },
 });
+const entryKey = computed(() => `${props.entry.sourceType || props.entry.source_type || 'manual'}:${props.entry.id}`);
 
 defineEmits(['toggle', 'toggle-menu', 'copy', 'delete']);
 
@@ -123,6 +130,11 @@ const highlightedPhrase = computed(() => {
 function formatTanachReference(entry) {
   const reference = `${entry.tanach_book_label} ${toHebrewNumber(entry.tanach_chapter)}:${toHebrewNumber(entry.tanach_verse)}`;
   return entry.parsha_name ? `${reference} · פרשת ${entry.parsha_name}` : reference;
+}
+function formatTefillotReference(entry) {
+  const context = tefillotContextOf(entry);
+  return ['תפילות', context?.occasionLabel, context?.serviceLabel, context?.sectionLabel].filter(Boolean).join(' · ')
+    || 'תפילה';
 }
 
 </script>

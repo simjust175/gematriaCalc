@@ -9,6 +9,10 @@ import { pool } from './db.js';
 import { computeAll, normalize } from '../src/composables/useGematria.js';
 import { createTanachCursor } from '../src/composables/useTanachCursor.js';
 import { verifyTanachSaveContext } from './tanachSaveContext.js';
+import {
+  verifyTefillotSaveContext, tefillotSaveErrorStatus, tefillotSaveSchemaReady,
+  manualEntryCondition, hydrateTefillotEntries,
+} from './tefillotSaveContext.js';
 import { parshaSearchKey } from './tanachParshiot.js';
 import {
   parseGematriaSearchQuery,
@@ -510,7 +514,7 @@ app.get('/api/matches', requireAuth, async (req, res) => {
              FROM saved_entries entry
              LEFT JOIN saved_entry_milui_save_modes mode
                ON mode.saved_entry_id = entry.id
-             WHERE entry.tanach_book_slug IS NULL AND entry.normalized_text = $1`,
+             WHERE ${manualEntryCondition('entry')} AND entry.normalized_text = $1`,
             [current.normalizedText]
           );
         }
@@ -723,7 +727,10 @@ app.get('/api/matches', requireAuth, async (req, res) => {
 app.post('/api/entries', requireAuth, async (req, res) => {
   let client;
   try {
-    const { originalText, tanachContext } = req.body;
+    const { originalText, tanachContext, tefillotContext } = req.body;
+    if (tanachContext != null && tefillotContext != null) {
+      return res.status(400).json({ error: 'ambiguous_source_context' });
+    }
     let canonicalOriginalText = typeof originalText === 'string' ? originalText : '';
     let calculated = computeAll(canonicalOriginalText);
 
@@ -739,6 +746,13 @@ app.post('/api/entries', requireAuth, async (req, res) => {
     await acquireMiluiSaveLock(client);
 
     let verifiedContext = null;
+    let verifiedPrayer = null;
+    if (tefillotContext != null) {
+      const verified = await verifyTefillotSaveContext(canonicalOriginalText, tefillotContext, client);
+      canonicalOriginalText = verified.originalText;
+      calculated = verified.calculated;
+      verifiedPrayer = verified.context;
+    }
     if (tanachContext != null) {
       try {
         const verified = await verifyTanachSaveContext(canonicalOriginalText, tanachContext, client);
@@ -757,7 +771,13 @@ app.post('/api/entries', requireAuth, async (req, res) => {
       }
     }
 
-    const exists = verifiedContext
+    const exists = verifiedPrayer
+      ? await client.query(
+        `SELECT id FROM saved_entries
+         WHERE tefillot_unit_id = $1 AND tefillot_start = $2 AND tefillot_end = $3`,
+        [verifiedPrayer.unitId, verifiedPrayer.start, verifiedPrayer.end]
+      )
+      : verifiedContext
       ? await client.query(
         `SELECT id FROM saved_entries
          WHERE tanach_book_slug = $1 AND tanach_chapter = $2
@@ -772,7 +792,7 @@ app.post('/api/entries', requireAuth, async (req, res) => {
       )
       : await client.query(
         `SELECT id FROM saved_entries
-         WHERE tanach_book_slug IS NULL AND normalized_text = $1`,
+         WHERE ${manualEntryCondition()} AND normalized_text = $1`,
         [calculated.normalizedText]
       );
     if (exists.rows.length > 0) {
@@ -785,8 +805,10 @@ app.post('/api/entries', requireAuth, async (req, res) => {
           (original_text, normalized_text, full_gematria, full_gematria_hebrew,
            initials, initials_gematria, initials_gematria_hebrew,
            finals, finals_gematria, finals_gematria_hebrew,
-             tanach_book_slug, tanach_book_label, tanach_chapter, tanach_verse, tanach_start, tanach_end, parsha_id)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+              tanach_book_slug, tanach_book_label, tanach_chapter, tanach_verse, tanach_start, tanach_end, parsha_id
+              ${verifiedPrayer ? ', tefillot_unit_id, tefillot_start, tefillot_end' : ''})
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17
+              ${verifiedPrayer ? ', $18, $19, $20' : ''})
        RETURNING id`,
       [
         canonicalOriginalText,
@@ -806,6 +828,7 @@ app.post('/api/entries', requireAuth, async (req, res) => {
         verifiedContext?.start ?? null,
         verifiedContext?.end ?? null,
         verifiedContext?.parshaId || null,
+        ...(verifiedPrayer ? [verifiedPrayer.unitId, verifiedPrayer.start, verifiedPrayer.end] : []),
       ]
     );
     const entryId = entryRes.rows[0].id;
@@ -829,6 +852,8 @@ app.post('/api/entries', requireAuth, async (req, res) => {
     res.json({ id: entryId, success: true });
   } catch (err) {
     if (client) await client.query('ROLLBACK').catch(() => {});
+    const prayerStatus = tefillotSaveErrorStatus(err);
+    if (prayerStatus) return res.status(prayerStatus).json({ error: err.code });
     if (err.code === '23505') {
       return res.status(409).json({ error: 'already_saved' });
     }
@@ -879,7 +904,8 @@ app.post('/api/entries/curated-matches', requireAuth, async (req, res) => {
     }
     for (const match of matches) {
       if (!match || typeof match.originalText !== 'string'
-          || !match.tanachContext || !CURATED_REASON_CODES.has(match.reasonCode)) {
+          || Boolean(match.tanachContext) === Boolean(match.tefillotContext)
+          || !CURATED_REASON_CODES.has(match.reasonCode)) {
         return res.status(400).json({ error: 'invalid_match' });
       }
     }
@@ -889,7 +915,7 @@ app.post('/api/entries/curated-matches', requireAuth, async (req, res) => {
     await acquireMiluiSaveLock(client);
     const parentResult = await client.query(
       `SELECT id FROM saved_entries
-       WHERE tanach_book_slug IS NULL AND normalized_text = $1
+       WHERE ${manualEntryCondition()} AND normalized_text = $1
        FOR UPDATE`,
       [parentCalculated.normalizedText]
     );
@@ -904,7 +930,7 @@ app.post('/api/entries/curated-matches', requireAuth, async (req, res) => {
            initials, initials_gematria, initials_gematria_hebrew,
            finals, finals_gematria, finals_gematria_hebrew)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-         ON CONFLICT (normalized_text) WHERE tanach_book_slug IS NULL DO NOTHING
+          ON CONFLICT DO NOTHING
          RETURNING id`,
         [parentOriginalText, parentCalculated.normalizedText, parentCalculated.fullGematria,
           parentCalculated.fullHebrewNumber, parentCalculated.initials,
@@ -926,7 +952,7 @@ app.post('/api/entries/curated-matches', requireAuth, async (req, res) => {
       } else {
         const existing = await client.query(
           `SELECT id FROM saved_entries
-           WHERE tanach_book_slug IS NULL AND normalized_text = $1
+            WHERE ${manualEntryCondition()} AND normalized_text = $1
            FOR UPDATE`,
           [parentCalculated.normalizedText]
         );
@@ -936,6 +962,28 @@ app.post('/api/entries/curated-matches', requireAuth, async (req, res) => {
 
     const saved = new Map();
     for (const match of matches) {
+      if (match.tefillotContext) {
+        const verified = await verifyTefillotSaveContext(match.originalText, match.tefillotContext, client);
+        const context = verified.context;
+        const result = await client.query(`
+          INSERT INTO curated_tefillot_matches
+            (parent_id, original_text, normalized_text, tefillot_unit_id,
+              tefillot_start, tefillot_end, reason_codes)
+          VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb)
+          ON CONFLICT (parent_id, tefillot_unit_id, tefillot_start, tefillot_end)
+          DO UPDATE SET reason_codes = (
+            SELECT jsonb_agg(DISTINCT value ORDER BY value)
+            FROM jsonb_array_elements_text(curated_tefillot_matches.reason_codes || EXCLUDED.reason_codes) AS values(value)
+          ) RETURNING id, reason_codes`,
+        [parentId, verified.originalText, verified.calculated.normalizedText,
+          context.unitId, context.start, context.end, JSON.stringify([match.reasonCode])]);
+        const row = result.rows[0];
+        saved.set(`tefillot:${row.id}`, {
+          id: row.id, sourceType: 'tefillot', originalText: verified.originalText,
+          tefillotContext: context, reasonCodes: row.reason_codes,
+        });
+        continue;
+      }
       let verified;
       try {
         verified = await verifyTanachSaveContext(match.originalText, match.tanachContext, client);
@@ -965,7 +1013,7 @@ app.post('/api/entries/curated-matches', requireAuth, async (req, res) => {
           context.bookSlug, context.bookLabel, context.chapter, context.verse, context.start, context.end,
           JSON.stringify([match.reasonCode])]
       );
-      saved.set(result.rows[0].id, serializeCuratedMatch(result.rows[0]));
+      saved.set(`tanach:${result.rows[0].id}`, serializeCuratedMatch(result.rows[0]));
     }
     await client.query('COMMIT');
     if (parentCreated) {
@@ -979,11 +1027,55 @@ app.post('/api/entries/curated-matches', requireAuth, async (req, res) => {
     res.json({ success: true, parentId, parentCreated, matches: [...saved.values()] });
   } catch (err) {
     if (client) await client.query('ROLLBACK').catch(() => {});
+    const prayerStatus = tefillotSaveErrorStatus(err);
+    if (prayerStatus) return res.status(prayerStatus).json({ error: err.code });
     if (err.code === '23505') return res.status(409).json({ error: 'already_saved' });
     console.error('/api/entries/curated-matches POST error:', err.message);
     res.status(500).json({ error: err.message });
   } finally {
     client?.release();
+  }
+});
+
+/** Read persisted occurrence state without depending on text-search pagination. */
+app.get('/api/entries/saved-ranges', requireAuth, async (req, res) => {
+  try {
+    let references;
+    try { references = JSON.parse(req.query.keys); } catch {
+      return res.status(400).json({ error: 'invalid_range_keys' });
+    }
+    if (!Array.isArray(references) || references.length > 50) {
+      return res.status(400).json({ error: 'invalid_range_keys' });
+    }
+    const parsed = references.map(reference => {
+      if (Boolean(reference?.tanachContext) === Boolean(reference?.tefillotContext)) return null;
+      const prayer = Boolean(reference.tefillotContext);
+      const context = reference.tefillotContext || reference.tanachContext;
+      const fields = prayer ? ['unitId', 'start', 'end'] : ['chapter', 'verse', 'start', 'end'];
+      if (fields.some(field => context[field] == null || context[field] === ''
+          || typeof context[field] === 'boolean' || !Number.isSafeInteger(Number(context[field])))) return null;
+      const numbers = fields.map(field => Number(context[field]));
+      const [start, end] = numbers.slice(-2);
+      if (start < 0 || end < start || numbers.slice(0, -2).some(number => number < 1)) return null;
+      if (!prayer && (typeof context.bookSlug !== 'string' || !context.bookSlug)) return null;
+      return { prayer, values: prayer ? numbers : [context.bookSlug, ...numbers],
+        key: prayer ? `tefillot:${numbers.join(':')}` : `tanach:${context.bookSlug}:${numbers.join(':')}` };
+    });
+    if (parsed.some(item => !item)) return res.status(400).json({ error: 'invalid_range_keys' });
+    const prayerReady = parsed.some(item => item.prayer) && await tefillotSaveSchemaReady(pool);
+    const saved = [];
+    for (const item of parsed) {
+      if (item.prayer && !prayerReady) continue;
+      const result = await pool.query(item.prayer
+        ? 'SELECT id FROM saved_entries WHERE tefillot_unit_id=$1 AND tefillot_start=$2 AND tefillot_end=$3'
+        : 'SELECT id FROM saved_entries WHERE tanach_book_slug=$1 AND tanach_chapter=$2 AND tanach_verse=$3 AND tanach_start=$4 AND tanach_end=$5',
+      item.values);
+      if (result.rows[0]) saved.push({ key: item.key, id: result.rows[0].id });
+    }
+    res.json({ saved });
+  } catch (error) {
+    console.error('/api/entries/saved-ranges error:', error.message);
+    res.status(500).json({ error: 'saved_state_failed' });
   }
 });
 
@@ -1014,7 +1106,10 @@ app.get('/api/entries', requireAuth, async (req, res) => {
 
     let whereSql = '';
     let searchParams = [];
-    if (rawSearch) {
+    if (typeof req.query.parentOriginalText === 'string') {
+      whereSql = `WHERE ${manualEntryCondition('se')} AND se.normalized_text = $1`;
+      searchParams = [normalize(req.query.parentOriginalText)];
+    } else if (rawSearch) {
       if (/^\d+$/.test(rawSearch)) {
         const value = Number(rawSearch);
         whereSql = `WHERE se.full_gematria = $1
@@ -1114,8 +1209,12 @@ app.get('/api/entries', requireAuth, async (req, res) => {
       : rows.rows.length;
     const paginationTotal = grouped ? libraryStats.distinctValues : libraryStats.saved;
 
+    const entries = rows.rows.map(entry => ({
+      ...entry, sourceType: entry.tanach_book_slug ? 'tanach' : 'manual', tefillotContext: null,
+    }));
+    await hydrateTefillotEntries(entries, pool);
     res.json({
-      entries: rows.rows,
+      entries,
       total: libraryStats.saved,
       stats: libraryStats,
       pagination: {
@@ -1141,8 +1240,15 @@ app.delete('/api/entries/:parentId/curated-matches/:matchId', requireAuth, async
     return res.status(400).json({ error: 'invalid_id' });
   }
   try {
+    const prayer = req.query.source === 'tefillot';
+    if (req.query.source != null && !['tefillot', 'tanach'].includes(req.query.source)) {
+      return res.status(400).json({ error: 'invalid_source' });
+    }
+    if (prayer && !await tefillotSaveSchemaReady(pool)) {
+      return res.status(503).json({ error: 'tefillot_save_schema_required' });
+    }
     const result = await pool.query(
-      'DELETE FROM curated_matches WHERE id = $1 AND parent_id = $2 RETURNING id',
+      `DELETE FROM ${prayer ? 'curated_tefillot_matches' : 'curated_matches'} WHERE id = $1 AND parent_id = $2 RETURNING id`,
       [matchId, parentId]
     );
     if (!result.rowCount) return res.status(404).json({ error: 'not_found' });

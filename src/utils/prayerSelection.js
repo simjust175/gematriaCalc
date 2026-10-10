@@ -1,4 +1,5 @@
 import { computeAll, normalize } from '../composables/useGematria.js';
+import { createTanachCursor } from '../composables/useTanachCursor.js';
 
 const EXCLUDED = 'button,a,input,textarea,select,[contenteditable],[aria-hidden="true"],[data-selection-exclude]';
 
@@ -17,7 +18,31 @@ export function readPrayerSelection(root, selection) {
   }
   const text = selection.toString();
   if (!normalize(text)) return null;
-  return { text, range: range.cloneRange() };
+  const startUnit = parent(range.startContainer)?.closest('[data-prayer-unit]');
+  const endUnit = parent(range.endContainer)?.closest('[data-prayer-unit]');
+  let tefillotContext = null;
+  if (startUnit && startUnit === endUnit) {
+    const unitText = startUnit.textContent || '';
+    const beforeStart = document.createRange();
+    beforeStart.setStart(startUnit, 0);
+    beforeStart.setEnd(range.startContainer, range.startOffset);
+    const throughEnd = document.createRange();
+    throughEnd.setStart(startUnit, 0);
+    throughEnd.setEnd(range.endContainer, range.endOffset);
+    const cursor = createTanachCursor(unitText);
+    const startOffset = [...beforeStart.toString()].length;
+    const endOffset = [...throughEnd.toString()].length;
+    const start = cursor.letters.findIndex(letter => letter.displayIndex >= startOffset);
+    let end = -1;
+    cursor.letters.forEach((letter, index) => {
+      if (letter.displayIndex < endOffset) end = index;
+    });
+    const unitId = Number(startUnit.dataset.unitId);
+    if (Number.isSafeInteger(unitId) && start >= 0 && end >= start) {
+      tefillotContext = { unitId, start, end };
+    }
+  }
+  return { text, range: range.cloneRange(), tefillotContext };
 }
 
 export function calculatePrayerSelection(text) {

@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { readFile } from 'node:fs/promises';
 import pg from 'pg';
 
 const { Client } = pg;
@@ -22,6 +23,7 @@ const privateTables = [
   'saved_words',
   'base_words',
   'curated_matches',
+  'curated_tefillot_matches',
   'explicit_milui_interpretations',
   'milui_preferences',
   'milui_mapping_versions',
@@ -42,6 +44,7 @@ const copiedReferenceTables = [
   'milui_index_state',
 ];
 const optionalTables = ['tefillot_sources', 'tefillot_units'];
+const optionalSaveTables = ['curated_tefillot_matches'];
 
 function createClient() {
   if (!process.env.DATABASE_URL) {
@@ -61,14 +64,15 @@ async function prepareSchema() {
     const availableTables = await client.query(
       `SELECT table_name FROM information_schema.tables
        WHERE table_schema = 'public' AND table_name = ANY($1::text[])`,
-      [optionalTables]
+      [[...optionalTables, ...optionalSaveTables]]
     );
     const available = new Set(availableTables.rows.map(row => row.table_name));
-    if (available.size === 1) {
+    const corpusTableCount = optionalTables.filter(table => available.has(table)).length;
+    if (corpusTableCount === 1) {
       throw new Error('The development Tefillot schema is incomplete');
     }
     if (process.env.E2E_TEFILLOT_ENABLED === 'true') {
-      if (available.size !== optionalTables.length) {
+      if (corpusTableCount !== optionalTables.length) {
         throw new Error('Enabled Tefillot browser tests require the explicit development migration');
       }
       const count = await client.query('SELECT COUNT(*)::int AS units FROM public.tefillot_units');
@@ -76,7 +80,8 @@ async function prepareSchema() {
         throw new Error('Enabled Tefillot browser tests require the imported development corpus');
       }
     }
-    const tablesToCopy = privateTables.filter(table => !optionalTables.includes(table) || available.has(table));
+    const tablesToCopy = privateTables.filter(table =>
+      ![...optionalTables, ...optionalSaveTables].includes(table) || available.has(table));
     const referencesToCopy = copiedReferenceTables.filter(table => tablesToCopy.includes(table));
     await client.query(`DROP SCHEMA IF EXISTS ${schemaIdentifier} CASCADE`);
     await client.query(`CREATE SCHEMA ${schemaIdentifier}`);
@@ -148,6 +153,15 @@ async function prepareSchema() {
         `ALTER TABLE ${schemaIdentifier}."${foreignKey.table_name}"
          ADD CONSTRAINT "${foreignKey.conname}" ${definition}`
       );
+    }
+    if (process.env.E2E_TEFILLOT_SAVES === 'true' && !available.has('curated_tefillot_matches')) {
+      // This opt-in applies the prepared migration ONLY to the disposable
+      // schema. Never change public or use a connection-wide search_path.
+      await client.query(`SET LOCAL search_path TO ${schemaIdentifier}`);
+      const active = await client.query('SELECT current_schema() AS schema');
+      if (active.rows[0].schema !== schema) throw new Error('Unsafe E2E migration target');
+      const migration = await readFile(new URL('../server/migrations/20261010_add_tefillot_saves.sql', import.meta.url), 'utf8');
+      await client.query(migration.replace(/^BEGIN;\s*$/m, '').replace(/^COMMIT;\s*$/m, ''));
     }
     await client.query('COMMIT');
   } catch (error) {

@@ -33,7 +33,10 @@ import { normalize } from '@/composables/useGematria.js';
 import { useBaseWords } from '@/composables/useBaseWords.js';
 import { calculateMilui, normalizeMiluiMapping, getCommonMiluiForms, containsStandaloneHavayah, CANONICAL_HAVAYAH_MILUI } from '@/utils/milui.js';
 
-const props = defineProps({ root: { default: null } });
+const props = defineProps({
+  root: { default: null },
+  sourceContext: { type: Object, default: null },
+});
 const snapshot = shallowRef(null);
 const result = shallowRef(null);
 const mode = ref('action');
@@ -199,18 +202,29 @@ async function save() {
   saveError.value = '';
   saveAbort = new AbortController();
   try {
+    const tefillotContext = snapshot.value.tefillotContext && props.sourceContext
+      ? { ...props.sourceContext, ...snapshot.value.tefillotContext }
+      : null;
     const response = await fetch('/api/entries', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ originalText: text }), signal: saveAbort.signal,
+      body: JSON.stringify({
+        originalText: text,
+        ...(tefillotContext ? { tefillotContext } : {}),
+      }), signal: saveAbort.signal,
     });
     if (id !== saveRequest) return;
     if (response.status === 409) saveState.value = 'duplicate';
     else if (response.ok) saveState.value = 'saved';
-    else throw new Error('save');
+    else {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.error || 'save');
+    }
   } catch (error) {
     if (id !== saveRequest || error.name === 'AbortError') return;
     saveState.value = 'idle';
-    saveError.value = 'לא ניתן לשמור כרגע. נסו שוב.';
+    saveError.value = error.message === 'tefillot_save_schema_required'
+      ? 'שמירת תפילות דורשת עדכון מסד הנתונים. יש להפעיל את מיגרציית התפילות.'
+      : 'לא ניתן לשמור כרגע. נסו שוב.';
   }
 }
 

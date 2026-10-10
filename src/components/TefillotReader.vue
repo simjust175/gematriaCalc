@@ -119,7 +119,7 @@
         </details>
       </main>
     </div>
-    <PrayerSelectionCalculator :root="prayerText" />
+    <PrayerSelectionCalculator :root="prayerText" :source-context="selectionSourceContext" />
   </div>
 </template>
 
@@ -153,6 +153,20 @@ let headerResizeObserver;
 let readerResizeObserver;
 
 const activeSource = computed(() => units.value[0] || null);
+const selectionSourceContext = computed(() => ({
+  occasionSlug: selectedOccasion.value?.slug,
+  occasionLabel: selectedOccasion.value?.label,
+  serviceSlug: selectedService.value?.slug,
+  serviceLabel: selectedService.value?.label,
+  sectionKey: selectedSection.value?.key,
+  sectionLabel: selectedSection.value?.label,
+  sourceReference: activeSource.value?.source_reference || activeSource.value?.sourceReference || '',
+  sourceWork: activeSource.value?.source_work || activeSource.value?.sourceWork || '',
+  sourceVersion: activeSource.value?.source_version || activeSource.value?.sourceVersion || '',
+  license: activeSource.value?.license || '',
+  sourceUrl: activeSource.value?.source_url || activeSource.value?.sourceUrl || '',
+  versionSource: activeSource.value?.version_source || activeSource.value?.versionSource || '',
+}));
 
 onMounted(() => {
   window.addEventListener('scroll', updateStickyHeading, { passive: true });
