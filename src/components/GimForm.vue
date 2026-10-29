@@ -48,6 +48,7 @@
               class="weekly-scan-trigger"
               :aria-expanded="showWeeklyScan"
               aria-controls="weekly-base-words-panel"
+              @pointerdown="corpusDismiss"
               @click="showWeeklyScan = !showWeeklyScan"
             >
               <span class="mdi mdi-key-variant" aria-hidden="true"></span>
@@ -632,6 +633,10 @@ async function saveAsBaseWord() {
 
 /* ── Input card ──────────────────────────────────────────────────────────── */
 .calculator-input-field { position: relative; }
+/* The autocomplete menu must begin below both the text field AND the
+   weekly action row; otherwise it covers the new button on desktop/mobile. */
+.calculator-input-field :deep(.corpus-dropdown) { top: calc(100% + 57px); }
+
 
 .input-card {
   background: #fff;
