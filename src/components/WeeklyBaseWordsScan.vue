@@ -1,19 +1,19 @@
 <template>
   <section class="weekly-scan" dir="rtl" aria-label="מילות יסוד בפרשת השבוע">
-    <div class="scan-head">
+    <header class="scan-head">
       <div>
         <span class="eyebrow">מילות יסוד · פרשת השבוע</span>
         <h2>{{ data?.parsha ? `התאמות בפרשת ${data.parsha.nameHe}` : 'מילות יסוד בפרשה' }}</h2>
       </div>
       <button class="close" type="button" aria-label="סגור" @click="$emit('close')">
-        <span class="mdi mdi-close"></span>
+        <span class="mdi mdi-close" aria-hidden="true"></span>
       </button>
-    </div>
+    </header>
 
     <p v-if="loading" class="scan-state" role="status">מחפש התאמות במילות היסוד השמורות…</p>
     <div v-else-if="error" class="scan-state error" role="alert">
       {{ error }}
-      <button type="button" @click="scan">נסה שוב</button>
+      <button type="button" @click="scan(true)">נסה שוב</button>
     </div>
     <div v-else-if="data && !data.parsha" class="scan-state">
       השבוע חלה קריאת חג במקום פרשה רגילה. אין טווח פרשה לחיפוש.
@@ -22,7 +22,7 @@
       עדיין אין מילות יסוד שמורות. אפשר להוסיף אותן דרך ״מילות יסוד״ בתפריט.
     </div>
     <template v-else-if="data">
-      <div class="summary">
+      <div class="summary" aria-live="polite">
         <span><strong>{{ data.words.length.toLocaleString('he-IL') }}</strong> מילות יסוד עם התאמות</span>
         <span><strong>{{ data.total.toLocaleString('he-IL') }}</strong> התאמות בפרשה</span>
       </div>
@@ -38,10 +38,14 @@
           </select>
         </div>
         <div class="scan-results">
-          <article v-for="(item, index) in filteredResults" :key="`${item.baseWordId}-${item.bookSlug}-${item.chapter}-${item.verse}-${item.start}-${item.end}-${index}`" class="match-row">
+          <article
+            v-for="item in data.results"
+            :key="`${item.baseWordId}-${item.bookSlug}-${item.chapter}-${item.verse}-${item.start}-${item.end}`"
+            class="match-row"
+          >
             <div class="match-copy">
               <span class="word">{{ item.baseWordText }} <span class="value">{{ item.value.toLocaleString('he-IL') }}</span></span>
-              <span class="reference">{{ item.bookName }} {{ item.chapter }}:{{ item.verse }} · {{ item.type === 'whole_word' ? 'מילה שלמה' : 'מילים שלימות' }}</span>
+              <span class="reference">{{ item.bookName }} {{ item.chapter }}:{{ item.verse }} · {{ item.type === 'whole_word' ? 'מילה שלמה' : 'ביטוי שלם' }}</span>
               <span class="match-text" dir="rtl">{{ item.text }}</span>
             </div>
             <button type="button" class="open" @click="$emit('open-tanach', item)">
@@ -50,49 +54,82 @@
             </button>
           </article>
         </div>
-        <p v-if="data.total > data.results.length" class="scan-footnote">
-          מוצגות {{ data.results.length.toLocaleString('he-IL') }} התאמות ראשונות מתוך {{ data.total.toLocaleString('he-IL') }}.
-          אפשר להמשיך לחקור את הערכים בחיפוש תנ״ך הרגיל.
-        </p>
-        <p v-if="selectedWord && filteredResults.length === 0" class="scan-footnote">
-          ההתאמות למילת יסוד זו נמצאות מעבר לתוצאות הראשונות.
-        </p>
+        <footer class="scan-footer">
+          <span>מוצגות {{ data.results.length.toLocaleString('he-IL') }} מתוך {{ data.selectedTotal.toLocaleString('he-IL') }} התאמות</span>
+          <button v-if="data.hasMore" class="load-more" type="button" :disabled="loadingMore" @click="loadMore">
+            {{ loadingMore ? 'טוען…' : 'הצג עוד התאמות' }}
+          </button>
+        </footer>
+        <p v-if="loadMoreError" class="scan-footnote error" role="alert">{{ loadMoreError }}</p>
       </template>
     </template>
   </section>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 defineEmits(['close', 'open-tanach']);
 const data = ref(null);
 const loading = ref(false);
+const loadingMore = ref(false);
 const error = ref('');
+const loadMoreError = ref('');
 const selectedWord = ref('');
-const filteredResults = computed(() =>
-  selectedWord.value
-    ? (data.value?.results || []).filter(item => String(item.baseWordId) === selectedWord.value)
-    : (data.value?.results || [])
-);
-async function scan() {
-  loading.value = true;
+let controller = null;
+let requestSequence = 0;
+
+async function scan(reset = true) {
+  const requestId = ++requestSequence;
+  controller?.abort();
+  controller = new AbortController();
+  if (reset) {
+    loading.value = true;
+    data.value = null;
+  } else {
+    loadingMore.value = true;
+  }
   error.value = '';
+  loadMoreError.value = '';
   try {
-    const response = await fetch('/api/base-words/weekly-parsha', { credentials: 'same-origin' });
+    const page = reset ? 1 : (data.value?.page || 1) + 1;
+    const params = new URLSearchParams({ page: String(page) });
+    if (selectedWord.value) params.set('word_id', selectedWord.value);
+    const response = await fetch(`/api/base-words/weekly-parsha?${params}`, {
+      credentials: 'same-origin',
+      signal: controller.signal,
+    });
     if (!response.ok) throw new Error('search_failed');
-    data.value = await response.json();
-  } catch {
-    error.value = 'לא ניתן לחפש כעת. נסה שוב.';
+    const payload = await response.json();
+    if (requestId !== requestSequence) return;
+    data.value = reset
+      ? payload
+      : { ...payload, results: [...(data.value?.results || []), ...payload.results] };
+  } catch (caught) {
+    if (requestId !== requestSequence || caught.name === 'AbortError') return;
+    if (reset) error.value = 'לא ניתן לחפש כעת. נסה שוב.';
+    else loadMoreError.value = 'לא ניתן לטעון התאמות נוספות. נסה שוב.';
   } finally {
-    loading.value = false;
+    if (requestId === requestSequence) {
+      loading.value = false;
+      loadingMore.value = false;
+    }
   }
 }
-onMounted(scan);
+function loadMore() {
+  if (loadingMore.value || !data.value?.hasMore) return;
+  scan(false);
+}
+watch(selectedWord, () => scan(true));
+onMounted(() => scan(true));
+onBeforeUnmount(() => {
+  requestSequence += 1;
+  controller?.abort();
+});
 </script>
 
 <style scoped>
-.weekly-scan { background:#fff; border:1px solid #e4d7bd; border-radius:14px; padding:20px; color:var(--navy,#1a2744); }
+.weekly-scan {background:#fff;border:1px solid #e4d7bd;border-radius:14px;padding:20px;color:var(--navy,#1a2744);}
 .scan-head {display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
 .eyebrow {font-size:.72rem;color:#a17a30;font-weight:700;}
 .scan-head h2 {font-size:1.24rem;margin:4px 0 14px;font-weight:700;}
@@ -113,6 +150,10 @@ onMounted(scan);
 .match-text {font-size:.88rem;color:#293958;overflow-wrap:anywhere;}
 .open {flex-shrink:0;border:1px solid #ddc89b;background:#faf5e9;border-radius:8px;padding:8px 10px;color:#8c6928;font:inherit;font-size:.77rem;cursor:pointer;}
 .open:hover {background:#f3e8ce;}
+.open:focus-visible,.close:focus-visible,.load-more:focus-visible {outline:2px solid #ae8738;outline-offset:2px;}
+.scan-footer {display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-top:14px;font-size:.75rem;color:#787e8c;}
+.load-more {padding:9px 13px;border:1px solid #dec999;border-radius:8px;background:#fcf7ec;color:#8c6928;font:inherit;cursor:pointer;}
+.load-more:disabled {opacity:.6;cursor:default;}
 .scan-footnote {font-size:.74rem;color:#787e8c;margin:12px 0 0;}
 @media(max-width:560px) {.weekly-scan{padding:15px}.match-row{align-items:start;flex-direction:column}.open{align-self:flex-start}.scan-results{max-height:430px}}
 </style>
