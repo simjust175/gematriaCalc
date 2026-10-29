@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import request from 'supertest';
-import { computeAll } from '../src/composables/useGematria.js';
+import { computeAll, normalize } from '../src/composables/useGematria.js';
+import { getCurrentWeeklyParshah } from '../server/tanachWeeklyParsha.js';
 
 process.env.SESSION_SECRET = 'base-words-test-session-secret';
 process.env.APP_PASSWORD = 'base-words-test-password';
@@ -211,4 +212,51 @@ test('weekly base-word Parsha API is private, validates page/filter, and returns
     'SELECT (SELECT COUNT(*)::int FROM base_words) AS base_words, (SELECT COUNT(*)::int FROM saved_entries) AS entries'
   );
   assert.deepEqual(after.rows, before.rows, 'weekly scan must never change saved records');
+});
+
+
+test('weekly Parsha scan returns a real saved first word from the canonical current reading', async () => {
+  const parsha = getCurrentWeeklyParshah();
+  if (!parsha) {
+    const agent = request.agent(app);
+    const login = await agent.post('/api/auth/login').send({ password: 'base-words-test-password' });
+    assert.equal(login.status, 200);
+    const response = await agent.get('/api/base-words/weekly-parsha');
+    assert.equal(response.status, 200);
+    assert.equal(response.body.parsha, null);
+    return;
+  }
+
+  const firstReference = parsha.portions[0].start;
+  const verse = await pool.query(
+    'SELECT display_text FROM tanach_verses WHERE book_slug = $1 AND chapter = $2 AND verse = $3',
+    [firstReference.bookSlug, firstReference.chapter, firstReference.verse]
+  );
+  assert.equal(verse.rows.length, 1, 'canonical weekly reading must exist in Tanach corpus');
+  const word = normalize(verse.rows[0].display_text).split(' ')[0];
+  assert.ok(word.length >= 1, 'weekly reading must begin with a Hebrew word');
+
+  const agent = request.agent(app);
+  const login = await agent.post('/api/auth/login').send({ password: 'base-words-test-password' });
+  assert.equal(login.status, 200);
+  const created = await agent.post('/api/base-words').send({ originalText: word });
+  assert.equal(created.status, 201, 'create a real saved base word in the disposable test schema');
+
+  try {
+    const id = created.body.item.id;
+    const response = await agent.get('/api/base-words/weekly-parsha').query({ word_id: id });
+    assert.equal(response.status, 200);
+    assert.equal(response.body.parsha.nameHe, parsha.nameHe);
+    assert.ok(response.body.selectedTotal >= 1, 'first word of weekly reading must match');
+    assert.ok(response.body.results.some(result =>
+      result.baseWordId === id
+      && result.bookSlug === firstReference.bookSlug
+      && result.chapter === firstReference.chapter
+      && result.verse === firstReference.verse
+      && result.start === 0
+    ), 'scan must link the saved word to its original canonical verse');
+  } finally {
+    const removed = await agent.delete(`/api/base-words/${created.body.item.id}`);
+    assert.equal(removed.status, 204);
+  }
 });
