@@ -7,6 +7,11 @@ const systemChromium = process.env.PLAYWRIGHT_CHROMIUM_PATH || (() => {
   catch { return undefined; }
 })();
 if (systemChromium) test.use({ launchOptions: { executablePath: systemChromium } });
+// The app registers a network-forwarding service worker. Playwright page.route
+// cannot intercept fetches handled by an active service worker; disabling
+// service workers only in these mocked browser tests keeps real app behavior
+// and the other service-worker regression tests unchanged.
+test.use({ serviceWorkers: 'block' });
 
 const one = {
   baseWordId: 1, baseWordText: 'בראשית', value: 913,
