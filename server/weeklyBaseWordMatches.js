@@ -17,6 +17,12 @@ export async function findWeeklyBaseWordMatches(db) {
     db.query('SELECT id, original_text, full_gematria FROM base_words ORDER BY id ASC'),
     loadTanachCorpus(db),
   ]);
+  return matchWeeklyBaseWords({ baseWords, corpus, parsha });
+}
+
+/** Pure matching core, shared by the route and isolated regression tests. */
+export function matchWeeklyBaseWords({ baseWords, corpus, parsha }) {
+  if (!parsha) return { parsha: null, words: [], results: [], total: 0, limit: MAX_VISIBLE_RESULTS, baseWordCount: 0 };
   const words = baseWords
     .filter(row => Number.isSafeInteger(Number(row.full_gematria)) && Number(row.full_gematria) > 0)
     .map(row => ({ id: row.id, text: row.original_text, value: Number(row.full_gematria), count: 0 }));
@@ -28,6 +34,7 @@ export async function findWeeklyBaseWordMatches(db) {
 
   const results = [];
   let total = 0;
+  if (!words.length) return { parsha: { nameHe: parsha.nameHe, shabbatDate: parsha.shabbatDate }, words: [], results, total, baseWordCount: 0, limit: MAX_VISIBLE_RESULTS };
   for (const verse of corpus) {
     if (!isVerseInParshah(verse, parsha)) continue;
     for (const [value, entries] of byValue) {
