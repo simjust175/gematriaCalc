@@ -38,7 +38,7 @@ async function login(page) {
   await expect(page.locator('.heb-input')).toBeVisible();
 }
 test('weekly Parsha button works on an empty input and opens a canonical Tanach verse', async ({ page }) => {
-  await page.route('**/api/base-words/weekly-parsha?**', route =>
+  await page.route(/\/api\/base-words\/weekly-parsha(?:\?|$)/, route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(mockWeeklyResponse(route.request().url())) })
   );
   await login(page);
@@ -56,7 +56,7 @@ test('weekly Parsha button works on an empty input and opens a canonical Tanach 
   await expect(page.locator('.weekly-scan')).toHaveCount(0);
 });
 test('weekly scan preserves typed calculator input, loads remaining pages and filters by saved word', async ({ page }) => {
-  await page.route('**/api/base-words/weekly-parsha?**', route =>
+  await page.route(/\/api\/base-words\/weekly-parsha(?:\?|$)/, route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(mockWeeklyResponse(route.request().url())) })
   );
   await login(page);
