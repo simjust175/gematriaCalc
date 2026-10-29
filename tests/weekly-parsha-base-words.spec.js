@@ -70,7 +70,7 @@ test('weekly scan preserves typed calculator input, loads remaining pages and fi
   await expect(page.locator('.weekly-scan .match-row')).toHaveCount(1);
   await expect(page.locator('.weekly-scan .word')).toContainText('ברא');
   await expect(textarea).toHaveValue('שלום');
-  await page.getByRole('button', { name: 'סגור', exact: true }).click();
+  await page.locator('.weekly-scan .close').click();
   await expect(page.locator('.weekly-scan')).toHaveCount(0);
   await expect(textarea).toHaveValue('שלום');
 });
