@@ -42,14 +42,22 @@
               @dismiss="corpusDismiss"
             />
           </div>
-          <label
-            class="keyboard-toggle"
-            title="מאפשר להקליד עברית גם כשהמקלדת במצב אנגלית"
-          >
-            <input v-model="automaticHebrewKeyboard" type="checkbox">
-            <span class="keyboard-toggle__track" aria-hidden="true"></span>
-            <span>מקלדת עברית אוטומטית</span>
-          </label>
+          <div class="input-actions">
+            <button
+              type="button"
+              class="weekly-scan-trigger"
+              :aria-expanded="showWeeklyScan"
+              aria-controls="weekly-base-words-panel"
+              @click="showWeeklyScan = !showWeeklyScan"
+            >
+              <span class="mdi mdi-key-variant" aria-hidden="true"></span>
+              מילות יסוד בפרשה
+            </button>
+            <label class="keyboard-compact-toggle" title="מקלדת עברית אוטומטית">
+              <input v-model="automaticHebrewKeyboard" type="checkbox" aria-label="מקלדת עברית אוטומטית">
+              <span class="mdi mdi-keyboard-outline" aria-hidden="true"></span>
+            </label>
+          </div>
           <button
             v-if="inputText"
             class="clear-input-btn"
@@ -59,6 +67,12 @@
             <span class="mdi mdi-close-circle"></span>
           </button>
         </div>
+        <WeeklyBaseWordsScan
+          v-if="showWeeklyScan"
+          id="weekly-base-words-panel"
+          @close="showWeeklyScan = false"
+          @open-tanach="emit('openTanach', $event)"
+        />
         <p v-if="inputInterpretation.error" class="input-validation" role="status">
           {{ inputInterpretation.error }}
         </p>
@@ -265,6 +279,7 @@ import { ref, computed, watch, nextTick } from 'vue';
 import { computeAll, interpretGematriaInput } from '@/composables/useGematria.js';
 import { useLiveMatching } from '@/composables/useLiveMatching.js';
 import BaseWordsDisclosure from './BaseWordsDisclosure.vue';
+import WeeklyBaseWordsScan from './WeeklyBaseWordsScan.vue';
 import SaveSplitButton from './SaveSplitButton.vue';
 import { useBaseWords } from '@/composables/useBaseWords.js';
 import { useAutomaticHebrewKeyboard } from '@/composables/useAutomaticHebrewKeyboard.js';
@@ -304,6 +319,7 @@ function persistInput(value) {
 
 const inputText   = ref(readPersistedInput());
 const textareaRef = ref(null);
+const showWeeklyScan = ref(false);
 const { automaticHebrewKeyboard, onHebrewKeydown } = useAutomaticHebrewKeyboard();
 const {
   suggestions: corpusSuggestions,
@@ -663,6 +679,15 @@ async function saveAsBaseWord() {
   }
 }
 
+.input-actions {display:flex;align-items:center;gap:10px;margin-top:8px;}
+.weekly-scan-trigger {display:inline-flex;align-items:center;gap:8px;padding:9px 13px;border:1px solid #d1b678;border-radius:9px;background:#fbf5e8;color:#886824;font:inherit;font-size:.79rem;font-weight:700;cursor:pointer;transition:background .18s ease,border-color .18s ease;}
+.weekly-scan-trigger:hover {background:#f4e8ce;border-color:#b99243;}
+.weekly-scan-trigger:focus-visible,.keyboard-compact-toggle:focus-within {outline:2px solid var(--navy);outline-offset:2px;}
+.weekly-scan-trigger[aria-expanded="true"] {background:#efe0b9;border-color:#b99243;}
+.keyboard-compact-toggle {position:relative;display:inline-flex;align-items:center;justify-content:center;width:30px;height:32px;color:#a6a093;cursor:pointer;border-radius:7px;}
+.keyboard-compact-toggle input {position:absolute;opacity:0;width:100%;height:100%;cursor:pointer;}
+.keyboard-compact-toggle:has(input:checked) {color:#a5833a;}
+.keyboard-compact-toggle .mdi {font-size:1.12rem;}
 .keyboard-toggle {
   display: inline-flex;
   align-items: center;
