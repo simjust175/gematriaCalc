@@ -174,3 +174,41 @@ test('base-word API is authenticated, exact, whole-phrase only, and side-effect 
   );
   assert.deepEqual(after.rows, before.rows);
 });
+
+test('weekly base-word Parsha API is private, validates page/filter, and returns bounded read-only results', async () => {
+  const unauthenticated = await request(app).get('/api/base-words/weekly-parsha');
+  assert.equal(unauthenticated.status, 401);
+
+  const agent = request.agent(app);
+  const login = await agent.post('/api/auth/login').send({ password: 'base-words-test-password' });
+  assert.equal(login.status, 200);
+  for (const query of [{page:0},{page:'1.5'},{word_id:0},{word_id:'-10'}]) {
+    const invalid = await agent.get('/api/base-words/weekly-parsha').query(query);
+    assert.equal(invalid.status, 400);
+  }
+
+  const before = await pool.query(
+    'SELECT (SELECT COUNT(*)::int FROM base_words) AS base_words, (SELECT COUNT(*)::int FROM saved_entries) AS entries'
+  );
+  const first = await agent.get('/api/base-words/weekly-parsha').query({ page: 1 });
+  assert.equal(first.status, 200);
+  assert.equal(first.body.page, 1);
+  assert.equal(first.body.limit, 50);
+  assert.ok(first.body.results.length <= 50);
+  assert.ok(first.body.total >= first.body.selectedTotal);
+  assert.ok(Array.isArray(first.body.words));
+  assert.ok(Number.isInteger(first.body.baseWordCount));
+
+  if (first.body.parsha && first.body.words.length) {
+    const word = first.body.words[0];
+    const filtered = await agent.get('/api/base-words/weekly-parsha').query({ word_id: word.id });
+    assert.equal(filtered.status, 200);
+    assert.equal(filtered.body.total, first.body.total);
+    assert.equal(filtered.body.selectedTotal, word.count);
+    assert.ok(filtered.body.results.every(item => item.baseWordId === word.id));
+  }
+  const after = await pool.query(
+    'SELECT (SELECT COUNT(*)::int FROM base_words) AS base_words, (SELECT COUNT(*)::int FROM saved_entries) AS entries'
+  );
+  assert.deepEqual(after.rows, before.rows, 'weekly scan must never change saved records');
+});
