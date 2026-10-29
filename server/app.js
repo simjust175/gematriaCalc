@@ -24,7 +24,7 @@ import {
   searchSavedMultiples,
 } from './multipleDiscovery.js';
 import { registerBaseWordRoutes } from './baseWords.js';
-import { findWeeklyBaseWordMatches } from './weeklyBaseWordMatches.js';
+import { findWeeklyBaseWordMatches, parseWeeklyBaseWordsQuery } from './weeklyBaseWordMatches.js';
 import { registerTefillotRoutes } from './tefillot.js';
 import { registerCorpusSuggestionRoutes } from './corpusSuggestions.js';
 import {
@@ -445,9 +445,11 @@ app.get('/api/tanach/gematria-matches', requireAuth, async (req, res) => {
 });
 
 /** GET /api/base-words/weekly-parsha — search every saved base word in the weekly reading. */
-app.get('/api/base-words/weekly-parsha', requireAuth, async (_req, res) => {
+app.get('/api/base-words/weekly-parsha', requireAuth, async (req, res) => {
+  const parsed = parseWeeklyBaseWordsQuery(req.query);
+  if (parsed.error) return res.status(400).json({ error: parsed.error });
   try {
-    res.json(await findWeeklyBaseWordMatches(pool));
+    res.json(await findWeeklyBaseWordMatches(pool, parsed));
   } catch (err) {
     console.error('/api/base-words/weekly-parsha error:', err.message);
     res.status(500).json({ error: 'weekly_base_words_failed' });
