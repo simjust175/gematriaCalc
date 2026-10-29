@@ -11,7 +11,7 @@
     "preview": "vite preview",
     "test": "node --test tests/client-discovery.test.js tests/prayer-selection.test.js tests/app-updates.test.js tests/auth-startup.test.js tests/derived-letter-matching.test.js tests/gematria.test.js tests/hebrewKeyboard.test.js tests/milui-canonical.test.js tests/multiples.test.js tests/tanach.test.js tests/tanach-gematria-search.test.js tests/tanach-startup.test.js tests/tefillot-availability.test.js tests/tefillot-corpus.test.js tests/tefillot-discovery.test.js tests/tefillot-save-context.test.js tests/uxlc-text.test.js tests/weekly-parsha-base-words.test.js",
     "test:api": "node scripts/run-e2e.js --api tests/api.test.js tests/base-words.test.js tests/auth-session-routing.test.js tests/database-initialization.test.js",
-    "test:browser": "node scripts/run-e2e.js tests/calculator-keyboard.spec.js tests/tanach-browser.spec.js",
+    "test:browser": "node scripts/run-e2e.js tests/calculator-keyboard.spec.js tests/tanach-browser.spec.js tests/weekly-parsha-base-words.spec.js",
     "test:e2e": "node scripts/run-e2e.js",
     "test:tefillot:e2e": "E2E_TEFILLOT_ENABLED=true node scripts/run-e2e.js tests/tefillot-enabled.spec.js",
     "test:tefillot:saves:api": "E2E_TEFILLOT_ENABLED=true E2E_TEFILLOT_SAVES=true node scripts/run-e2e.js --api tests/tefillot-saves-api.test.js",
