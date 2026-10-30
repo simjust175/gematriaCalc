@@ -70,20 +70,25 @@
       </article>
     </section>
 
-    <div v-if="entry.words && entry.words.length > 0" class="detail-words">
-      <div class="detail-label detail-words-title">פירוט מילים:</div>
-      <div v-for="word in getWordBreakdown(entry.original_text)" :key="word.position" class="detail-word-block">
-        <div class="detail-word-row">
-          <span class="word-text">{{ word.word }}</span>
-          <span class="word-gematria">{{ word.gematria }}</span>
-        </div>
-        <div class="detail-letter-list">
-          <span v-for="letter in word.letters" :key="`${word.position}-${letter.letter}-${letter.value}`" class="detail-letter">
-            {{ letter.letter }} · {{ letter.value }}
-          </span>
+    <details v-if="entry.words && entry.words.length > 0" :key="entry.id" class="detail-words">
+      <summary class="detail-words-toggle">
+        <span>פירוט מילים</span>
+        <span class="mdi mdi-chevron-down detail-words-chevron" aria-hidden="true"></span>
+      </summary>
+      <div class="detail-words-grid">
+        <div v-for="word in getWordBreakdown(entry.original_text)" :key="word.position" class="detail-word-block">
+          <div class="detail-word-row">
+            <span class="word-text">{{ word.word }}</span>
+            <span class="word-gematria">{{ word.gematria }}</span>
+          </div>
+          <div class="detail-letter-list">
+            <span v-for="letter in word.letters" :key="`${word.position}-${letter.letter}-${letter.value}`" class="detail-letter">
+              {{ letter.letter }} · {{ letter.value }}
+            </span>
+          </div>
         </div>
       </div>
-    </div>
+    </details>
 
     <div class="detail-meta">
       <span class="mdi mdi-clock-outline" aria-hidden="true"></span>
@@ -208,8 +213,29 @@ function formatTefillotReference(context) {
 
 .detail-value { color: var(--navy); font-size: 1rem; font-weight: 600; }
 .detail-gematria { color: var(--text-secondary); font-size: .82rem; margin-right: auto; white-space: nowrap; }
-.detail-words { border-top: 1px solid #eee9e0; display: grid; font-size: .84rem; gap: 0 14px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); padding-top: 8px; }
-.detail-words-title { grid-column: 1 / -1; margin-bottom: 3px; }
+.detail-words { border-top: 1px solid #eee9e0; font-size: .84rem; padding-top: 7px; }
+.detail-words-toggle {
+  align-items: center;
+  border-radius: 7px;
+  color: var(--navy);
+  cursor: pointer;
+  display: flex;
+  font-size: .83rem;
+  font-weight: 600;
+  gap: 8px;
+  justify-content: space-between;
+  list-style: none;
+  padding: 8px 5px;
+  user-select: none;
+}
+.detail-words-toggle::-webkit-details-marker { display: none; }
+.detail-words-toggle::marker { content: ''; }
+.detail-words-toggle:hover { background: #f2efe8; }
+.detail-words-toggle:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.detail-words-chevron { color: var(--text-secondary); font-size: 1rem; transition: transform .18s ease; }
+.detail-words[open] .detail-words-chevron { transform: rotate(180deg); }
+.detail-words-grid { display: grid; gap: 0 14px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); padding: 5px 3px 0; }
+@media (prefers-reduced-motion: reduce) { .detail-words-chevron { transition: none; } }
 
 .detail-word-row {
   border-bottom: 1px solid #f0ece4;

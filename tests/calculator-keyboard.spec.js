@@ -111,7 +111,7 @@ test('automatic Hebrew keyboard maps physical keys and preserves calculator edit
   await textarea.press('Control+V');
   await expect(textarea).toHaveValue('shalom');
 
-  await page.locator('.keyboard-toggle').click();
+  await page.locator('.keyboard-compact-toggle').click();
   await expect(automaticKeyboard).not.toBeChecked();
   await page.reload();
   await expect(automaticKeyboard).not.toBeChecked();

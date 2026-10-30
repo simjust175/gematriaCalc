@@ -77,6 +77,16 @@ test('saved library composes search, views, sorting, grouping, detail, and delet
     await initialFirstCard.getByRole('button', { name: 'פתח פירוט', exact: true }).click();
     const initialDetail = page.locator(`[data-detail-entry-id="${initialFirstId}"]`);
     await expect(initialDetail).toBeVisible();
+    const wordDisclosure = initialDetail.locator('details.detail-words');
+    await expect(wordDisclosure).toHaveJSProperty('open', false);
+    await expect(wordDisclosure.getByText('פירוט מילים')).toBeVisible();
+    await expect(wordDisclosure.locator('.detail-word-block').first()).toBeHidden();
+    await wordDisclosure.locator('summary').click();
+    await expect(wordDisclosure).toHaveJSProperty('open', true);
+    await expect(wordDisclosure.locator('.detail-word-block').first()).toBeVisible();
+    await wordDisclosure.locator('summary').press('Enter');
+    await expect(wordDisclosure).toHaveJSProperty('open', false);
+    await expect(wordDisclosure.locator('.detail-word-block').first()).toBeHidden();
     const settingsResponse = await page.request.get(new URL('/api/settings/milui', page.url()).href);
     expect(settingsResponse.ok()).toBe(true);
     const settings = await settingsResponse.json();
@@ -134,6 +144,7 @@ test('saved library composes search, views, sorting, grouping, detail, and delet
     const groupedDetail = page.locator('.shared-group .detail-panel');
     await expect(groupedDetail).toBeVisible();
     await expect(groupedDetail.locator('.detail-words')).toBeVisible();
+    await expect(groupedDetail.locator('details.detail-words')).toHaveJSProperty('open', false);
     if (testInfo.project.name !== 'mobile-chromium') {
       const groupGridBox = await page.locator('.shared-group .group-entries').boundingBox();
       const groupedDetailBox = await groupedDetail.boundingBox();
