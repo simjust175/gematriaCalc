@@ -80,13 +80,13 @@ test('saved library composes search, views, sorting, grouping, detail, and delet
     const wordDisclosure = initialDetail.locator('details.detail-words');
     await expect(wordDisclosure).toHaveJSProperty('open', false);
     await expect(wordDisclosure.getByText('פירוט מילים')).toBeVisible();
-    await expect(wordDisclosure.locator('.detail-word-block')).toBeHidden();
+    await expect(wordDisclosure.locator('.detail-word-block').first()).toBeHidden();
     await wordDisclosure.locator('summary').click();
     await expect(wordDisclosure).toHaveJSProperty('open', true);
     await expect(wordDisclosure.locator('.detail-word-block').first()).toBeVisible();
     await wordDisclosure.locator('summary').press('Enter');
     await expect(wordDisclosure).toHaveJSProperty('open', false);
-    await expect(wordDisclosure.locator('.detail-word-block')).toBeHidden();
+    await expect(wordDisclosure.locator('.detail-word-block').first()).toBeHidden();
     const settingsResponse = await page.request.get(new URL('/api/settings/milui', page.url()).href);
     expect(settingsResponse.ok()).toBe(true);
     const settings = await settingsResponse.json();
