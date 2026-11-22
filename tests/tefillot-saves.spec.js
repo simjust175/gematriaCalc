@@ -129,31 +129,19 @@ test('Tefillot failed single save shows pending/error, never false selection, th
   await clean(page);
 });
 
-test('Tefillot נבחרה is reserved for explicit bulk selection and becomes saved only after commit', async ({ page }) => {
+test('Tefillot individual saving stays immediate after retiring bulk selection', async ({ page }) => {
   await login(page);
   await clean(page);
   await discover(page, 'tefillot', '44');
   const discovery = page.locator('.gematria-discovery');
-  const cards = discovery.locator('.match-card:not(.skeleton-card)');
-  let requests = 0;
-  page.on('request', request => {
-    if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/entries/curated-matches') requests++;
-  });
-  await discovery.getByRole('button', { name: 'בחירה מרובה', exact: true }).click();
-  for (let index = 0; index < 2; index++) {
-    await cards.nth(index).getByRole('button', { name: 'שמור התאמה', exact: true }).click();
-    await expect(cards.nth(index).getByRole('button', { name: 'נבחרה', exact: true })).toBeEnabled();
-    await expect(cards.nth(index)).toHaveClass(/curated-selected-card/);
-    await expect(cards.nth(index)).not.toHaveClass(/curated-saved-card/);
-  }
-  expect(requests).toBe(0);
-  await discovery.getByRole('button', { name: 'שמור התאמות נבחרות', exact: true }).click();
-  for (let index = 0; index < 2; index++) {
-    await expect(cards.nth(index).getByRole('button', { name: 'נשמרה', exact: true })).toBeDisabled();
-    await expect(cards.nth(index)).toHaveClass(/curated-saved-card/);
-    await expect(cards.nth(index)).not.toHaveClass(/curated-selected-card/);
-  }
-  expect(requests).toBe(1);
+  await expect(discovery.locator('.selection-mode-toggle, .curated-save-bar')).toHaveCount(0);
+  const card = discovery.locator('.match-card:not(.skeleton-card)').first();
+  const response = page.waitForResponse(response => response.request().method() === 'POST'
+    && new URL(response.url()).pathname === '/api/entries/curated-matches');
+  await card.locator('.curated-action').click();
+  expect((await response).ok()).toBe(true);
+  await expect(card.locator('.curated-action')).toBeDisabled();
+  await expect(card).toHaveClass(/curated-saved-card/);
   await clean(page);
 });
 for (const corpus of ['tefillot', 'tanach']) {

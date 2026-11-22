@@ -29,6 +29,7 @@ import { registerTefillotRoutes } from './tefillot.js';
 import { registerCorpusSuggestionRoutes } from './corpusSuggestions.js';
 import { registerSavedLibraryRoutes } from './savedLibrary.js';
 import { registerTanachPdfRoutes } from './tanachPdf.js';
+import { registerSavedLibraryPdfRoutes } from './savedLibraryPdf.js';
 import {
   getExplicitMiluiMatches,
   recordMiluiSaveMode,
@@ -146,6 +147,7 @@ registerBaseWordRoutes(app, { pool, requireAuth });
 registerTefillotRoutes(app, { pool, requireAuth });
 registerSavedLibraryRoutes(app, { pool, requireAuth });
 registerTanachPdfRoutes(app, { pool, requireAuth });
+registerSavedLibraryPdfRoutes(app, { pool, requireAuth });
 registerMiluiInterpretationRoutes(app, {
   pool,
   requireAuth,

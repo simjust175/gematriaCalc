@@ -424,7 +424,7 @@ test('curated saved state permits another reason and another parent for the same
   expect(requests.map(item => item.parentOriginalText)).toEqual(['שלום', 'שלום', 'שלומ']);
 });
 
-test('curated multi-select shows gold cards, supports cancel, and submits a bulk request', async ({ page }, testInfo) => {
+test('calculator saves a single relationship immediately without bulk-selection controls', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-chromium');
   await login(page);
   await page.route('**/api/tanach/gematria-matches**', route => route.fulfill({
@@ -441,24 +441,16 @@ test('curated multi-select shows gold cards, supports cancel, and submits a bulk
   await page.route('**/api/entries/curated-matches', async route => {
     requestBody = route.request().postDataJSON();
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
-      success: true, parentId: 92, parentCreated: false, matches: [{ id: 902, sourceType: 'tanach' }, { id: 903, sourceType: 'tanach' }],
+      success: true, parentId: 92, parentCreated: false, matches: [{ id: 902, sourceType: 'tanach' }],
     }) });
   });
   await page.locator('.heb-input').fill('שלום');
   const discovery = page.locator('.gematria-discovery');
   await discovery.getByRole('switch', { name: 'כולל' }).click();
-  await discovery.getByRole('button', { name: 'בחירה מרובה' }).click();
-  await expect(discovery.getByRole('button', { name: 'סיום בחירה מרובה' }))
-    .toHaveAttribute('aria-pressed', 'true');
-  const cards = discovery.locator('.match-card');
-  await cards.nth(0).getByRole('button', { name: 'שמור התאמה' }).click();
-  await cards.nth(1).getByRole('button', { name: 'שמור התאמה' }).click();
-  await expect(discovery.locator('.curated-selected-card')).toHaveCount(2);
-  await discovery.getByRole('button', { name: 'ביטול' }).click();
-  await expect(discovery.locator('.curated-selected-card')).toHaveCount(0);
-  await cards.nth(0).getByRole('button', { name: 'שמור התאמה' }).click();
-  await cards.nth(1).getByRole('button', { name: 'שמור התאמה' }).click();
-  await discovery.getByRole('button', { name: 'שמור התאמות נבחרות' }).click();
-  await expect.poll(() => requestBody?.matches?.length).toBe(2);
-  expect(requestBody.matches.every(match => match.reasonCode === 'full_gematria')).toBe(true);
+  await expect(discovery.locator('.selection-mode-toggle, .curated-save-bar')).toHaveCount(0);
+  const card = discovery.locator('.match-card').first();
+  await card.locator('.curated-action').click();
+  await expect.poll(() => requestBody?.matches?.length).toBe(1);
+  expect(requestBody.matches[0].reasonCode).toBe('full_gematria');
+  await expect(card.locator('.curated-action')).toBeDisabled();
 });

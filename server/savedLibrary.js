@@ -1,6 +1,7 @@
 import { computeAll, normalize } from "../src/composables/useGematria.js";
 import { isTefillotAvailable } from "./tefillot.js";
 import { TANACH_PARSHIOT, getParshahForReference } from './tanachParshiot.js';
+import { getCurrentWeeklyParshah } from './tanachWeeklyParsha.js';
 import {
   serializeTefillotContext,
   tefillotSaveSchemaReady,
@@ -18,12 +19,15 @@ const MATCH_TYPES = new Set([
 ]);
 const SORTS = new Set(["recent", "oldest", "gematria", "alphabetical"]);
 const PARSHA_IDS = new Set(TANACH_PARSHIOT.map(portion => portion.id));
+const PARSHA_ORDER = new Map(TANACH_PARSHIOT.map(portion => [portion.id, portion.canonicalOrder]));
 
 export function parseSavedMatchQuery(query) {
   const source = query.source || "";
   const matchType = query.matchType || "";
   const sort = query.sort || "recent";
   const parshaId = query.parsha_id || '';
+  const currentParshah = query.parsha === 'current';
+  const parshaScope = query.parsha_scope === 'torah';
   const limit = query.limit == null ? 40 : Number(query.limit);
   const offset = query.offset == null ? 0 : Number(query.offset);
   if (
@@ -42,6 +46,9 @@ export function parseSavedMatchQuery(query) {
   if (typeof parshaId !== 'string' || (parshaId && !PARSHA_IDS.has(parshaId))) {
     return { error: 'invalid_parsha_filter' };
   }
+  if ((query.parsha != null && !currentParshah)
+      || (query.parsha_scope != null && !parshaScope)
+      || (currentParshah && parshaId)) return { error: 'invalid_parsha_filter' };
   if (
     [query.limit, query.offset].some(
       (value) => value != null && !["string", "number"].includes(typeof value),
@@ -69,6 +76,8 @@ export function parseSavedMatchQuery(query) {
     matchType,
     sort,
     parshaId,
+    parshaScope,
+    currentParshah,
     limit,
     offset,
     search: (query.search || "").trim(),
@@ -149,7 +158,9 @@ function serializeRelationship(row, calculate) {
   };
 }
 
-export function paginateSavedRelationships(rows, parsed, entryCount) {
+export function paginateSavedRelationships(rows, parsed, entryCount, {
+  exportAll = false, weeklyParshah = getCurrentWeeklyParshah(),
+} = {}) {
   // A parent commonly owns many matches. Compute each distinct expression once
   // per request while retaining the engine's exact pointed-word breakdown.
   const calculations = new Map();
@@ -162,6 +173,8 @@ export function paginateSavedRelationships(rows, parsed, entryCount) {
   const normalizedSearch = normalize(parsed.search);
   let matches = all.filter((match) => {
     if (parsed.parshaId && match.parshaId !== parsed.parshaId) return false;
+    if (parsed.parshaScope && !match.parshaId) return false;
+    if (parsed.currentParshah && !weeklyParshah?.ids.includes(match.parshaId)) return false;
     if (
       parsed.source &&
       parsed.source !== "all" &&
@@ -189,9 +202,10 @@ export function paginateSavedRelationships(rows, parsed, entryCount) {
     );
   });
   matches.sort((a, b) => {
-    if (parsed.parshaId) {
+    if (parsed.parshaId || parsed.parshaScope || parsed.currentParshah) {
       const left = a.tanachContext, right = b.tanachContext;
-      return left.chapter - right.chapter || left.verse - right.verse
+      return PARSHA_ORDER.get(a.parshaId) - PARSHA_ORDER.get(b.parshaId)
+        || left.chapter - right.chapter || left.verse - right.verse
         || left.start - right.start || left.end - right.end
         || a.parentId - b.parentId || a.id - b.id;
     }
@@ -215,14 +229,15 @@ export function paginateSavedRelationships(rows, parsed, entryCount) {
     ? matches.findIndex((match) => match.key === parsed.focus)
     : -1;
   const offset =
-    focusedIndex >= 0
+    exportAll ? 0 : focusedIndex >= 0
       ? Math.floor(focusedIndex / parsed.limit) * parsed.limit
       : parsed.offset;
-  const page = matches.slice(offset, offset + parsed.limit);
+  const page = exportAll ? matches : matches.slice(offset, offset + parsed.limit);
   return {
     matches: page,
     total: matches.length,
     counts: { matches: all.length, entries: entryCount },
+    weeklyParshah,
     focusedKey: focusedIndex >= 0 ? parsed.focus : null,
     pagination: {
       offset,
@@ -231,6 +246,34 @@ export function paginateSavedRelationships(rows, parsed, entryCount) {
       hasMore: offset + page.length < matches.length,
     },
   };
+}
+
+// Both screen pagination and PDF export read the same persisted relationships.
+// Optional prayer metadata retains the legacy-schema compatibility projection.
+export async function readSavedRelationships(db, parsed, options) {
+  const [tanach, prayerSchemaReady, entries] = await Promise.all([
+    db.query(`
+      SELECT cm.*, 'tanach' AS source_type, se.original_text AS parent_original_text,
+        se.full_gematria AS parent_gematria,
+        COALESCE(NULLIF(cm.tanach_book_label, ''), b.hebrew_name, cm.tanach_book_slug) AS tanach_book_label
+      FROM curated_matches cm JOIN saved_entries se ON se.id = cm.parent_id
+      LEFT JOIN tanach_books b ON b.slug = cm.tanach_book_slug`),
+    tefillotSaveSchemaReady(db),
+    db.query("SELECT COUNT(*)::int AS count FROM saved_entries"),
+  ]);
+  let rows = tanach.rows;
+  if (prayerSchemaReady && (await isTefillotAvailable(db))) {
+    const prayer = await db.query(`
+      SELECT cm.*, 'tefillot' AS source_type, se.original_text AS parent_original_text,
+        se.full_gematria AS parent_gematria,
+        u.occasion_slug, u.occasion_label, u.service_slug, u.service_label,
+        u.section_key, u.section_label, ${TEFILLOT_DISPLAY_METADATA_SELECT}
+      FROM curated_tefillot_matches cm JOIN saved_entries se ON se.id = cm.parent_id
+      JOIN tefillot_units u ON u.id = cm.tefillot_unit_id
+      JOIN tefillot_sources s ON s.id = u.source_id`);
+    rows = rows.concat(prayer.rows);
+  }
+  return paginateSavedRelationships(rows, parsed, entries.rows[0].count, options);
 }
 
 async function countSavedMatches(db) {
@@ -285,30 +328,7 @@ export function registerSavedLibraryRoutes(app, { pool, requireAuth }) {
     const parsed = parseSavedMatchQuery(req.query);
     if (parsed.error) return res.status(400).json({ error: parsed.error });
     try {
-      // Calculate through the same verified engine as saving. Reading the full
-      // relationship set also makes numeric/pointed-text search and pagination
-      // independent of the age or first page of the parent entry.
-      const [tanach, prayerSchemaReady, entries] = await Promise.all([
-        pool.query(`
-        SELECT cm.*, 'tanach' AS source_type, se.original_text AS parent_original_text,
-          se.full_gematria AS parent_gematria
-        FROM curated_matches cm JOIN saved_entries se ON se.id = cm.parent_id`),
-        tefillotSaveSchemaReady(pool),
-        pool.query("SELECT COUNT(*)::int AS count FROM saved_entries"),
-      ]);
-      let rows = tanach.rows;
-      if (prayerSchemaReady && (await isTefillotAvailable(pool))) {
-        const prayer = await pool.query(`
-          SELECT cm.*, 'tefillot' AS source_type, se.original_text AS parent_original_text,
-            se.full_gematria AS parent_gematria,
-            u.occasion_slug, u.occasion_label, u.service_slug, u.service_label,
-            u.section_key, u.section_label, ${TEFILLOT_DISPLAY_METADATA_SELECT}
-          FROM curated_tefillot_matches cm JOIN saved_entries se ON se.id = cm.parent_id
-          JOIN tefillot_units u ON u.id = cm.tefillot_unit_id
-          JOIN tefillot_sources s ON s.id = u.source_id`);
-        rows = rows.concat(prayer.rows);
-      }
-      res.json(paginateSavedRelationships(rows, parsed, entries.rows[0].count));
+      res.json(await readSavedRelationships(pool, parsed));
     } catch (error) {
       console.error("/api/entries/curated-matches GET error:", error.message);
       res.status(500).json({ error: "saved_matches_load_failed" });

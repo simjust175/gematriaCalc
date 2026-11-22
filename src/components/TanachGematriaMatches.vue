@@ -293,54 +293,6 @@
       {{ sourceWarning }}
     </p>
 
-    <div class="discovery-actions">
-      <ParshaDiscoveryDisclosure
-        v-if="source !== 'tefillot'"
-        :active="parshaScope === 'torah'"
-        :selected-id="parshaId"
-        :selected-name="selectedParshaLabel"
-        :summary="parshaBreakdown"
-        :loading="loading"
-        :error="error"
-        @activate="activateParshaDiscovery"
-        @select="setParshaId"
-        @exit="setParshaScope(false)"
-        @retry="refresh"
-      />
-      <button
-        v-if="results.length && !error"
-        type="button"
-        class="selection-mode-toggle"
-        :aria-pressed="selectionMode"
-        @click="toggleSelectionMode"
-      >
-        {{ selectionMode ? "סיום בחירה מרובה" : "בחירה מרובה" }}
-      </button>
-      <button
-        v-if="parshaScope || source === 'tanach'"
-        type="button"
-        class="pdf-download"
-        aria-label="הורד PDF"
-        :aria-busy="pdfLoading"
-        :disabled="
-          pdfLoading ||
-          loading ||
-          !!error ||
-          !results.some((item) => item.sourceType === 'tanach')
-        "
-        @click="exportPdf"
-      >
-        <span
-          class="mdi"
-          :class="
-            pdfLoading ? 'mdi-loading mdi-spin' : 'mdi-file-download-outline'
-          "
-          aria-hidden="true"
-        ></span
-        >{{ pdfLoading ? "מכין PDF…" : "הורד PDF" }}
-      </button>
-    </div>
-    <p v-if="pdfError" class="pdf-error" role="alert">{{ pdfError }}</p>
     <div
       v-if="source === 'tefillot' && !tefillotAvailable"
       class="state-card coming-soon-state"
@@ -421,8 +373,6 @@
         <article
           class="match-card"
           :class="{
-            'curated-selected-card':
-              selectionMode && selectedKeys.has(resultKey(result)),
             'curated-saved-card': curatedSavedKeys.has(curatedStateKey(result)),
           }"
         >
@@ -487,23 +437,15 @@
               type="button"
               class="curated-action"
               :class="{
-                selected: selectionMode && selectedKeys.has(resultKey(result)),
                 saved: curatedSavedKeys.has(curatedStateKey(result)),
               }"
               :disabled="
                 curatedSavedKeys.has(curatedStateKey(result)) || curatedSaving
               "
-              :aria-pressed="
-                selectionMode ? selectedKeys.has(resultKey(result)) : undefined
-              "
               :aria-busy="
                 tefillotSavingKey === curatedStateKey(result) ? true : undefined
               "
-              @click="
-                selectionMode
-                  ? toggleCuratedSelection(result)
-                  : saveCuratedSingle(result)
-              "
+              @click="saveCuratedSingle(result)"
             >
               <span
                 class="mdi"
@@ -546,24 +488,6 @@
           >
         </article>
       </template>
-    </div>
-    <div v-if="selectedKeys.size" class="curated-save-bar" role="status">
-      <span>{{ selectedKeys.size }} התאמות נבחרו</span>
-      <button
-        type="button"
-        :disabled="curatedSaving"
-        @click="saveCuratedMatches"
-      >
-        {{ curatedSaving ? "שומר…" : "שמור התאמות נבחרות" }}
-      </button>
-      <button
-        type="button"
-        class="cancel-curated"
-        :disabled="curatedSaving"
-        @click="clearCuratedSelection"
-      >
-        ביטול
-      </button>
     </div>
     <div
       v-if="curatedMessage"
@@ -624,8 +548,6 @@ import {
 } from "@/utils/tefillotContext.js";
 import TanachScopeSelect from "./TanachScopeSelect.vue";
 import DiscoveryActionsMenu from "./DiscoveryActionsMenu.vue";
-import ParshaDiscoveryDisclosure from "./ParshaDiscoveryDisclosure.vue";
-import { downloadTanachPdf } from "@/utils/tanachPdf.js";
 import { formatHebrewReference } from "@/utils/hebrewReference.js";
 
 const props = defineProps({
@@ -639,18 +561,13 @@ const saveErrors = ref(new Set());
 const savingKey = ref("");
 const savedRangeMessage = ref("");
 const independentSavedKey = ref("");
-const selectedKeys = ref(new Set());
 const curatedSavedKeys = ref(new Set());
-const selectionMode = ref(false);
 const curatedSaving = ref(false);
 const tefillotSavingKey = ref("");
 const tefillotMatchErrors = ref(new Map());
 const curatedMessage = ref("");
 const curatedError = ref(false);
 const lastSavedMatch = ref(null);
-const pdfLoading = ref(false);
-const pdfError = ref("");
-let pdfRequestVersion = 0;
 const rangeMetadata = ref({ canonicalBooks: [], parshiot: [] });
 const rangeMetadataLoading = ref(true);
 const rangeMetadataError = ref("");
@@ -714,7 +631,6 @@ const {
   parshaId,
   parshaScope,
   parshaBreakdown,
-  querySnapshot,
   chapterBook,
   chapter,
   verse,
@@ -725,7 +641,6 @@ const {
   setIncludeKollel,
   setBookOrder,
   setParshaId,
-  setParshaScope,
   setChapter,
   setVerse,
   toggleCurrentParshah,
@@ -815,7 +730,6 @@ watch(
   ],
   () => {
     saveContextVersion += 1;
-    selectedKeys.value = new Set();
     curatedMessage.value = "";
     curatedError.value = false;
     lastSavedMatch.value = null;
@@ -849,9 +763,6 @@ onDeactivated(() => {
   saveContextVersion += 1;
   curatedMessage.value = "";
   lastSavedMatch.value = null;
-  pdfRequestVersion += 1;
-  pdfLoading.value = false;
-  pdfError.value = "";
 });
 onBeforeUnmount(() => {
   discoveryActive = false;
@@ -859,7 +770,6 @@ onBeforeUnmount(() => {
   window.clearTimeout(curatedStateTimer);
   curatedStateRequestId += 1;
   rangeStateRequestId += 1;
-  pdfRequestVersion += 1;
 });
 const selectedBook = computed(
   () =>
@@ -942,43 +852,12 @@ const manualScopeLabel = computed(() => {
     return `${selectedBook.value.name} פרק ${toHebrewNumber(chapter.value)}`;
   return `ספר ${selectedBook.value.name}`;
 });
-function activateParshaDiscovery() {
-  source.value = "tanach";
-  setParshaScope(true);
-}
 function portionTotal(id) {
   const portion = parshaBreakdown.value?.books
     ?.flatMap((book) => book.parshiot)
     .find((item) => item.id === id);
   return Number.isSafeInteger(portion?.total) ? portion.total : null;
 }
-watch(
-  [querySnapshot, () => props.sourceText],
-  () => {
-    pdfRequestVersion += 1;
-    pdfLoading.value = false;
-    pdfError.value = "";
-  },
-  { flush: "sync" },
-);
-async function exportPdf() {
-  if (pdfLoading.value || loading.value || error.value) return;
-  const requestVersion = ++pdfRequestVersion;
-  const params = Object.freeze({ ...querySnapshot.value.params });
-  const originalText = props.sourceText;
-  pdfLoading.value = true;
-  pdfError.value = "";
-  try {
-    await downloadTanachPdf({ params, originalText });
-  } catch (reason) {
-    if (requestVersion === pdfRequestVersion)
-      pdfError.value =
-        reason?.userMessage || "לא ניתן להוריד את הקובץ כרגע. אפשר לנסות שוב.";
-  } finally {
-    if (requestVersion === pdfRequestVersion) pdfLoading.value = false;
-  }
-}
-
 onMounted(loadRangeMetadata);
 onMounted(async () => {
   try {
@@ -1180,20 +1059,6 @@ async function syncCuratedSavedState() {
     // Saving remains available if the background saved-state check fails.
   }
 }
-function toggleCuratedSelection(item) {
-  const key = resultKey(item);
-  const next = new Set(selectedKeys.value);
-  if (next.has(key)) next.delete(key);
-  else next.add(key);
-  selectedKeys.value = next;
-}
-function toggleSelectionMode() {
-  selectionMode.value = !selectionMode.value;
-  if (!selectionMode.value) clearCuratedSelection();
-}
-function clearCuratedSelection() {
-  selectedKeys.value = new Set();
-}
 async function saveCuratedSingle(item) {
   if (curatedSaving.value) return;
   if (curatedSavedKeys.value.has(curatedStateKey(item))) return;
@@ -1203,13 +1068,9 @@ async function saveCuratedSingle(item) {
   tefillotMatchErrors.value = new Map(
     [...tefillotMatchErrors.value].filter(([savedKey]) => savedKey !== key),
   );
-  // Single saves never enter the temporary bulk-selection state.
-  selectedKeys.value = new Set(
-    [...selectedKeys.value].filter((savedKey) => savedKey !== resultKey(item)),
-  );
   try {
     if (
-      !(await saveCuratedMatches([item])) &&
+      !(await saveCuratedMatch(item)) &&
       item.sourceType === "tefillot" &&
       discoveryActive &&
       contextVersion === saveContextVersion
@@ -1226,9 +1087,7 @@ async function saveCuratedSingle(item) {
 function curatedButtonLabel(item) {
   if (curatedSavedKeys.value.has(curatedStateKey(item))) return "נשמרה";
   if (tefillotSavingKey.value === curatedStateKey(item)) return "שומר…";
-  return selectionMode.value && selectedKeys.value.has(resultKey(item))
-    ? "נבחרה"
-    : "שמור התאמה";
+  return "שמור התאמה";
 }
 function matchSaveError(code) {
   return (
@@ -1250,11 +1109,8 @@ function matchSaveError(code) {
     }[code] || "לא ניתן לשמור את ההתאמה כרגע. נסו שוב."
   );
 }
-async function saveCuratedMatches(explicitMatches = null) {
-  const chosen = Array.isArray(explicitMatches)
-    ? explicitMatches
-    : results.value.filter((item) => selectedKeys.value.has(resultKey(item)));
-  if (!chosen.length || curatedSaving.value) return;
+async function saveCuratedMatch(item) {
+  if (curatedSaving.value) return;
   const savedReason = reasonCode();
   const savedParentText = props.sourceText;
   const contextVersion = saveContextVersion;
@@ -1270,13 +1126,13 @@ async function saveCuratedMatches(explicitMatches = null) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         parentOriginalText: savedParentText,
-        matches: chosen.map((item) => ({
+        matches: [{
           originalText: item.text,
           ...(item.sourceType === "tefillot"
             ? { tefillotContext: tefillotContextOf(item) }
             : { tanachContext: tanachContextOf(item) }),
           reasonCode: savedReason,
-        })),
+        }],
       }),
     });
     const payload = await response.json().catch(() => ({}));
@@ -1309,13 +1165,10 @@ async function saveCuratedMatches(explicitMatches = null) {
     }
     curatedStateRequestId += 1;
     const savedKeysNow = new Set(curatedSavedKeys.value);
-    chosen.forEach((item) =>
-      savedKeysNow.add(curatedStateKey(item, savedReason, savedParentText)),
-    );
+    savedKeysNow.add(curatedStateKey(item, savedReason, savedParentText));
     curatedSavedKeys.value = savedKeysNow;
     lastSavedMatch.value = savedRelationship;
-    curatedMessage.value = chosen.length > 1 ? "ההתאמות נשמרו" : "ההתאמה נשמרה";
-    if (!Array.isArray(explicitMatches)) selectedKeys.value = new Set();
+    curatedMessage.value = "ההתאמה נשמרה";
     return true;
   } catch (error) {
     if (isCurrentContext()) {
@@ -2029,21 +1882,6 @@ h2 {
   color: #87671f;
   font-size: 0.73rem;
 }
-.selection-mode-toggle {
-  display: block;
-  margin: 0 0 10px;
-  padding: 5px 10px;
-  border: 1px solid #c9a55d;
-  border-radius: 6px;
-  background: #fffdf8;
-  color: #765812;
-  font: inherit;
-  font-size: 0.75rem;
-  cursor: pointer;
-}
-.selection-mode-toggle[aria-pressed="true"] {
-  background: #fbf4e6;
-}
 .match-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2066,7 +1904,6 @@ h2 {
   transform: translateY(-2px);
   box-shadow: 0 7px 18px rgba(26, 39, 68, 0.08);
 }
-.match-card.curated-selected-card,
 .match-card.curated-saved-card {
   border-color: #c09840;
   background: #fffdf7;
@@ -2194,59 +2031,10 @@ h2 {
   cursor: default;
   opacity: 0.9;
 }
-.curated-action.selected {
-  background: #f2e4bd !important;
-  color: #765812 !important;
-  border-color: #d6bd7a !important;
-}
 .independent-save-notice {
   color: #55724b;
   font-size: 0.76rem;
   margin-top: 7px;
-}
-.discovery-actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 9px;
-  margin: 0 0 13px;
-}
-.discovery-actions .selection-mode-toggle {
-  margin: 0;
-}
-.pdf-download {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  min-height: 38px;
-  margin-inline-start: auto;
-  padding: 7px 10px;
-  border: 1px solid #e1d9ca;
-  border-radius: 8px;
-  background: #fffdf8;
-  color: #637082;
-  font: inherit;
-  font-size: 0.78rem;
-  cursor: pointer;
-}
-.pdf-download:hover:not(:disabled) {
-  border-color: #c7ae7c;
-  background: #faf3e5;
-  color: var(--navy);
-}
-.pdf-download:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
-.pdf-download:focus-visible {
-  outline: 2px solid var(--gold);
-  outline-offset: 2px;
-}
-.pdf-error {
-  color: #a3483b;
-  font-size: 0.8rem;
-  margin: -3px 0 13px;
 }
 .parsha-book-heading,
 .parsha-result-heading {
@@ -2273,40 +2061,6 @@ h2 {
   color: var(--text-secondary);
   font-size: 0.74rem;
   font-weight: 400;
-}
-@media (max-width: 560px) {
-  .pdf-download {
-    min-height: 44px;
-  }
-  .discovery-actions {
-    gap: 8px;
-  }
-}
-.curated-save-bar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin: 14px auto 0;
-  padding: 8px 12px;
-  border: 1px solid #dcc58e;
-  border-radius: 9px;
-  background: #fbf4e6;
-  color: #765812;
-  font-size: 0.76rem;
-}
-.curated-save-bar button {
-  border: 1px solid #c9a55d;
-  border-radius: 6px;
-  background: #fffdf8;
-  color: #765812;
-  padding: 5px 9px;
-  font: inherit;
-  cursor: pointer;
-}
-.curated-save-bar .cancel-curated {
-  border-color: transparent;
-  background: transparent;
 }
 .curated-message {
   position: fixed;

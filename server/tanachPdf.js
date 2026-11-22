@@ -81,15 +81,19 @@ export function buildTanachReportHtml({ data, options, originalText, includeKoll
   const targetLabel = options.method === 'gematria' ? `הערך שנחפש: ${options.value}${includeKollel ? ' · כולל +1' : ''}`
     : `האותיות המבוקשות: ${options.sequence}${options.orderIndependent ? ' · אותן אותיות בכל סדר' : ''}`;
   const scope = reportScope(options, data);
-  return `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; font-src data:; img-src data:"><title>גימטריה — ${escapeReportText(scope)}</title><style>
+  return buildHebrewReportDocument({ title: scope, headerHtml: `<header><div class="brand">גימטריה · דוח התאמות</div><h1>${escapeReportText(scope)}</h1><p class="original" dir="auto">${escapeReportText(originalText)}</p><div class="summary">${escapeReportText(targetLabel)} · ${escapeReportText(METHOD_LABELS[options.method])} · ${escapeReportText(TYPE_LABELS[options.type || 'all'])}<br><strong>${data.results.length.toLocaleString('he-IL')} התאמות · כל התוצאות המסוננות</strong></div>${options.search ? `<p class="search-note">חיפוש בתוצאות: ${escapeReportText(options.search)}</p>` : ''}</header>`, rowsHtml: rows, fontData, attribution });
+}
+
+export function buildHebrewReportDocument({ title, headerHtml, rowsHtml, fontData, attribution = '' }) {
+  return `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; font-src data:; img-src data:"><title>גימטריה — ${escapeReportText(title)}</title><style>
     @font-face{font-family:ReportHebrew;src:url(data:font/ttf;base64,${fontData});font-weight:100 900;font-style:normal;font-display:block}
     @page{size:A4;margin:18mm 17mm 20mm}
     *{box-sizing:border-box}html{direction:rtl}body{margin:0;color:#172b43;background:white;font-family:ReportHebrew,serif;font-size:11pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}
     header{border-bottom:2px solid #b58b34;padding:0 0 15pt;margin-bottom:20pt}header .brand{font-size:10pt;color:#8a6b29;margin-bottom:9pt}h1{font-size:23pt;margin:0 0 8pt;line-height:1.6;font-weight:700}.original{text-align:right;font-size:17pt;line-height:1.9;margin:8pt 0;overflow-wrap:anywhere;unicode-bidi:plaintext}.scope{font-size:13pt;color:#34465d;margin:5pt 0}.summary{line-height:1.9;color:#58667a;font-size:10pt}.summary strong{color:#172b43}.search-note{font-size:10pt;color:#58667a;overflow-wrap:anywhere}
     h2{font-size:14pt;line-height:1.8;margin:22pt 0 5pt;padding:7pt 10pt;background:#f6f1e7;border-right:3px solid #b58b34;break-after:avoid-page}h2 span{font-size:9pt;font-weight:400;color:#746a58;margin-right:8pt}
     .match{padding:11pt 0 13pt;border-bottom:1px solid #e9e5dc;break-inside:avoid-page}.reference{display:flex;align-items:baseline;gap:9pt;flex-wrap:wrap;color:#6b7787;font-size:9pt;line-height:1.9}.reference>bdi{font-size:8pt;min-width:14pt;color:#a58a54}.reference strong{color:#243c56;font-size:10pt;font-weight:650}.match-text{margin:7pt 0 0;font-size:15pt;line-height:1.95;overflow-wrap:anywhere}.empty{padding:20pt 0}footer{font-size:8pt;color:#778295;line-height:1.8;margin-top:22pt}
-  </style></head><body><header><div class="brand">גימטריה · דוח התאמות</div><h1>${escapeReportText(scope)}</h1><p class="original" dir="auto">${escapeReportText(originalText)}</p><div class="summary">${escapeReportText(targetLabel)} · ${escapeReportText(METHOD_LABELS[options.method])} · ${escapeReportText(TYPE_LABELS[options.type || 'all'])}<br><strong>${data.results.length.toLocaleString('he-IL')} התאמות · כל התוצאות המסוננות</strong></div>${options.search ? `<p class="search-note">חיפוש בתוצאות: ${escapeReportText(options.search)}</p>` : ''}</header>
-  <main>${rows || '<p class="empty">לא נמצאו התאמות בסינון שנבחר.</p>'}</main>${attribution ? `<footer>${escapeReportText(attribution)}</footer>` : ''}</body></html>`;
+  </style></head><body>${headerHtml}
+  <main>${rowsHtml || '<p class="empty">לא נמצאו התאמות בסינון שנבחר.</p>'}</main>${attribution ? `<footer>${escapeReportText(attribution)}</footer>` : ''}</body></html>`;
 }
 
 async function chromiumExecutable() {
@@ -105,10 +109,10 @@ async function chromiumExecutable() {
   return undefined;
 }
 
-export async function renderTanachPdf(report, { signal } = {}) {
+export async function renderTanachPdf(report, { signal, buildHtml = buildTanachReportHtml } = {}) {
   fontPromise ||= readFile(new URL('./assets/fonts/NotoSerifHebrew.ttf', import.meta.url)).then(bytes => bytes.toString('base64'));
   const fontData = await fontPromise;
-  const html = buildTanachReportHtml({ ...report, fontData });
+  const html = buildHtml({ ...report, fontData });
   let browser;
   let timedOut = false;
   const close = () => { browser?.close().catch(() => {}); };

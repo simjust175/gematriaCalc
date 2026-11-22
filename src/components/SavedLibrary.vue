@@ -145,6 +145,7 @@
           <label v-if="activeTab === 'matches'"
             >פרשה
             <select
+              ref="parshaSelect"
               v-model="savedParshaId"
               aria-label="פרשה"
               :disabled="parshaOptionsLoading || !!parshaOptionsError"
@@ -178,7 +179,7 @@
           </p>
           <label
             >מיון<span
-              v-if="activeTab === 'matches' && savedParshaId"
+              v-if="activeTab === 'matches' && (savedParshaId || savedParshaScope || savedWeekly)"
               class="canonical-order-note"
               >לפי סדר הפסוקים</span
             ><select
@@ -223,6 +224,20 @@
         </div>
       </div>
     </div>
+
+    <div v-if="activeTab === 'matches'" class="saved-match-tools" role="toolbar" aria-label="כלי התאמות שמורות">
+      <button type="button" aria-label="פרשת השבוע" :aria-pressed="savedWeekly" :title="weeklyParshah?.nameHe" @click="toggleSavedWeekly">
+        <span class="mdi mdi-calendar-week-outline" aria-hidden="true"></span>פרשת השבוע
+      </button>
+      <button type="button" aria-label="לפי פרשה" :aria-pressed="savedParshaScope && !savedWeekly" @click="browseSavedParsha">
+        <span class="mdi mdi-book-open-variant-outline" aria-hidden="true"></span>לפי פרשה
+      </button>
+      <button type="button" aria-label="הורד PDF" :disabled="loading || !!error || !total || pdfLoading" :aria-busy="pdfLoading" @click="exportSavedPdf">
+        <span class="mdi" :class="pdfLoading ? 'mdi-loading mdi-spin' : 'mdi-file-download-outline'" aria-hidden="true"></span>{{ pdfLoading ? 'מכין PDF…' : 'הורד PDF' }}
+      </button>
+      <span v-if="savedScopeLabel" class="saved-scope-label" role="status">{{ savedScopeLabel }}</span>
+    </div>
+    <p v-if="activeTab === 'matches' && pdfError" class="page-error" role="alert">{{ pdfError }}</p>
 
     <section
       id="saved-library-panel"
@@ -282,13 +297,16 @@
           aria-hidden="true"
         ></span>
         <strong>{{
-          searchQuery || filtersActive
+          savedScopeLabel
+            ? "אין התאמות שמורות בסינון שנבחר"
+            : searchQuery || filtersActive
             ? "לא נמצאו תוצאות"
             : activeTab === "matches"
               ? "ההתאמות שלך יופיעו כאן"
               : "עדיין לא נשמרו ערכים"
         }}</strong>
-        <span v-if="searchQuery || filtersActive"
+        <span v-if="savedScopeLabel">{{ savedScopeLabel }} · אפשר לבחור פרשה אחרת או לשנות את הסינון.</span>
+        <span v-else-if="searchQuery || filtersActive"
           >אפשר לנסות חיפוש אחר או לשנות את הסינון.</span
         >
         <span v-else-if="activeTab === 'matches'"
@@ -329,7 +347,8 @@
         }"
       >
         <template v-for="item in displayFlow" :key="item.key">
-          <h2 v-if="item.group" class="group-header">
+          <h2 v-if="item.parshaGroup" class="saved-parsha-heading" :data-parsha-id="item.parshaId">{{ item.label }}</h2>
+          <h2 v-else-if="item.group" class="group-header">
             <span dir="ltr">{{ item.value }}</span
             ><span>{{ item.count }} ערכים שמורים</span>
           </h2>
@@ -472,6 +491,7 @@ import SavedEntryDetail from "@/components/SavedEntryDetail.vue";
 import { computeAll } from "@/composables/useGematria.js";
 import { normalizeMiluiMapping } from "@/utils/milui.js";
 import { tanachContextOf, tefillotContextOf } from "@/utils/tefillotContext.js";
+import { downloadSavedMatchesPdf } from "@/utils/savedLibraryPdf.js";
 const props = defineProps({ focusMatch: { type: Object, default: null } });
 const emit = defineEmits([
   "open-tanach",
@@ -508,6 +528,21 @@ const errorActionLabel = computed(() =>
 const searchQuery = ref("");
 const source = ref("");
 const savedParshaId = ref("");
+const savedParshaScope = ref(false);
+const savedWeekly = ref(false);
+const weeklyParshah = ref(null);
+const parshaSelect = ref(null);
+const pdfLoading = ref(false);
+const pdfError = ref("");
+let pdfController;
+const savedScopeLabel = computed(() => {
+  if (savedWeekly.value) return weeklyParshah.value ? `פרשת השבוע · ${weeklyParshah.value.nameHe}` : "השבוע אין קריאת פרשה רגילה";
+  if (savedParshaId.value) {
+    const portion = savedParshaGroups.value.flatMap(book => book.portions).find(item => item.id === savedParshaId.value);
+    return portion ? `פרשת ${portion.name_he}` : "הפרשה שנבחרה";
+  }
+  return savedParshaScope.value ? "כל הפרשיות · לפי סדר הפסוקים" : "";
+});
 const savedParshaGroups = ref([]);
 const parshaOptionsLoading = ref(false);
 const parshaOptionsError = ref("");
@@ -546,6 +581,7 @@ const filtersActive = computed(() =>
   Boolean(
     source.value ||
       savedParshaId.value ||
+      savedParshaScope.value || savedWeekly.value ||
       matchType.value ||
       sort.value !== "recent" ||
       (activeTab.value === "entries" && groupByGematria.value),
@@ -557,6 +593,18 @@ function rowKey(entry) {
     : `${entry.sourceType || entry.source_type || "manual"}:${entry.id}`;
 }
 const displayFlow = computed(() => {
+  if (activeTab.value === "matches" && (savedParshaScope.value || savedWeekly.value || savedParshaId.value)) {
+    let previous;
+    return rows.value.flatMap(entry => {
+      const heading = entry.parshaId && entry.parshaId !== previous;
+      previous = entry.parshaId;
+      return [
+        ...(heading ? [{ key: `parsha-${entry.parshaId}`, parshaGroup: true, parshaId: entry.parshaId,
+          label: `${entry.tanachContext?.bookLabel || ''} · פרשת ${entry.parshaName}` }] : []),
+        { key: rowKey(entry), entry },
+      ];
+    });
+  }
   if (activeTab.value !== "entries" || !groupByGematria.value)
     return rows.value.map((entry) => ({ key: rowKey(entry), entry }));
   const groups = new Map();
@@ -577,6 +625,7 @@ async function fetchRows(reset = true, focus = null) {
   activeController = controller;
   const currentRequest = ++requestId;
   loading.value = true;
+  pdfError.value = "";
   error.value = "";
   errorKind.value = "";
   menuOpenId.value = null;
@@ -592,15 +641,14 @@ async function fetchRows(reset = true, focus = null) {
       offset: String(offset.value),
       sort: sort.value,
     });
-    if (searchQuery.value.trim())
-      params.set("search", searchQuery.value.trim());
     const isMatch = activeTab.value === "matches";
     if (isMatch) {
-      if (source.value) params.set("source", source.value);
-      if (matchType.value) params.set("matchType", matchType.value);
-      if (savedParshaId.value) params.set("parsha_id", savedParshaId.value);
+      for (const [key, value] of savedMatchParams()) params.set(key, value);
       if (focus) params.set("focus", focus);
-    } else params.set("grouped", String(groupByGematria.value));
+    } else {
+      if (searchQuery.value.trim()) params.set("search", searchQuery.value.trim());
+      params.set("grouped", String(groupByGematria.value));
+    }
     const response = await fetch(
       `/api/entries${isMatch ? "/curated-matches" : ""}?${params}`,
       { signal: controller.signal },
@@ -622,6 +670,7 @@ async function fetchRows(reset = true, focus = null) {
     rows.value = reset ? incoming : [...rows.value, ...incoming];
     if (reset) loadedStartOffset.value = data.pagination?.offset || 0;
     total.value = data.total;
+    if (isMatch && Object.hasOwn(data, "weeklyParshah")) weeklyParshah.value = data.weeklyParshah;
     hasMore.value = data.pagination?.hasMore ?? rows.value.length < data.total;
     offset.value =
       data.pagination?.nextOffset ?? offset.value + incoming.length;
@@ -686,12 +735,59 @@ function clearAll() {
   resetFilters();
 }
 function onSourceFilterChange() {
-  if (source.value === "tefillot") savedParshaId.value = "";
+  if (source.value === "tefillot") {
+    savedParshaId.value = "";
+    savedParshaScope.value = false;
+    savedWeekly.value = false;
+  }
   refreshEntries();
 }
 function onParshaFilterChange() {
-  if (savedParshaId.value) source.value = "tanach";
+  source.value = "tanach";
+  savedParshaScope.value = true;
+  savedWeekly.value = false;
   refreshEntries();
+}
+function savedMatchParams() {
+  const params = new URLSearchParams({ sort: sort.value });
+  if (searchQuery.value.trim()) params.set("search", searchQuery.value.trim());
+  if (source.value) params.set("source", source.value);
+  if (matchType.value) params.set("matchType", matchType.value);
+  if (savedWeekly.value) params.set("parsha", "current");
+  else if (savedParshaId.value) params.set("parsha_id", savedParshaId.value);
+  if (savedParshaScope.value) params.set("parsha_scope", "torah");
+  return params;
+}
+function toggleSavedWeekly() {
+  savedWeekly.value = !savedWeekly.value;
+  savedParshaId.value = "";
+  savedParshaScope.value = savedWeekly.value;
+  if (savedWeekly.value) source.value = "tanach";
+  closeFilters();
+  refreshEntries();
+}
+async function browseSavedParsha() {
+  savedWeekly.value = false;
+  savedParshaScope.value = true;
+  source.value = "tanach";
+  refreshEntries();
+  filterOpen.value = true;
+  menuOpenId.value = null;
+  await nextTick();
+  parshaSelect.value?.focus();
+}
+async function exportSavedPdf() {
+  if (loading.value || error.value || !total.value || pdfLoading.value) return;
+  pdfController = new AbortController();
+  pdfLoading.value = true;
+  pdfError.value = "";
+  try {
+    await downloadSavedMatchesPdf({ params: savedMatchParams() }, { signal: pdfController.signal });
+  } catch (failure) {
+    if (failure.name !== "AbortError") pdfError.value = failure.userMessage || "לא ניתן להוריד את הקובץ כרגע. אפשר לנסות שוב.";
+  } finally {
+    pdfLoading.value = false;
+  }
 }
 async function fetchParshaOptions() {
   parshaOptionsLoading.value = true;
@@ -724,6 +820,8 @@ async function fetchParshaOptions() {
 function resetFilters() {
   source.value = "";
   savedParshaId.value = "";
+  savedParshaScope.value = false;
+  savedWeekly.value = false;
   matchType.value = "";
   sort.value = "recent";
   groupByGematria.value = false;
@@ -735,6 +833,8 @@ function setTab(tab) {
   closeFilters();
   source.value = "";
   savedParshaId.value = "";
+  savedParshaScope.value = false;
+  savedWeekly.value = false;
   matchType.value = "";
   refreshEntries();
 }
@@ -779,6 +879,8 @@ async function focusSaved(value) {
   searchQuery.value = "";
   source.value = "";
   savedParshaId.value = "";
+  savedParshaScope.value = false;
+  savedWeekly.value = false;
   matchType.value = "";
   sort.value = "recent";
   filterOpen.value = false;
@@ -1008,6 +1110,7 @@ function countLabel(key) {
 }
 async function fetchCounts() {
   countsController?.abort();
+  pdfController?.abort();
   const controller = new AbortController();
   countsController = controller;
   const currentRequest = ++countsRequestId;
@@ -1076,6 +1179,43 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.saved-match-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 13px 0 16px;
+}
+.saved-match-tools button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 7px 11px;
+  border: 1px solid #e0d7c7;
+  border-radius: 8px;
+  background: #fffdf9;
+  color: #344960;
+  font: inherit;
+  font-size: 0.83rem;
+  cursor: pointer;
+}
+.saved-match-tools button[aria-pressed="true"] {
+  background: #f6edda;
+  border-color: #c6ab70;
+  color: #765f30;
+}
+.saved-match-tools button:hover:not(:disabled) { background: #f8f1e4; }
+.saved-match-tools button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.saved-match-tools button:disabled { opacity: 0.5; cursor: default; }
+.saved-scope-label { color: #7e6c4e; font-size: 0.79rem; margin-inline-start: 7px; }
+.saved-parsha-heading { color: #765f30; font-size: 0.9rem; font-weight: 600; margin: 8px 0 0; grid-column: 1 / -1; }
+@media (max-width: 560px) {
+  .saved-match-tools { gap: 5px; }
+  .saved-match-tools button { flex: 1; min-height: 44px; padding-inline: 6px; font-size: 0.79rem; }
+  .saved-scope-label { flex-basis: 100%; margin: 3px 1px 0; }
+}
 .library-page {
   width: 100%;
   max-width: 1540px;

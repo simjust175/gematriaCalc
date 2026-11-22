@@ -1,13 +1,15 @@
 const pdfFailure = message => Object.assign(new Error(message), { userMessage: message });
 
-export async function downloadTanachPdf({ params, originalText }, { signal } = {}) {
+export async function downloadSavedMatchesPdf({ params }, { signal } = {}) {
   const query = params instanceof URLSearchParams ? Object.fromEntries(params) : { ...params };
   delete query.page;
   delete query.limit;
-  const response = await fetch('/api/tanach/gematria-matches/export.pdf', {
+  delete query.offset;
+  delete query.focus;
+  const response = await fetch('/api/entries/curated-matches/export.pdf', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query, originalText }),
+    body: JSON.stringify({ query }),
     signal,
   });
   if (!response.ok) {
@@ -27,7 +29,7 @@ export async function downloadTanachPdf({ params, originalText }, { signal } = {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   const filename = response.headers.get('content-disposition')?.match(/filename="([^"]+)"/)?.[1]
-    || 'gematria-tanach.pdf';
+    || 'gematria-saved-matches.pdf';
   anchor.href = url;
   anchor.download = filename;
   document.body.appendChild(anchor);
