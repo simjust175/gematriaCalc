@@ -119,7 +119,7 @@
             >מקור<select
               v-model="source"
               aria-label="מקור ההתאמה"
-              @change="refreshEntries"
+              @change="onSourceFilterChange"
             >
               <option value="">כל המקורות</option>
               <option value="tanach">תנ״ך</option>
@@ -142,8 +142,47 @@
               <option value="milui_gematria">מילוי</option>
             </select></label
           >
+          <label v-if="activeTab === 'matches'"
+            >פרשה
+            <select
+              v-model="savedParshaId"
+              aria-label="פרשה"
+              :disabled="parshaOptionsLoading || !!parshaOptionsError"
+              @change="onParshaFilterChange"
+            >
+              <option value="">
+                {{ parshaOptionsLoading ? "טוען פרשיות…" : "כל הפרשיות" }}
+              </option>
+              <optgroup
+                v-for="book in savedParshaGroups"
+                :key="book.label"
+                :label="book.label"
+              >
+                <option
+                  v-for="portion in book.portions"
+                  :key="portion.id"
+                  :value="portion.id"
+                >
+                  {{ portion.name_he }}
+                </option>
+              </optgroup>
+            </select>
+          </label>
+          <p
+            v-if="activeTab === 'matches' && parshaOptionsError"
+            class="parsha-filter-error"
+            role="status"
+          >
+            {{ parshaOptionsError }}
+            <button type="button" @click="fetchParshaOptions">נסה שוב</button>
+          </p>
           <label
-            >מיון<select
+            >מיון<span
+              v-if="activeTab === 'matches' && savedParshaId"
+              class="canonical-order-note"
+              >לפי סדר הפסוקים</span
+            ><select
+              v-else
               v-model="sort"
               aria-label="מיון הספרייה"
               @change="refreshEntries"
@@ -468,6 +507,10 @@ const errorActionLabel = computed(() =>
 );
 const searchQuery = ref("");
 const source = ref("");
+const savedParshaId = ref("");
+const savedParshaGroups = ref([]);
+const parshaOptionsLoading = ref(false);
+const parshaOptionsError = ref("");
 const matchType = ref("");
 const sort = ref("recent");
 const viewMode = ref("list");
@@ -502,6 +545,7 @@ let mounted = false;
 const filtersActive = computed(() =>
   Boolean(
     source.value ||
+      savedParshaId.value ||
       matchType.value ||
       sort.value !== "recent" ||
       (activeTab.value === "entries" && groupByGematria.value),
@@ -554,6 +598,7 @@ async function fetchRows(reset = true, focus = null) {
     if (isMatch) {
       if (source.value) params.set("source", source.value);
       if (matchType.value) params.set("matchType", matchType.value);
+      if (savedParshaId.value) params.set("parsha_id", savedParshaId.value);
       if (focus) params.set("focus", focus);
     } else params.set("grouped", String(groupByGematria.value));
     const response = await fetch(
@@ -640,8 +685,45 @@ function clearAll() {
   searchQuery.value = "";
   resetFilters();
 }
+function onSourceFilterChange() {
+  if (source.value === "tefillot") savedParshaId.value = "";
+  refreshEntries();
+}
+function onParshaFilterChange() {
+  if (savedParshaId.value) source.value = "tanach";
+  refreshEntries();
+}
+async function fetchParshaOptions() {
+  parshaOptionsLoading.value = true;
+  parshaOptionsError.value = "";
+  try {
+    const response = await fetch("/api/tanach/books");
+    if (!response.ok) throw new Error("parshiot");
+    const data = await response.json();
+    if (!mounted) return;
+    if (!Array.isArray(data.parshiot) || data.parshiot.length !== 54)
+      throw new Error("parshiot");
+    const groups = new Map();
+    for (const portion of [...data.parshiot].sort(
+      (a, b) => a.canonical_order - b.canonical_order,
+    )) {
+      if (!groups.has(portion.start_book_slug))
+        groups.set(portion.start_book_slug, {
+          label: portion.start_book_name,
+          portions: [],
+        });
+      groups.get(portion.start_book_slug).portions.push(portion);
+    }
+    savedParshaGroups.value = [...groups.values()];
+  } catch {
+    if (mounted) parshaOptionsError.value = "לא ניתן לטעון את הפרשיות כרגע.";
+  } finally {
+    if (mounted) parshaOptionsLoading.value = false;
+  }
+}
 function resetFilters() {
   source.value = "";
+  savedParshaId.value = "";
   matchType.value = "";
   sort.value = "recent";
   groupByGematria.value = false;
@@ -652,6 +734,7 @@ function setTab(tab) {
   activeTab.value = tab;
   closeFilters();
   source.value = "";
+  savedParshaId.value = "";
   matchType.value = "";
   refreshEntries();
 }
@@ -695,6 +778,7 @@ async function focusSaved(value) {
   activeTab.value = "matches";
   searchQuery.value = "";
   source.value = "";
+  savedParshaId.value = "";
   matchType.value = "";
   sort.value = "recent";
   filterOpen.value = false;
@@ -977,6 +1061,7 @@ onMounted(() => {
   if (props.focusMatch) focusSaved(props.focusMatch);
   else refreshEntries();
   fetchCounts();
+  fetchParshaOptions();
   fetchMiluiMapping();
 });
 onBeforeUnmount(() => {
@@ -1210,6 +1295,24 @@ onBeforeUnmount(() => {
   color: var(--navy);
   background: #fffdf9;
   font: inherit;
+}
+.canonical-order-note {
+  color: #765f30;
+  font-size: 0.85rem;
+  padding: 8px 0;
+}
+.parsha-filter-error {
+  color: #9a4a3b;
+  font-size: 0.76rem;
+  margin-top: 8px;
+}
+.parsha-filter-error button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
 }
 .filter-panel .group-toggle {
   display: flex;

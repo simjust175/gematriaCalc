@@ -13,7 +13,7 @@ import {
   verifyTefillotSaveContext, tefillotSaveErrorStatus, tefillotSaveSchemaReady,
   manualEntryCondition, hydrateTefillotEntries,
 } from './tefillotSaveContext.js';
-import { parshaSearchKey } from './tanachParshiot.js';
+import { parshaSearchKey, canonicalParshaRow } from './tanachParshiot.js';
 import {
   parseGematriaSearchQuery,
   searchTanachGematria,
@@ -28,6 +28,7 @@ import { findWeeklyBaseWordMatches, parseWeeklyBaseWordsQuery } from './weeklyBa
 import { registerTefillotRoutes } from './tefillot.js';
 import { registerCorpusSuggestionRoutes } from './corpusSuggestions.js';
 import { registerSavedLibraryRoutes } from './savedLibrary.js';
+import { registerTanachPdfRoutes } from './tanachPdf.js';
 import {
   getExplicitMiluiMatches,
   recordMiluiSaveMode,
@@ -144,6 +145,7 @@ function requireAuth(req, res, next) {
 registerBaseWordRoutes(app, { pool, requireAuth });
 registerTefillotRoutes(app, { pool, requireAuth });
 registerSavedLibraryRoutes(app, { pool, requireAuth });
+registerTanachPdfRoutes(app, { pool, requireAuth });
 registerMiluiInterpretationRoutes(app, {
   pool,
   requireAuth,
@@ -244,7 +246,7 @@ app.get('/api/tanach/books', requireAuth, async (_req, res) => {
     res.json({
       books: booksResult.rows,
       canonicalBooks: [...canonicalMap.values()],
-      parshiot: parshiotResult.rows,
+      parshiot: parshiotResult.rows.map(canonicalParshaRow),
       source: sourceResult.rows[0] || null,
       stats: {
         canonicalBooks: canonicalMap.size,

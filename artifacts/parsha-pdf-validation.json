@@ -1,0 +1,12 @@
+{
+  "file": "parsha-502.pdf",
+  "sha256": "3683dec4e04479befb755f0312c9a304628df254f9ab56167f855dc694659ee7",
+  "query": 502,
+  "scope": "all Torah portions",
+  "corpus": "UXLC 2.6 (27.7)",
+  "pages": 42,
+  "rows": 316,
+  "all_row_ordinals_sequential": true,
+  "first_row": 1,
+  "last_row": 316
+}

@@ -2,7 +2,7 @@ import { findGematriaRanges, findWordEdgeRanges } from './tanachGematriaSearch.j
 import { createTanachCursor } from '../src/composables/useTanachCursor.js';
 import { toHebrewNumber, normalize, calcGematria } from '../src/composables/useGematria.js';
 import { getCurrentWeeklyParshah } from './tanachWeeklyParsha.js';
-import { TANACH_PARSHIOT } from './tanachParshiot.js';
+import { TANACH_PARSHIOT, TORAH_BOOKS, getParshahForReference } from './tanachParshiot.js';
 import { normalizeDerivedLetters } from './derivedLetterMatching.js';
 
 export const MAX_GEMATRIA_PAGE_SIZE = 50;
@@ -50,7 +50,7 @@ async function loadCorpus(db) {
   if (!corpusCache || corpusCache.revision !== revision) {
     targetCache.clear();
     const promise = db.query(
-      `SELECT v.book_slug, b.hebrew_name AS book_name, b.canonical_order,
+      `SELECT v.book_slug, b.hebrew_name AS book_name, b.canonical_order, b.segment_order,
               v.chapter, v.verse, v.display_text
        FROM tanach_verses v
        JOIN tanach_books b ON b.slug = v.book_slug
@@ -116,13 +116,14 @@ function boundedContext(displayText, match, surroundingLetters = 12) {
   };
 }
 
-function serializeMatch(verse, compactMatch) {
+function serializeMatch(verse, compactMatch, includeParshah = false) {
   const cursor = createTanachCursor(verse.display_text);
   const match = {
     ...cursor.range(compactMatch.start, compactMatch.end),
     start: compactMatch.start,
     end: compactMatch.end,
   };
+  const portion = includeParshah ? getParshahForReference(verse) : null;
   return {
     bookSlug: verse.book_slug,
     bookName: verse.book_name,
@@ -132,6 +133,9 @@ function serializeMatch(verse, compactMatch) {
     end: match.end,
     type: compactMatch.type,
     text: match.text,
+    gematria: match.gematria,
+    ...(portion ? { parshaId: portion.id, parshaName: portion.nameHe,
+      parshaSequence: portion.canonicalOrder, bookOrder: TORAH_BOOK_ORDER.get(verse.book_slug) } : {}),
     ...boundedContext(verse.display_text, match),
   };
 }
@@ -151,6 +155,7 @@ export function parseGematriaSearchQuery(query) {
   const requestedChumash = typeof query.chumash === 'string' ? query.chumash : '';
   const chumash = requestedChumash === 'all' ? '' : requestedChumash;
   const parshaId = typeof query.parsha_id === 'string' ? query.parsha_id : '';
+  const parshaScope = query.parsha_scope === 'torah';
   const requestedBookOrder = query.book_order == null ? '' : query.book_order;
   const bookOrder = requestedBookOrder === '' ? 0 : Number(requestedBookOrder);
   const chapterBook = typeof query.chapter_book === 'string' ? query.chapter_book : '';
@@ -196,6 +201,7 @@ export function parseGematriaSearchQuery(query) {
   if (query.search != null && typeof query.search !== 'string') return { error: 'invalid_search' };
   if (search.length > MAX_GEMATRIA_SEARCH_LENGTH) return { error: 'invalid_search' };
   if (query.parsha != null && !currentParshah) return { error: 'invalid_parsha_filter' };
+  if (query.parsha_scope != null && query.parsha_scope !== 'torah') return { error: 'invalid_parsha_scope' };
   if (query.chumash != null && typeof query.chumash !== 'string') return { error: 'invalid_chumash_filter' };
   if (chumash && !TORAH_BOOK_ORDER.has(chumash)) return { error: 'invalid_chumash_filter' };
   if (query.book_order != null && (!isScalar(query.book_order)
@@ -226,6 +232,9 @@ export function parseGematriaSearchQuery(query) {
   if (currentParshah && (chumash || parshaId || bookOrder || chapterBook || chapter || verseNumber)) {
     return { error: 'invalid_parsha_filter' };
   }
+  if (parshaScope && (currentParshah || chumash || bookOrder || chapterBook || chapter || verseNumber)) {
+    return { error: 'invalid_parsha_filter' };
+  }
 
   return {
     method,
@@ -240,6 +249,7 @@ export function parseGematriaSearchQuery(query) {
     currentParshah,
     chumash,
     parshaId,
+    parshaScope,
     bookOrder: bookOrder || (chumash ? TORAH_BOOK_ORDER.get(chumash) : 0),
     chapterBook,
     chapter,
@@ -323,7 +333,43 @@ export function isVerseInParshah(verse, weeklyParshah) {
   ));
 }
 
-export async function searchTanachGematria(db, options, mayRetry = true) {
+const emptyCounts = () => ({ all: 0, whole_word: 0, whole_phrase: 0, whole_verse: 0, partial: 0 });
+
+function countMatch(counts, match) {
+  counts[match.type] += 1;
+  if (match.wholeVerse) counts.whole_verse += 1;
+  if (match.type !== 'partial') counts.all += 1;
+}
+
+function includesMatchType(match, type) {
+  if (type === 'all') return match.type !== 'partial';
+  return type === 'whole_verse' ? match.wholeVerse : match.type === type;
+}
+
+function serializeWeeklyParshah(weeklyParshah) {
+  return weeklyParshah && {
+    id: weeklyParshah.id, ids: weeklyParshah.ids, nameHe: weeklyParshah.nameHe,
+    isIsrael: weeklyParshah.isIsrael, shabbatDate: weeklyParshah.shabbatDate,
+  };
+}
+
+function parshaBreakdown(portionCounts, type, weeklyParshah) {
+  const currentIds = new Set(weeklyParshah?.ids || []);
+  const books = TORAH_BOOKS.map(book => {
+    const parshiot = TANACH_PARSHIOT.filter(portion => portion.start.bookSlug === book.bookSlug)
+      .map(portion => ({
+        id: portion.id, nameHe: portion.nameHe, canonicalOrder: portion.canonicalOrder,
+        total: portionCounts.get(portion.id)[type], counts: portionCounts.get(portion.id),
+        isCurrent: currentIds.has(portion.id),
+      }));
+    return { bookSlug: book.bookSlug, bookName: book.nameHe, canonicalOrder: book.canonicalOrder,
+      total: parshiot.reduce((total, portion) => total + portion.total, 0), parshiot };
+  });
+  return { total: books.reduce((total, book) => total + book.total, 0),
+    weeklyParshah: serializeWeeklyParshah(weeklyParshah), books };
+}
+
+export async function searchTanachGematria(db, options, mayRetry = true, exportAll = false) {
   const {
     method = 'gematria',
     value,
@@ -337,6 +383,7 @@ export async function searchTanachGematria(db, options, mayRetry = true) {
     currentParshah = false,
     chumash = '',
     parshaId = '',
+    parshaScope = false,
     bookOrder = 0,
     chapterBook = '',
     chapter = 0,
@@ -383,32 +430,56 @@ export async function searchTanachGematria(db, options, mayRetry = true) {
   const normalizedSearch = searchKey(search);
   const weeklyParshah = getCurrentWeeklyParshah();
   const manualParshah = parshaId ? PARSHAH_BY_ID.get(parshaId) : null;
-  const offset = (page - 1) * limit;
-  const results = [];
-  const counts = { all: 0, whole_word: 0, whole_phrase: 0, whole_verse: 0, partial: 0 };
+  const offset = exportAll ? 0 : (page - 1) * limit;
+  const eligible = [];
+  const counts = emptyCounts();
+  const portionCounts = parshaScope
+    ? new Map(TANACH_PARSHIOT.map(portion => [portion.id, emptyCounts()])) : null;
+  const portionsByVerse = new Map();
+  const searchKeysByVerse = new Map();
   for (const match of entry.matches) {
     const verse = corpus[match.verseIndex];
-    if (normalizedSearch && !verseSearchKey(verse).includes(normalizedSearch)) continue;
+    if (normalizedSearch) {
+      if (!searchKeysByVerse.has(match.verseIndex)) searchKeysByVerse.set(match.verseIndex, verseSearchKey(verse));
+      if (!searchKeysByVerse.get(match.verseIndex).includes(normalizedSearch)) continue;
+    }
     if (chumash && verse.book_slug !== chumash) continue;
     if (bookOrder && verse.canonical_order !== bookOrder) continue;
     if (chapterBook && verse.book_slug !== chapterBook) continue;
     if (chapter && verse.chapter !== chapter) continue;
     if (verseNumber && verse.verse !== verseNumber) continue;
-    if (manualParshah && !isVerseInParshah(verse, { portions: [manualParshah] })) continue;
+    let portion = null;
+    if (parshaScope) {
+      if (!portionsByVerse.has(match.verseIndex)) portionsByVerse.set(match.verseIndex, getParshahForReference(verse));
+      portion = portionsByVerse.get(match.verseIndex);
+      if (!portion) continue;
+      // Aggregate the complete Torah result set before applying the selected
+      // portion or pagination. One cached engine scan supplies all 54 counts.
+      countMatch(portionCounts.get(portion.id), match);
+    }
+    if (manualParshah && (parshaScope ? portion.id !== manualParshah.id
+      : !isVerseInParshah(verse, { portions: [manualParshah] }))) continue;
     if (currentParshah && !isVerseInParshah(verse, weeklyParshah)) continue;
-    counts[match.type] += 1;
-    if (match.wholeVerse) counts.whole_verse += 1;
-    if (match.type !== 'partial') counts.all += 1;
+    countMatch(counts, match);
     // "all" means every complete textual match, not every internal range.
     // Keep the explicit partial classification available to callers that
     // request it, but never let partial-word ranges affect all-result counts,
     // pagination, or hasMore.
-    if (type === 'all' && match.type === 'partial') continue;
-    if (type === 'whole_verse' ? !match.wholeVerse : type !== 'all' && match.type !== type) continue;
-    if (counts[type] - 1 >= offset && results.length < limit) {
-      results.push(serializeMatch(verse, match));
-    }
+    if (includesMatchType(match, type)) eligible.push(match);
   }
+
+  // Canonical order is an API/export guarantee, independent of corpus input
+  // order. Segment order keeps Samuel I/II, Kings I/II, etc. together correctly.
+  eligible.sort((left, right) => {
+    const a = corpus[left.verseIndex], b = corpus[right.verseIndex];
+    return (a.canonical_order ?? TORAH_BOOK_ORDER.get(a.book_slug) ?? 999)
+      - (b.canonical_order ?? TORAH_BOOK_ORDER.get(b.book_slug) ?? 999)
+      || (a.segment_order ?? 0) - (b.segment_order ?? 0)
+      || (a.book_slug !== b.book_slug ? left.verseIndex - right.verseIndex : 0)
+      || a.chapter - b.chapter || a.verse - b.verse || left.start - right.start || left.end - right.end;
+  });
+  const selected = exportAll ? eligible : eligible.slice(offset, offset + limit);
+  const results = selected.map(match => serializeMatch(corpus[match.verseIndex], match, parshaScope));
 
   const total = type === 'all' ? counts.all : counts[type];
   const response = {
@@ -419,21 +490,21 @@ export async function searchTanachGematria(db, options, mayRetry = true) {
     results,
     counts,
     total,
-    page,
-    limit,
-    hasMore: offset + results.length < total,
-    weeklyParshah: weeklyParshah && {
-      id: weeklyParshah.id,
-      ids: weeklyParshah.ids,
-      nameHe: weeklyParshah.nameHe,
-      isIsrael: weeklyParshah.isIsrael,
-      shabbatDate: weeklyParshah.shabbatDate,
-    },
+    page: exportAll ? 1 : page,
+    limit: exportAll ? total : limit,
+    hasMore: !exportAll && offset + results.length < total,
+    weeklyParshah: serializeWeeklyParshah(weeklyParshah),
+    ...(parshaScope ? { parshaBreakdown: parshaBreakdown(portionCounts, type, weeklyParshah) } : {}),
   };
   if (mayRetry && !await ensureCurrentRevision(db, revision)) {
-    return searchTanachGematria(db, options, false);
+    return searchTanachGematria(db, options, false, exportAll);
   }
   return response;
+}
+
+/** Complete export uses exactly the same filtering, aggregate and ordering. */
+export function exportTanachGematria(db, options) {
+  return searchTanachGematria(db, options, true, true);
 }
 
 export function clearTanachGematriaCaches() {

@@ -39,7 +39,10 @@ export const TANACH_PARSHIOT = [
   range('vaera', 14, 'וארא', 'Exodus', 6, 2, 9, 35),
   range('bo', 15, 'בא', 'Exodus', 10, 1, 13, 16),
   range('beshalach', 16, 'בשלח', 'Exodus', 13, 17, 17, 16),
-  range('yitro', 17, 'יתרו', 'Exodus', 18, 1, 20, 23),
+  // Translate the reading's end-of-chapter boundary to the imported UXLC
+  // numbering: Exodus 20:24–26 are the altar instructions ending ולא תעלה.
+  // Primary text: https://www.tanach.us/Books/Exodus.xml (chapter 20, verse 26).
+  range('yitro', 17, 'יתרו', 'Exodus', 18, 1, 20, 26),
   range('mishpatim', 18, 'משפטים', 'Exodus', 21, 1, 24, 18),
   range('terumah', 19, 'תרומה', 'Exodus', 25, 1, 27, 19),
   range('tetzaveh', 20, 'תצוה', 'Exodus', 27, 20, 30, 10),
@@ -78,6 +81,47 @@ export const TANACH_PARSHIOT = [
   range('haazinu', 53, 'האזינו', 'Deuteronomy', 32, 1, 32, 52),
   range('vezot-haberakhah', 54, 'וזאת הברכה', 'Deuteronomy', 33, 1, 34, 12),
 ];
+
+export const TORAH_BOOKS = Object.freeze([
+  { bookSlug: 'Genesis', nameHe: 'בראשית', canonicalOrder: 1 },
+  { bookSlug: 'Exodus', nameHe: 'שמות', canonicalOrder: 2 },
+  { bookSlug: 'Leviticus', nameHe: 'ויקרא', canonicalOrder: 3 },
+  { bookSlug: 'Numbers', nameHe: 'במדבר', canonicalOrder: 4 },
+  { bookSlug: 'Deuteronomy', nameHe: 'דברים', canonicalOrder: 5 },
+]);
+const portionsByBook = new Map(TORAH_BOOKS.map(book => [book.bookSlug,
+  TANACH_PARSHIOT.filter(portion => portion.start.bookSlug === book.bookSlug)]));
+const compareVersePosition = (left, right) => Number(left.chapter) - Number(right.chapter)
+  || Number(left.verse) - Number(right.verse);
+
+/** Read-time canonical bounds without rewriting legacy database metadata. */
+export function canonicalParshaRow(row) {
+  const portion = TANACH_PARSHIOT.find(portion => portion.id === row.id);
+  if (!portion) return row;
+  return { ...row, canonical_order: portion.canonicalOrder, name_he: portion.nameHe,
+    start_book_slug: portion.start.bookSlug, start_chapter: portion.start.chapter,
+    start_verse: portion.start.verse, end_book_slug: portion.end.bookSlug,
+    end_chapter: portion.end.chapter, end_verse: portion.end.verse };
+}
+
+/** One inclusive canonical portion per Torah verse; unrelated books have none. */
+export function getParshahForReference(reference) {
+  const bookSlug = reference?.bookSlug || reference?.book_slug;
+  const portions = portionsByBook.get(bookSlug);
+  if (!portions || !Number.isSafeInteger(Number(reference.chapter))
+      || !Number.isSafeInteger(Number(reference.verse))
+      || Number(reference.chapter) < 1 || Number(reference.verse) < 1) return null;
+  let low = 0, high = portions.length - 1, candidate = null;
+  while (low <= high) {
+    const middle = Math.floor((low + high) / 2);
+    const portion = portions[middle];
+    if (compareVersePosition(portion.start, reference) <= 0) {
+      candidate = portion;
+      low = middle + 1;
+    } else high = middle - 1;
+  }
+  return candidate && compareVersePosition(reference, candidate.end) <= 0 ? candidate : null;
+}
 
 export function parshaSearchKey(value = '') {
   return String(value)

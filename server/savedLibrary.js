@@ -1,5 +1,6 @@
 import { computeAll, normalize } from "../src/composables/useGematria.js";
 import { isTefillotAvailable } from "./tefillot.js";
+import { TANACH_PARSHIOT, getParshahForReference } from './tanachParshiot.js';
 import {
   serializeTefillotContext,
   tefillotSaveSchemaReady,
@@ -16,11 +17,13 @@ const MATCH_TYPES = new Set([
   "milui_gematria",
 ]);
 const SORTS = new Set(["recent", "oldest", "gematria", "alphabetical"]);
+const PARSHA_IDS = new Set(TANACH_PARSHIOT.map(portion => portion.id));
 
 export function parseSavedMatchQuery(query) {
   const source = query.source || "";
   const matchType = query.matchType || "";
   const sort = query.sort || "recent";
+  const parshaId = query.parsha_id || '';
   const limit = query.limit == null ? 40 : Number(query.limit);
   const offset = query.offset == null ? 0 : Number(query.offset);
   if (
@@ -36,6 +39,9 @@ export function parseSavedMatchQuery(query) {
     return { error: "invalid_match_type" };
   }
   if (!SORTS.has(sort)) return { error: "invalid_sort" };
+  if (typeof parshaId !== 'string' || (parshaId && !PARSHA_IDS.has(parshaId))) {
+    return { error: 'invalid_parsha_filter' };
+  }
   if (
     [query.limit, query.offset].some(
       (value) => value != null && !["string", "number"].includes(typeof value),
@@ -62,6 +68,7 @@ export function parseSavedMatchQuery(query) {
     source,
     matchType,
     sort,
+    parshaId,
     limit,
     offset,
     search: (query.search || "").trim(),
@@ -103,6 +110,9 @@ function serializeRelationship(row, calculate) {
   const calculation = calculate(row.original_text);
   const parentCalculation = calculate(row.parent_original_text);
   const reasonCodes = Array.isArray(row.reason_codes) ? row.reason_codes : [];
+  const portion = sourceType === 'tanach' ? getParshahForReference({
+    bookSlug: row.tanach_book_slug, chapter: row.tanach_chapter, verse: row.tanach_verse,
+  }) : null;
   return {
     key: `${sourceType}:${row.id}`,
     id: Number(row.id),
@@ -119,6 +129,8 @@ function serializeRelationship(row, calculate) {
       reasonCodes,
     ),
     reasonCodes,
+    parshaId: portion?.id || null,
+    parshaName: portion?.nameHe || null,
     createdAt: row.created_at,
     calculation,
     tanachContext:
@@ -149,6 +161,7 @@ export function paginateSavedRelationships(rows, parsed, entryCount) {
   const numericSearch = computeAll(parsed.search);
   const normalizedSearch = normalize(parsed.search);
   let matches = all.filter((match) => {
+    if (parsed.parshaId && match.parshaId !== parsed.parshaId) return false;
     if (
       parsed.source &&
       parsed.source !== "all" &&
@@ -176,6 +189,12 @@ export function paginateSavedRelationships(rows, parsed, entryCount) {
     );
   });
   matches.sort((a, b) => {
+    if (parsed.parshaId) {
+      const left = a.tanachContext, right = b.tanachContext;
+      return left.chapter - right.chapter || left.verse - right.verse
+        || left.start - right.start || left.end - right.end
+        || a.parentId - b.parentId || a.id - b.id;
+    }
     const recent =
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime() ||
       b.id - a.id ||

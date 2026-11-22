@@ -152,6 +152,7 @@ test('מילות יסוד stays closed on demand, shows exact compact results, a
     }
   });
 
+  let primaryError;
   try {
     const input = page.locator('.heb-input');
     const toggle = page.locator('.base-toggle');
@@ -161,6 +162,7 @@ test('מילות יסוד stays closed on demand, shows exact compact results, a
     await page.waitForTimeout(200);
     expect(matchRequests).toHaveLength(0);
 
+    await input.press('Escape');
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
     const result = page.locator('.base-result').filter({ hasText: baseText });
@@ -216,14 +218,24 @@ test('מילות יסוד stays closed on demand, shows exact compact results, a
     await expect(result).toContainText('נכנס 1 פעם (א)');
     expect(matchRequests).toHaveLength(2);
 
+    await input.press('Escape');
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
     await input.fill('רס');
     await page.waitForTimeout(200);
     expect(matchRequests).toHaveLength(2);
+  } catch (error) {
+    primaryError = error;
+    throw error;
   } finally {
-    const cleanup = await page.request.delete(new URL(`/api/base-words/${baseWordId}`, page.url()).href);
-    expect(cleanup.ok()).toBe(true);
+    try {
+      const cleanup = await page.request.delete(new URL(`/api/base-words/${baseWordId}`, page.url()).href,
+        { timeout: 10_000 });
+      expect(cleanup.ok()).toBe(true);
+    } catch (cleanupError) {
+      if (!primaryError) throw cleanupError;
+      test.info().annotations.push({ type: 'cleanup', description: String(cleanupError.message) });
+    }
   }
 });
 
