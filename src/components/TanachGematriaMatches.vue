@@ -235,8 +235,8 @@
     </div>
     <div v-else class="match-grid" aria-live="polite">
       <article v-for="(result, index) in results" :key="resultKey(result)" class="match-card" :class="{
-        'curated-selected-card': selectedKeys.has(resultKey(result)) && (result.sourceType !== 'tefillot' || selectionMode),
-        'curated-saved-card': result.sourceType === 'tefillot' && curatedSavedKeys.has(curatedStateKey(result)),
+        'curated-selected-card': selectionMode && selectedKeys.has(resultKey(result)),
+        'curated-saved-card': curatedSavedKeys.has(curatedStateKey(result)),
       }">
         <div class="card-topline">
           <div class="card-labels">
@@ -268,33 +268,26 @@
           <span v-if="result.afterText" class="muted-text">{{ result.afterText }}</span>
         </p>
         <footer class="card-actions">
-          <button type="button" class="reader-action" @click="openResult(result)">
-            <span class="mdi mdi-book-open-page-variant-outline" aria-hidden="true"></span>
-            פתח בקורא
-          </button>
-          <button
-            type="button"
-            class="save-action"
-            :class="{ saved: savedKeys.has(canonicalSourceKey(result)), saving: savingKey === resultKey(result) }"
-            :disabled="savingKey === resultKey(result) || savedKeys.has(canonicalSourceKey(result))"
-            @click="saveResult(result, resultKey(result))"
-          >
-            <span class="mdi" :class="savedKeys.has(canonicalSourceKey(result)) ? 'mdi-bookmark-check-outline' : 'mdi-bookmark-outline'" aria-hidden="true"></span>
-            {{ savedKeys.has(canonicalSourceKey(result)) ? 'נשמר' : 'שמור טווח' }}
-          </button>
           <button
             type="button"
             class="curated-action"
-            :class="{ selected: (selectedKeys.has(resultKey(result)) && (result.sourceType !== 'tefillot' || selectionMode)) || curatedSavedKeys.has(curatedStateKey(result)), saved: curatedSavedKeys.has(curatedStateKey(result)) }"
-            :disabled="curatedSavedKeys.has(curatedStateKey(result)) || (result.sourceType === 'tefillot' && !selectionMode && curatedSaving)"
-            :aria-pressed="selectedKeys.has(resultKey(result)) && (result.sourceType !== 'tefillot' || selectionMode)"
-            :aria-busy="result.sourceType === 'tefillot' && tefillotSavingKey === curatedStateKey(result) ? true : undefined"
+            :class="{ selected: selectionMode && selectedKeys.has(resultKey(result)), saved: curatedSavedKeys.has(curatedStateKey(result)) }"
+            :disabled="curatedSavedKeys.has(curatedStateKey(result)) || curatedSaving"
+            :aria-pressed="selectionMode ? selectedKeys.has(resultKey(result)) : undefined"
+            :aria-busy="tefillotSavingKey === curatedStateKey(result) ? true : undefined"
             @click="selectionMode ? toggleCuratedSelection(result) : saveCuratedSingle(result)"
           >
             <span class="mdi" :class="curatedSavedKeys.has(curatedStateKey(result)) ? 'mdi-bookmark-check' : 'mdi-bookmark-plus-outline'" aria-hidden="true"></span>
             {{ curatedButtonLabel(result) }}
           </button>
+          <DiscoveryActionsMenu
+            :saved="savedKeys.has(canonicalSourceKey(result))"
+            :saving="savingKey === resultKey(result)"
+            @open-source="openResult(result)"
+            @save-entry="saveResult(result, resultKey(result))"
+          />
         </footer>
+        <span v-if="independentSavedKey === resultKey(result)" class="independent-save-notice" role="status">הטקסט נשמר בערכים שמורים</span>
         <span v-if="saveErrors.has(resultKey(result))" class="save-error" role="status">{{ savedRangeMessage || 'לא ניתן לשמור כרגע' }}</span>
         <span v-if="result.sourceType === 'tefillot' && tefillotMatchErrors.has(curatedStateKey(result))" class="save-error" role="alert">{{ tefillotMatchErrors.get(curatedStateKey(result)) }}</span>
       </article>
@@ -306,7 +299,10 @@
       </button>
       <button type="button" class="cancel-curated" :disabled="curatedSaving" @click="clearCuratedSelection">ביטול</button>
     </div>
-    <p v-if="curatedMessage" class="curated-message" :class="{ error: curatedError }" role="status">{{ curatedMessage }}</p>
+    <div v-if="curatedMessage" class="curated-message" :class="{ error: curatedError }" :role="curatedError ? 'alert' : 'status'">
+      <span>{{ curatedMessage }}</span>
+      <button v-if="!curatedError && lastSavedMatch" type="button" class="show-saved-action" @click="emit('show-saved', lastSavedMatch)">הצג בשמורים</button>
+    </div>
 
     <div v-if="loading && results.length" class="loading-note" role="status">טוען עוד התאמות…</div>
     <button v-if="hasMore && !loading" type="button" class="load-more" @click="loadMore">
@@ -316,23 +312,25 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue';
 import { useTanachGematriaMatches } from '@/composables/useTanachGematriaMatches.js';
 import { computeAll, normalize, toHebrewNumber } from '@/composables/useGematria.js';
 import { mapFinalsToOriginalText, mapInitialsToOriginalText } from '@/utils/initialsHighlight.js';
 import { savedRangeKey, tanachContextOf, tefillotContextOf } from '@/utils/tefillotContext.js';
 import TanachScopeSelect from './TanachScopeSelect.vue';
+import DiscoveryActionsMenu from './DiscoveryActionsMenu.vue';
 
 const props = defineProps({
   target: { type: Number, required: true },
   pattern: { type: String, default: '' },
   sourceText: { type: String, default: '' },
 });
-const emit = defineEmits(['open', 'openTefillot', 'saved']);
+const emit = defineEmits(['open', 'openTefillot', 'saved', 'show-saved']);
 const savedKeys = ref(new Set());
 const saveErrors = ref(new Set());
 const savingKey = ref('');
 const savedRangeMessage = ref('');
+const independentSavedKey = ref('');
 const selectedKeys = ref(new Set());
 const curatedSavedKeys = ref(new Set());
 const selectionMode = ref(false);
@@ -341,6 +339,7 @@ const tefillotSavingKey = ref('');
 const tefillotMatchErrors = ref(new Map());
 const curatedMessage = ref('');
 const curatedError = ref(false);
+const lastSavedMatch = ref(null);
 const rangeMetadata = ref({ canonicalBooks: [], parshiot: [] });
 const rangeMetadataLoading = ref(true);
 const rangeMetadataError = ref('');
@@ -351,6 +350,8 @@ let chapterRequestId = 0;
 let curatedStateRequestId = 0;
 let curatedStateTimer;
 let rangeStateRequestId = 0;
+let saveContextVersion = 0;
+let discoveryActive = true;
 const filterOptions = computed(() => [
   { value: 'all', label: 'הכול' },
   { value: 'whole_word', label: 'מילה שלמה' },
@@ -441,11 +442,19 @@ watch(source, (nextSource) => {
     tefillotService.value = '';
   }
 });
-watch([method, () => props.sourceText], () => {
+watch([method, source, () => props.sourceText, includeKollel, orderIndependent], () => {
+  saveContextVersion += 1;
   selectedKeys.value = new Set();
+  curatedMessage.value = '';
+  curatedError.value = false;
+  lastSavedMatch.value = null;
+  independentSavedKey.value = '';
+  saveErrors.value = new Set();
+  savedRangeMessage.value = '';
+  tefillotMatchErrors.value = new Map();
   window.clearTimeout(curatedStateTimer);
   curatedStateTimer = window.setTimeout(syncCuratedSavedState, 250);
-}, { immediate: true });
+}, { immediate: true, flush: 'sync' });
 watch(results, () => {
   window.clearTimeout(curatedStateTimer);
   curatedStateTimer = window.setTimeout(() => {
@@ -453,6 +462,24 @@ watch(results, () => {
     syncCuratedSavedState();
   }, 120);
 }, { deep: true });
+onActivated(() => {
+  discoveryActive = true;
+  syncCuratedSavedState();
+  syncSavedRangeState();
+});
+onDeactivated(() => {
+  discoveryActive = false;
+  saveContextVersion += 1;
+  curatedMessage.value = '';
+  lastSavedMatch.value = null;
+});
+onBeforeUnmount(() => {
+  discoveryActive = false;
+  saveContextVersion += 1;
+  window.clearTimeout(curatedStateTimer);
+  curatedStateRequestId += 1;
+  rangeStateRequestId += 1;
+});
 const selectedBook = computed(() => (
   rangeMetadata.value.canonicalBooks?.find(book => Number(book.order) === Number(bookOrder.value)) || null
 ));
@@ -637,7 +664,7 @@ async function syncCuratedSavedState() {
   }
   try {
     const params = new URLSearchParams({
-      search: parentText, parentOriginalText: parentText, limit: '100', offset: '0',
+      parentOriginalText: parentText, limit: '100', offset: '0',
     });
     const response = await fetch(`/api/entries?${params}`);
     if (!response.ok) return;
@@ -680,39 +707,35 @@ function clearCuratedSelection() {
 async function saveCuratedSingle(item) {
   if (curatedSaving.value) return;
   if (curatedSavedKeys.value.has(curatedStateKey(item))) return;
-  if (item.sourceType === 'tefillot') {
-    const key = curatedStateKey(item);
-    tefillotSavingKey.value = key;
-    tefillotMatchErrors.value = new Map([...tefillotMatchErrors.value].filter(([savedKey]) => savedKey !== key));
-    // A single save is a request, not a bulk-selection gesture.
-    selectedKeys.value = new Set([...selectedKeys.value].filter(savedKey => savedKey !== resultKey(item)));
-    try {
-      if (!await saveCuratedMatches([item])) {
-        tefillotMatchErrors.value = new Map([...tefillotMatchErrors.value, [key, curatedMessage.value]]);
-      }
-    } finally {
-      tefillotSavingKey.value = '';
+  const key = curatedStateKey(item);
+  const contextVersion = saveContextVersion;
+  tefillotSavingKey.value = key;
+  tefillotMatchErrors.value = new Map([...tefillotMatchErrors.value].filter(([savedKey]) => savedKey !== key));
+  // Single saves never enter the temporary bulk-selection state.
+  selectedKeys.value = new Set([...selectedKeys.value].filter(savedKey => savedKey !== resultKey(item)));
+  try {
+    if (!await saveCuratedMatches([item]) && item.sourceType === 'tefillot'
+      && discoveryActive && contextVersion === saveContextVersion) {
+      tefillotMatchErrors.value = new Map([...tefillotMatchErrors.value, [key, curatedMessage.value]]);
     }
-    return;
+  } finally {
+    tefillotSavingKey.value = '';
   }
-  selectedKeys.value = new Set([resultKey(item)]);
-  await saveCuratedMatches();
 }
 function curatedButtonLabel(item) {
   if (curatedSavedKeys.value.has(curatedStateKey(item))) return 'נשמרה';
-  if (item.sourceType === 'tefillot') {
-    if (tefillotSavingKey.value === curatedStateKey(item)) return 'שומר…';
-    return selectionMode.value && selectedKeys.value.has(resultKey(item)) ? 'נבחרה' : 'שמור התאמה';
-  }
-  return selectedKeys.value.has(resultKey(item)) ? 'נבחרה' : 'שמור התאמה';
+  if (tefillotSavingKey.value === curatedStateKey(item)) return 'שומר…';
+  return selectionMode.value && selectedKeys.value.has(resultKey(item)) ? 'נבחרה' : 'שמור התאמה';
 }
-function prayerMatchSaveError(code) {
+function matchSaveError(code) {
   return {
-    tefillot_save_schema_required: 'שמירת תפילות דורשת עדכון מסד הנתונים. יש להפעיל את מיגרציית התפילות.',
+    tefillot_save_schema_required: 'שמירת התאמות מתפילות אינה זמינה כרגע. נסו שוב מאוחר יותר.',
     tefillot_unavailable: 'שמירת תפילות אינה זמינה כרגע. נסו שוב מאוחר יותר.',
     invalid_parent: 'לא ניתן לשמור בלי חישוב תקין. הזינו טקסט עברי או מספר תקין.',
     invalid_tefillot_context: 'מקור התפילה אינו תקין. רעננו את ההתאמות ונסו שוב.',
     tefillot_range_mismatch: 'טווח התפילה אינו תואם למקור. רעננו את ההתאמות ונסו שוב.',
+    invalid_tanach_context: 'מקור הפסוק אינו תקין. רעננו את ההתאמות ונסו שוב.',
+    tanach_range_mismatch: 'טווח הפסוק אינו תואם למקור. רעננו את ההתאמות ונסו שוב.',
     unauthorized: 'פג תוקף הכניסה. היכנסו שוב כדי לשמור.',
   }[code] || 'לא ניתן לשמור את ההתאמה כרגע. נסו שוב.';
 }
@@ -722,15 +745,18 @@ async function saveCuratedMatches(explicitMatches = null) {
   if (!chosen.length || curatedSaving.value) return;
   const savedReason = reasonCode();
   const savedParentText = props.sourceText;
+  const contextVersion = saveContextVersion;
+  const isCurrentContext = () => discoveryActive && contextVersion === saveContextVersion;
   curatedSaving.value = true;
   curatedMessage.value = '';
   curatedError.value = false;
+  lastSavedMatch.value = null;
   try {
     const response = await fetch('/api/entries/curated-matches', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        parentOriginalText: props.sourceText,
+        parentOriginalText: savedParentText,
         matches: chosen.map(item => ({
           originalText: item.text,
           ...(item.sourceType === 'tefillot'
@@ -741,25 +767,37 @@ async function saveCuratedMatches(explicitMatches = null) {
       }),
     });
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok || (chosen.some(item => item.sourceType === 'tefillot') && payload.success !== true)) {
+    if (!response.ok || payload.success !== true || !Array.isArray(payload.matches) || !payload.matches.length
+      || !Number.isSafeInteger(Number(payload.parentId)) || Number(payload.parentId) < 1
+      || payload.matches.some(match => !Number.isSafeInteger(Number(match.id)) || Number(match.id) < 1)) {
       throw new Error(payload.error || 'save');
+    }
+    const savedMatch = payload.matches[0];
+    const savedRelationship = {
+      sourceType: savedMatch.sourceType || savedMatch.source_type || 'tanach',
+      id: savedMatch.id,
+      parentEntryId: payload.parentId,
+    };
+    emit('saved', savedRelationship);
+    if (!isCurrentContext()) {
+      // The request still committed its captured parent. Hydrate the current
+      // search independently instead of reviving the previous search's notice.
+      if (discoveryActive) syncCuratedSavedState();
+      return true;
     }
     curatedStateRequestId += 1;
     const savedKeysNow = new Set(curatedSavedKeys.value);
     chosen.forEach(item => savedKeysNow.add(curatedStateKey(item, savedReason, savedParentText)));
     curatedSavedKeys.value = savedKeysNow;
-    curatedMessage.value = payload.parentCreated
-      ? (chosen.length > 1 ? 'החישוב וההתאמות נשמרו.' : 'החישוב וההתאמה נשמרו.')
-      : (chosen.length > 1 ? 'ההתאמות נשמרו.' : 'ההתאמה נשמרה.');
+    lastSavedMatch.value = savedRelationship;
+    curatedMessage.value = chosen.length > 1 ? 'ההתאמות נשמרו' : 'ההתאמה נשמרה';
     if (!Array.isArray(explicitMatches)) selectedKeys.value = new Set();
     return true;
   } catch (error) {
-    curatedError.value = true;
-    curatedMessage.value = chosen.some(item => item.sourceType === 'tefillot')
-      ? prayerMatchSaveError(error.message)
-      : error.message === 'tefillot_save_schema_required'
-      ? 'שמירת תפילות דורשת עדכון מסד הנתונים. יש להפעיל את מיגרציית התפילות.'
-      : 'לא ניתן לשמור את ההתאמות כרגע';
+    if (isCurrentContext()) {
+      curatedError.value = true;
+      curatedMessage.value = matchSaveError(error.message);
+    }
     return false;
   } finally {
     curatedSaving.value = false;
@@ -771,6 +809,8 @@ function retry() {
 async function saveResult(item, key) {
   if (savingKey.value) return;
   savingKey.value = key;
+  const contextVersion = saveContextVersion;
+  const isCurrentContext = () => discoveryActive && contextVersion === saveContextVersion;
   savedRangeMessage.value = '';
   saveErrors.value = new Set([...saveErrors.value].filter(item => item !== key));
   try {
@@ -786,14 +826,19 @@ async function saveResult(item, key) {
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok && response.status !== 409) throw new Error(payload.error || 'save');
-    rangeStateRequestId += 1;
-    savedKeys.value = new Set([...savedKeys.value, canonicalSourceKey(item)]);
     emit('saved', item);
+    if (isCurrentContext()) {
+      rangeStateRequestId += 1;
+      savedKeys.value = new Set([...savedKeys.value, canonicalSourceKey(item)]);
+      independentSavedKey.value = key;
+    } else if (discoveryActive) syncSavedRangeState();
   } catch (error) {
-    saveErrors.value = new Set([...saveErrors.value, key]);
-    savedRangeMessage.value = error.message === 'tefillot_save_schema_required'
-      ? 'שמירת תפילות דורשת עדכון מסד הנתונים. יש להפעיל את מיגרציית התפילות.'
-      : '';
+    if (isCurrentContext()) {
+      saveErrors.value = new Set([...saveErrors.value, key]);
+      savedRangeMessage.value = error.message === 'tefillot_save_schema_required'
+        ? 'שמירת ערכים מתפילות אינה זמינה כרגע. נסו שוב מאוחר יותר.'
+        : '';
+    }
   } finally {
     savingKey.value = '';
   }
@@ -953,18 +998,17 @@ h2 { margin: 5px 0 4px; font-size: clamp(1.2rem, 2vw, 1.65rem); font-weight: 750
 .muted-text { color: #b0aaa0; }
 .card-actions { margin-top: auto; padding-top: 10px; border-top: 1px solid #f0ece5; }
 .card-actions button { padding: 6px 8px; border-color: transparent; background: transparent; font-size: .7rem; }
-.reader-action { color: #69727b !important; }
-.save-action { color: #98732b !important; }
 .curated-action { background: #fffaf0 !important; border-color: #e2d1aa !important; color: #765812 !important; font-weight: 700 !important; }
 .curated-action.saved { background: #f3f7f0 !important; border-color: #cbd9c5 !important; color: #55724b !important; cursor: default; opacity: .9; }
 .curated-action.selected { background: #f2e4bd !important; color: #765812 !important; border-color: #d6bd7a !important; }
+.independent-save-notice { color: #55724b; font-size: .76rem; margin-top: 7px; }
 .curated-save-bar { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 14px auto 0; padding: 8px 12px; border: 1px solid #dcc58e; border-radius: 9px; background: #fbf4e6; color: #765812; font-size: .76rem; }
 .curated-save-bar button { border: 1px solid #c9a55d; border-radius: 6px; background: #fffdf8; color: #765812; padding: 5px 9px; font: inherit; cursor: pointer; }
 .curated-save-bar .cancel-curated { border-color: transparent; background: transparent; }
-.curated-message { margin: 8px 0 0; color: #55724b; font-size: .75rem; text-align: center; }
-.curated-message.error { color: #a45e46; }
-.save-action.saved { color: #388e3c !important; }
-.save-action:disabled { cursor: default; opacity: .75; }
+.curated-message { position: fixed; z-index: 1200; bottom: 22px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px 22px; max-width: calc(100vw - 32px); width: max-content; padding: 13px 20px; border: 1px solid #d8c795; border-radius: 12px; background: #fffdf7; box-shadow: 0 5px 24px #1a274421; color: var(--navy); font-size: .92rem; text-align: center; }
+.curated-message.error { color: #9f4038; border-color: #e4bdb3; }
+.show-saved-action { border: 0; border-radius: 6px; padding: 7px 11px; background: var(--navy); color: white; font: inherit; font-weight: 600; cursor: pointer; }
+.show-saved-action:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
 .state-card { min-height: 170px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; border: 1px dashed #d8cfbf; border-radius: 10px; text-align: center; color: var(--text-secondary, #74716a); font-size: .82rem; }
 .state-card .mdi { font-size: 1.7rem; color: #c09840; }
 .state-card strong { color: var(--navy, #1a2744); }

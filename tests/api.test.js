@@ -126,7 +126,7 @@ test('curated matches auto-save, merge, persist, delete, and cascade correctly',
   const secondContext = { bookSlug: 'Genesis', chapter: 1, verse: 2, start: 0, end: secondCursor.count - 1 };
   const firstText = cursor.range(firstContext.start, firstContext.end).text;
   const secondText = secondCursor.range(secondContext.start, secondContext.end).text;
-  const parentText = `א${uniqueHebrewToken()}ב`;
+  const parentText = `תתתתתתתת${uniqueHebrewToken()}ב`;
   let parentId;
   let ordinaryId;
   try {
@@ -177,6 +177,23 @@ test('curated matches auto-save, merge, persist, delete, and cascade correctly',
     assert.deepEqual(firstChild.reasonCodes.sort(), ['finals_text', 'full_gematria']);
     assert.equal(secondChild.originalText, secondText);
 
+    const relationships = await agent.get('/api/entries/curated-matches').query({ search: parentText });
+    assert.equal(relationships.status, 200);
+    assert.equal(relationships.body.total, 2);
+    assert.ok(relationships.body.matches.every(match => match.parentId === parentId));
+    const byMatchedText = await agent.get('/api/entries/curated-matches').query({ search: normalize(firstText) });
+    assert.ok(byMatchedText.body.matches.some(match => match.id === firstChild.id));
+    const byValue = await agent.get('/api/entries/curated-matches').query({ search: String(computeAll(firstText).fullGematria) });
+    assert.ok(byValue.body.matches.some(match => match.id === firstChild.id));
+    const byReason = await agent.get('/api/entries/curated-matches').query({
+      search: parentText, source: 'tanach', matchType: 'finals_text',
+    });
+    assert.equal(byReason.body.total, 1);
+    assert.equal(byReason.body.matches[0].key, `tanach:${firstChild.id}`);
+    assert.deepEqual(byReason.body.matches[0].tanachContext, firstChild.tanachContext);
+    assert.equal(byReason.body.matches[0].fullGematria, computeAll(firstText).fullGematria);
+    assert.equal(byReason.body.matches[0].gematriaValue, null, 'legacy unrelated reasons never invent a common number');
+
     const ordinary = await agent.post('/api/entries').send({
       originalText: firstText,
       tanachContext: firstContext,
@@ -191,6 +208,9 @@ test('curated matches auto-save, merge, persist, delete, and cascade correctly',
     const afterParent = afterChildDelete.body.entries.find(entry => entry.id === parentId);
     assert.ok(afterParent);
     assert.equal(afterParent.curated_match_count, 1);
+    const afterRelationshipRemoval = await agent.get('/api/entries/curated-matches').query({ search: parentText });
+    assert.equal(afterRelationshipRemoval.body.total, 1);
+    assert.equal(afterRelationshipRemoval.body.matches[0].id, secondChild.id);
     assert.equal((await agent.get('/api/entries').query({ search: firstText })).body.entries
       .some(entry => entry.id === ordinaryId), true);
 
@@ -201,6 +221,84 @@ test('curated matches auto-save, merge, persist, delete, and cascade correctly',
   } finally {
     if (ordinaryId) await agent.delete(`/api/entries/${ordinaryId}`).catch(() => {});
     if (parentId) await agent.delete(`/api/entries/${parentId}`).catch(() => {});
+  }
+});
+
+test('numeric Tanach relationships preserve targets across word, phrase, verse, duplicates and exact old-row focus', async () => {
+  const agent = request.agent(app);
+  await agent.post('/api/auth/login').send({ password: 'correct-test-password-12345' });
+  const verseResponse = await agent.get('/api/tanach/verse').query({ book: 'Genesis', chapter: 1, verse: 1 });
+  assert.equal(verseResponse.status, 200);
+  const text = verseResponse.body.verse.display_text;
+  const cursor = createTanachCursor(text);
+  const words = normalize(text).split(/\s+/).filter(Boolean);
+  const firstWordLength = words[0].length;
+  const firstPhraseLength = words[0].length + words[1].length;
+  const ranges = [firstWordLength - 1, firstPhraseLength - 1, cursor.count - 1];
+  const parentIds = new Set();
+  const relationshipIds = [];
+  try {
+    for (const end of ranges) {
+      const originalText = cursor.range(0, end).text;
+      const parentOriginalText = String(computeAll(originalText).fullGematria);
+      const payload = { parentOriginalText, matches: [{ originalText,
+        tanachContext: { bookSlug: 'Genesis', chapter: 1, verse: 1, start: 0, end },
+        reasonCode: 'full_gematria' }] };
+      const saved = await agent.post('/api/entries/curated-matches').send(payload);
+      assert.equal(saved.status, 200, JSON.stringify(saved.body));
+      parentIds.add(saved.body.parentId);
+      relationshipIds.push(saved.body.matches[0].id);
+      const duplicate = await agent.post('/api/entries/curated-matches').send(payload);
+      assert.equal(duplicate.status, 200);
+      assert.equal(duplicate.body.parentId, saved.body.parentId);
+      assert.equal(duplicate.body.matches[0].id, saved.body.matches[0].id);
+      const listed = await agent.get('/api/entries/curated-matches').query({ focus: saved.body.matches[0].key, limit: 1 });
+      const relationship = listed.body.matches[0];
+      assert.equal(relationship.parentOriginalText, parentOriginalText);
+      assert.equal(relationship.parentGematria, Number(parentOriginalText));
+      assert.equal(relationship.gematriaValue, Number(parentOriginalText));
+      assert.equal(relationship.originalText, originalText);
+      assert.equal(relationship.tanachContext.end, end);
+    }
+    // Persist a deliberately old parent and enough newer connections to put it
+    // beyond a default relationship page. Every mutation stays in the harness's
+    // verified disposable schema and is removed with its parent below.
+    const oldestParent = [...parentIds][0];
+    await pool.query("UPDATE saved_entries SET created_at = '2000-01-01' WHERE id=$1", [oldestParent]);
+    await pool.query("UPDATE curated_matches SET created_at = '2000-01-01' WHERE id=$1", [relationshipIds[0]]);
+    const extraRanges = [];
+    for (let start = 0; start < cursor.count && extraRanges.length < 50; start += 1) {
+      for (let end = start; end < cursor.count && extraRanges.length < 50; end += 1) {
+        if (start === 0 && ranges.includes(end)) continue;
+        const canonicalText = cursor.range(start, end).text;
+        extraRanges.push({ start, end, text: canonicalText, normalized: normalize(canonicalText) });
+      }
+    }
+    const newer = await pool.query(`
+      INSERT INTO curated_matches (parent_id, original_text, normalized_text,
+        tanach_book_slug, tanach_book_label, tanach_chapter, tanach_verse,
+        tanach_start, tanach_end, reason_codes)
+      SELECT $1, item->>'text', item->>'normalized', 'Genesis', 'בראשית', 1, 1,
+        (item->>'start')::int, (item->>'end')::int, '["full_gematria"]'::jsonb
+      FROM jsonb_array_elements($2::jsonb) item RETURNING id`,
+    [oldestParent, JSON.stringify(extraRanges)]);
+    assert.equal(newer.rowCount, 50);
+    const focused = await agent.get('/api/entries/curated-matches').query({
+      focus: `tanach:${relationshipIds[0]}`, limit: 20,
+    });
+    assert.equal(focused.status, 200);
+    assert.equal(focused.body.focusedKey, `tanach:${relationshipIds[0]}`);
+    assert.ok(focused.body.pagination.offset >= 40);
+    assert.ok(focused.body.matches.some(match => match.id === relationshipIds[0]));
+    const tooLarge = await agent.post('/api/entries/curated-matches').send({
+      parentOriginalText: '2147483648', matches: [{ originalText: text,
+        tanachContext: { bookSlug: 'Genesis', chapter: 1, verse: 1, start: 0, end: cursor.count - 1 },
+        reasonCode: 'full_gematria' }],
+    });
+    assert.equal(tooLarge.status, 400);
+    assert.equal(tooLarge.body.error, 'numeric_target_out_of_range');
+  } finally {
+    for (const parentId of parentIds) await agent.delete(`/api/entries/${parentId}`);
   }
 });
 

@@ -1,326 +1,479 @@
-import { test, expect } from '@playwright/test';
-import { calculateMilui } from '../src/utils/milui.js';
+import { test, expect } from "@playwright/test";
+import { computeAll } from "../src/composables/useGematria.js";
+import { createTanachCursor } from "../src/composables/useTanachCursor.js";
 
-test.use({ serviceWorkers: 'block' });
-
-const e2ePassword = process.env.E2E_APP_PASSWORD || 'tanach-browser-test-password';
-
-function uniqueHebrewToken() {
-  const alphabet = [...'אבגדהוזחטיכלמנסעפצקרשת'];
-  let seed = Date.now() + Math.floor(Math.random() * 100_000);
-  let token = '';
-  while (seed > 0) {
-    token += alphabet[seed % alphabet.length];
-    seed = Math.floor(seed / alphabet.length);
-  }
-  return token;
-}
+test.use({ serviceWorkers: "block" });
+const password = process.env.E2E_APP_PASSWORD || "tanach-browser-test-password";
 
 async function signIn(page) {
-  await page.goto('/');
-  await page.locator('input[type="password"]').fill(e2ePassword);
-  await page.getByRole('button', { name: 'כניסה' }).click();
-  await expect(page.getByRole('button', { name: 'שמורים', exact: true })).toBeVisible();
+  await page.goto("/");
+  await page.locator('input[type="password"]').fill(password);
+  await page.getByRole("button", { name: "כניסה", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "שמורים", exact: true }),
+  ).toBeVisible();
+}
+async function library(page) {
+  await page.getByRole("button", { name: "שמורים", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "הספרייה השמורה", exact: true }),
+  ).toBeVisible();
+}
+async function filters(page) {
+  await page.getByRole("button", { name: "סינון", exact: true }).click();
+  return page.getByRole("dialog", { name: "סינון הספרייה" });
+}
+async function saveRange(
+  page,
+  { book = "Genesis", chapter = 1, verse = 1, start = 0, end = 27 } = {},
+) {
+  const response = await page.request.get(
+    `/api/tanach/verse?book=${book}&chapter=${chapter}&verse=${verse}`,
+  );
+  expect(response.ok()).toBe(true);
+  const data = await response.json();
+  const text = data.verse.display_text;
+  const cursor = createTanachCursor(text);
+  const rangeEnd = end === "full" ? cursor.count - 1 : end;
+  const originalText = cursor.range(start, rangeEnd).text;
+  const value = computeAll(originalText).fullGematria;
+  const payload = {
+    parentOriginalText: String(value),
+    matches: [
+      {
+        originalText,
+        tanachContext: { bookSlug: book, chapter, verse, start, end: rangeEnd },
+        reasonCode: "full_gematria",
+      },
+    ],
+  };
+  const saved = await page.request.post("/api/entries/curated-matches", {
+    data: payload,
+  });
+  expect(saved.ok()).toBe(true);
+  return { ...(await saved.json()), value, originalText, payload };
 }
 
-test('saved library composes search, views, sorting, grouping, detail, and delete safety', async ({ page }, testInfo) => {
+test("real word, phrase and full pasuk persist, search globally, open exact sources and remove only one relationship", async ({
+  page,
+}, testInfo) => {
   await signIn(page);
-  const token = uniqueHebrewToken();
-  const texts = [`${token} אב`, `${token} ג`, `${token} ד`];
-  const savedIds = [];
-
+  const saves = [];
   try {
-    for (const originalText of texts) {
-      const response = await page.request.post(new URL('/api/entries', page.url()).href, {
-        data: { originalText },
-      });
-      expect(response.status()).toBe(200);
-      savedIds.push((await response.json()).id);
-    }
-
-    await page.getByRole('button', { name: 'שמורים', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'שמורים' })).toBeVisible();
-    await expect(page.getByText('הספרייה האישית שלך')).toBeVisible();
-
-    const search = page.getByRole('searchbox', { name: 'חיפוש בספרייה' });
-    const searchResponse = page.waitForResponse(response =>
-      response.url().includes('/api/entries?')
-        && response.url().includes(`search=${encodeURIComponent(token)}`)
+    saves.push(await saveRange(page, { end: 5 }));
+    saves.push(await saveRange(page, { end: 8 }));
+    saves.push(
+      await saveRange(page, {
+        book: "Numbers",
+        chapter: 7,
+        verse: 89,
+        end: "full",
+      }),
     );
-    await search.fill(token);
-    expect((await searchResponse).ok()).toBe(true);
-
-    const cards = page.locator('.entry-card');
-    await expect(cards).toHaveCount(3);
-    await expect(page.locator('.entry-footer')).toHaveCount(3);
-    await expect(page.locator('.entry-text mark')).toHaveCount(3);
-    await expect(page.locator('.library-summary')).toContainText('3 שמורים');
-    await expect(page.locator('.library-summary')).toContainText('2 ערכים שונים');
-    await expect(page.locator('.library-summary')).toContainText('1 ערכים משותפים');
-
-    const entriesList = page.locator('.entries-list');
-    const boxes = await cards.evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect()));
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
-    expect(overflow).toBe(false);
-    if (testInfo.project.name === 'mobile-chromium') {
-      expect(Math.abs(boxes[0].x - boxes[1].x)).toBeLessThan(2);
-    } else {
-      expect(Math.abs(boxes[0].x - boxes[1].x)).toBeGreaterThan(100);
-      const footerBoxes = await page.locator('.entry-footer').evaluateAll(nodes =>
-        nodes.map(node => node.getBoundingClientRect())
-      );
-      expect(Math.abs(footerBoxes[0].y - footerBoxes[1].y)).toBeLessThan(2);
-    }
-
-    const initialFirstCard = cards.first();
-    const initialFirstId = await initialFirstCard.getAttribute('data-entry-id');
-    await initialFirstCard.getByRole('button', { name: 'פתח פירוט', exact: true }).click();
-    const initialDetail = page.locator(`[data-detail-entry-id="${initialFirstId}"]`);
-    await expect(initialDetail).toBeVisible();
-    const wordDisclosure = initialDetail.locator('details.detail-words');
-    await expect(wordDisclosure).toHaveJSProperty('open', false);
-    await expect(wordDisclosure.getByText('פירוט מילים')).toBeVisible();
-    await expect(wordDisclosure.locator('.detail-word-block').first()).toBeHidden();
-    await wordDisclosure.locator('summary').click();
-    await expect(wordDisclosure).toHaveJSProperty('open', true);
-    await expect(wordDisclosure.locator('.detail-word-block').first()).toBeVisible();
-    await wordDisclosure.locator('summary').press('Enter');
-    await expect(wordDisclosure).toHaveJSProperty('open', false);
-    await expect(wordDisclosure.locator('.detail-word-block').first()).toBeHidden();
-    const settingsResponse = await page.request.get(new URL('/api/settings/milui', page.url()).href);
-    expect(settingsResponse.ok()).toBe(true);
-    const settings = await settingsResponse.json();
-    const selectedEntryText = await initialFirstCard.locator('.entry-text').innerText();
-    const expectedMilui = calculateMilui(selectedEntryText, settings.mapping);
-    await expect(initialDetail.getByText('מילוי נוכחי')).toBeVisible();
-    await expect(initialDetail.locator('.detail-row--milui .detail-gematria')).toContainText(
-      String(expectedMilui.fullGematria)
-    );
-    await expect(initialFirstCard).toHaveClass(/expanded/);
-    await expect(initialFirstCard.locator('.entry-detail')).toHaveCount(0);
-    const selectedBox = await initialFirstCard.boundingBox();
-    const detailBox = await initialDetail.boundingBox();
-    expect(detailBox.y).toBeGreaterThanOrEqual(selectedBox.y + selectedBox.height - 1);
-    if (testInfo.project.name !== 'mobile-chromium') {
-      const listBox = await entriesList.boundingBox();
-      const rowCardBoxes = await cards.evaluateAll(nodes =>
-        nodes.slice(0, 2).map(node => node.getBoundingClientRect())
-      );
-      expect(Math.abs(detailBox.x - listBox.x)).toBeLessThan(2);
-      expect(Math.abs(detailBox.width - listBox.width)).toBeLessThan(2);
-      expect(Math.abs(rowCardBoxes[0].height - rowCardBoxes[1].height)).toBeLessThan(2);
-      expect(detailBox.y).toBeGreaterThanOrEqual(
-        Math.max(...rowCardBoxes.map(box => box.y + box.height)) - 1
-      );
-    }
-    await initialFirstCard.getByRole('button', { name: 'סגור', exact: true }).click();
-    await expect(initialDetail).toHaveCount(0);
-
-    await page.getByTitle('תצוגת רשימה').click();
-    await expect(entriesList).toHaveClass(/list-mode/);
-    await page.getByTitle('תצוגת כרטיסים').click();
-    await expect(entriesList).not.toHaveClass(/list-mode/);
-    await page.getByRole('combobox', { name: 'מיון הספרייה' }).selectOption('gematria');
-    await expect(cards).toHaveCount(3);
-
-    await page.locator('.group-toggle').click();
-    await expect(page.getByLabel('קבץ לפי גימטריה')).toBeChecked();
-    await expect(entriesList).toHaveClass(/grouped-mode/);
-    await expect(page.locator('.entry-group')).toHaveCount(1);
-    await expect(page.locator('.entries-list.grouped-mode > .entry-card')).toHaveCount(1);
-    await expect(page.locator('.shared-group .entry-card')).toHaveCount(2);
-    await expect(cards).toHaveCount(3);
-    if (testInfo.project.name !== 'mobile-chromium') {
-      const groupedListBox = await entriesList.boundingBox();
-      const sharedGroupBox = await page.locator('.shared-group').boundingBox();
-      const uniqueCardBox = await page.locator('.entries-list.grouped-mode > .entry-card').boundingBox();
-      expect(Math.abs(sharedGroupBox.x - groupedListBox.x)).toBeLessThan(2);
-      expect(Math.abs(sharedGroupBox.width - groupedListBox.width)).toBeLessThan(2);
-      expect(Math.abs(sharedGroupBox.y - uniqueCardBox.y)).toBeGreaterThan(2);
-    }
-
-    const firstCard = cards.first();
-    await firstCard.getByRole('button', { name: 'פתח פירוט', exact: true }).click();
-    const groupedDetail = page.locator('.shared-group .detail-panel');
-    await expect(groupedDetail).toBeVisible();
-    await expect(groupedDetail.locator('.detail-words')).toBeVisible();
-    await expect(groupedDetail.locator('details.detail-words')).toHaveJSProperty('open', false);
-    if (testInfo.project.name !== 'mobile-chromium') {
-      const groupGridBox = await page.locator('.shared-group .group-entries').boundingBox();
-      const groupedDetailBox = await groupedDetail.boundingBox();
-      expect(Math.abs(groupedDetailBox.x - groupGridBox.x)).toBeLessThan(2);
-      expect(Math.abs(groupedDetailBox.width - groupGridBox.width)).toBeLessThan(2);
-    }
-
-    await firstCard.getByRole('button', { name: /פעולות עבור/ }).click();
-    await firstCard.getByRole('menuitem', { name: 'העתק' }).click();
-    await expect(page.getByRole('status')).toHaveText('הטקסט הועתק');
-
-    await page.evaluate(() => {
-      Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true });
-      document.execCommand = () => false;
+    const duplicate = await page.request.post("/api/entries/curated-matches", {
+      data: saves[0].payload,
     });
-    await firstCard.getByRole('button', { name: /פעולות עבור/ }).click();
-    await firstCard.getByRole('menuitem', { name: 'העתק' }).click();
-    await expect(page.getByRole('status')).toHaveText('לא ניתן להעתיק כרגע');
-
-    await firstCard.getByRole('button', { name: /פעולות עבור/ }).click();
-    await firstCard.getByRole('menuitem', { name: 'מחק' }).click();
-    await expect(page.getByRole('dialog').getByRole('button', { name: 'ביטול' })).toBeFocused();
-    await expect(page.getByRole('dialog')).toContainText(texts[0].split(' ')[0]);
-    await page.getByRole('button', { name: 'ביטול' }).click();
-    await expect(firstCard).toBeVisible();
-
-    const deleteId = savedIds.pop();
-    const deleteCard = page.locator(`[data-entry-id="${deleteId}"]`);
-    await deleteCard.getByRole('button', { name: /פעולות עבור/ }).click();
-    await deleteCard.getByRole('menuitem', { name: 'מחק' }).click();
-    const deleteResponse = page.waitForResponse(response =>
-      response.url().endsWith(`/api/entries/${deleteId}`)
-        && response.request().method() === 'DELETE'
-    );
-    await page.getByRole('dialog').getByRole('button', { name: 'מחק' }).click();
-    expect((await deleteResponse).ok()).toBe(true);
-    await expect(deleteCard).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: 'שמורים' })).toBeFocused();
-  } finally {
-    for (const id of savedIds) {
-      const response = await page.request.delete(new URL(`/api/entries/${id}`, page.url()).href);
-      expect([200, 404]).toContain(response.status());
+    expect((await duplicate.json()).matches[0].id).toBe(saves[0].matches[0].id);
+    await library(page);
+    await expect(
+      page.getByRole("tab", { name: /התאמות שמורות/ }),
+    ).toHaveAttribute("aria-selected", "true");
+    const rows = page.locator(".match-row");
+    await expect(rows).toHaveCount(3);
+    await expect(page.locator(".entry-detail")).toHaveCount(0);
+    await expect(rows.locator("button")).toHaveCount(3);
+    await expect(
+      rows.locator(".tanach-reference, .reason-badge, .entry-footer, time"),
+    ).toHaveCount(0);
+    for (const saved of saves) {
+      const row = page.locator(
+        `[data-match-key="tanach:${saved.matches[0].id}"]`,
+      );
+      await expect(row.locator(".gematria-number")).toHaveText(
+        String(saved.value),
+      );
+      await expect(row.locator(".original-expression")).toHaveText(
+        String(saved.value),
+      );
     }
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    const longRow = page.locator(
+      `[data-match-key="tanach:${saves[2].matches[0].id}"]`,
+    );
+    const wordRow = page.locator(
+      `[data-match-key="tanach:${saves[0].matches[0].id}"]`,
+    );
+    expect((await longRow.boundingBox()).height).toBeGreaterThan(
+      (await wordRow.boundingBox()).height,
+    );
+    await page.screenshot({
+      path: `artifacts/saved-library-${testInfo.project.name}.png`,
+      fullPage: true,
+    });
+    const search = page.getByRole("searchbox", { name: "חיפוש בספרייה" });
+    await search.fill(String(saves[0].value));
+    await expect(rows).toHaveCount(1);
+    await search.fill("בראשית ברא");
+    await expect(rows).toHaveCount(1);
+    await expect(rows.first().locator(".gematria-number")).toHaveText(
+      String(saves[1].value),
+    );
+    await page.getByRole("button", { name: "נקה חיפוש" }).click();
+    await expect(rows).toHaveCount(3);
+    const filter = await filters(page);
+    await filter
+      .getByRole("combobox", { name: "מקור ההתאמה" })
+      .selectOption("tefillot");
+    await expect(
+      page.getByText("לא נמצאו תוצאות", { exact: true }),
+    ).toBeVisible();
+    await filter
+      .getByRole("combobox", { name: "מקור ההתאמה" })
+      .selectOption("tanach");
+    await expect(rows).toHaveCount(3);
+    await page.keyboard.press("Escape");
+    await expect(
+      page.getByRole("button", { name: "סינון", exact: true }),
+    ).toBeFocused();
+    await page.reload();
+    await library(page);
+    await expect(rows).toHaveCount(3);
+    const trigger = longRow.getByRole("button", { name: /פעולות עבור/ });
+    await trigger.focus();
+    await page.keyboard.press("ArrowDown");
+    await expect(
+      page.getByRole("menuitem", { name: "למקור", exact: true }),
+    ).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(
+      page.getByRole("menuitem", { name: "פירוט מילים", exact: true }),
+    ).toBeFocused();
+    await page.keyboard.press("Enter");
+    const detail = page.getByRole("dialog", {
+      name: "פירוט מילים",
+      exact: true,
+    });
+    await expect(detail).toBeVisible();
+    await expect(detail.locator(".detail-word-block").first()).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(detail).not.toBeVisible();
+    await expect(trigger).toBeFocused();
+    await trigger.click();
+    const menu = page.getByRole("menu", { name: "פעולות בשמורים" });
+    await expect(menu).toBeVisible();
+    const bounds = await menu.boundingBox();
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(
+      page.viewportSize().width,
+    );
+    await page.screenshot({
+      path: `artifacts/saved-library-menu-${testInfo.project.name}.png`,
+      fullPage: true,
+    });
+    await page.getByRole("heading", { name: "הספרייה השמורה" }).click();
+    await expect(menu).toHaveCount(0);
+    await trigger.click();
+    await page.getByRole("menuitem", { name: "למקור", exact: true }).click();
+    await expect(page.locator(".tanach-page")).toBeVisible();
+    await expect(page.locator(".verse-toolbar h2")).toHaveText("במדבר ז:פט");
+    await library(page);
+    await wordRow.getByRole("button", { name: /פעולות עבור/ }).click();
+    await page
+      .getByRole("menuitem", { name: "הסר משמורים", exact: true })
+      .click();
+    const deletion = page.getByRole("dialog", {
+      name: "להסיר את ההתאמה?",
+      exact: true,
+    });
+    await expect(deletion.getByRole("button", { name: "ביטול" })).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(wordRow).toBeVisible();
+    await wordRow.getByRole("button", { name: /פעולות עבור/ }).click();
+    await page
+      .getByRole("menuitem", { name: "הסר משמורים", exact: true })
+      .click();
+    await deletion
+      .getByRole("button", { name: "הסר משמורים", exact: true })
+      .click();
+    await expect(rows).toHaveCount(2);
+    const parent = await page.request.get(
+      `/api/entries?parentOriginalText=${saves[0].value}`,
+    );
+    expect(
+      (await parent.json()).entries.some(
+        (entry) => entry.id === saves[0].parentId,
+      ),
+    ).toBe(true);
+  } finally {
+    for (const id of new Set(
+      saves.filter((save) => save.parentCreated).map((save) => save.parentId),
+    ))
+      await page.request.delete(`/api/entries/${id}`);
   }
 });
 
-test('saved library loads later pages before grouping cross-page values', async ({ page }) => {
+test("independent entries keep calculation, copy, sorting, grouping and confirmed deletion in secondary controls", async ({
+  page,
+}) => {
   await signIn(page);
-  const fakeEntries = Array.from({ length: 101 }, (_, index) => ({
-    id: 50000 + index,
-    original_text: `ערך בדיקה ${index + 1}`,
-    normalized_text: `ערך בדיקה ${index + 1}`,
-    full_gematria: index === 100 ? 700 : 700 + index,
-    full_gematria_hebrew: 'תש',
-    initials: 'עב',
-    initials_gematria: 72,
-    initials_gematria_hebrew: 'עב',
-    created_at: new Date(2026, 0, 1, 0, 0, index).toISOString(),
-    words: [],
-  }));
-
-  await page.route('**/api/entries?**', async route => {
-    const url = new URL(route.request().url());
-    const offset = Number(url.searchParams.get('offset') || 0);
-    const limit = Number(url.searchParams.get('limit') || 100);
-    const grouped = url.searchParams.get('grouped') === 'true';
-    let pageEntries;
-    let pageCount;
-    let paginationTotal;
-    if (grouped) {
-      const values = [...new Set(fakeEntries.map(entry => entry.full_gematria))];
-      const pageValues = values.slice(offset, offset + limit);
-      pageEntries = fakeEntries.filter(entry => pageValues.includes(entry.full_gematria));
-      pageCount = pageValues.length;
-      paginationTotal = values.length;
-    } else {
-      pageEntries = fakeEntries.slice(offset, offset + limit);
-      pageCount = pageEntries.length;
-      paginationTotal = fakeEntries.length;
+  const ids = [];
+  try {
+    for (const originalText of [
+      "בדיקת ספרייה אב",
+      "בדיקת ספרייה ג",
+      "בדיקת ספרייה ד",
+    ]) {
+      const response = await page.request.post("/api/entries", {
+        data: { originalText },
+      });
+      expect(response.ok()).toBe(true);
+      ids.push((await response.json()).id);
     }
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        entries: pageEntries,
-        total: fakeEntries.length,
-        stats: { saved: 101, distinctValues: 100, sharedValues: 1 },
-        pagination: {
-          unit: grouped ? 'groups' : 'entries',
-          pageCount,
-          nextOffset: offset + pageCount,
-          hasMore: offset + pageCount < paginationTotal,
-        },
-      }),
+    await library(page);
+    await page.getByRole("tab", { name: /ערכים שמורים/ }).click();
+    await page
+      .getByRole("searchbox", { name: "חיפוש בספרייה" })
+      .fill("בדיקת ספרייה");
+    const rows = page.locator(".entry-card");
+    await expect(rows).toHaveCount(3);
+    const filter = await filters(page);
+    await filter
+      .getByRole("combobox", { name: "מיון הספרייה" })
+      .selectOption("gematria");
+    await filter
+      .getByRole("combobox", { name: "תצוגת הספרייה" })
+      .selectOption("grid");
+    await filter.getByRole("checkbox", { name: "קבץ לפי גימטריה" }).check();
+    await expect(page.locator(".group-header")).toHaveCount(2);
+    await page.keyboard.press("Escape");
+    await rows.first().getByRole("button").click();
+    await page
+      .getByRole("menuitem", { name: "פירוט מילים", exact: true })
+      .click();
+    const detail = page.getByRole("dialog", {
+      name: "פירוט מילים",
+      exact: true,
     });
-  });
-
-  await page.getByRole('button', { name: 'שמורים', exact: true }).click();
-  await expect(page.locator('.entry-card')).toHaveCount(100);
-  await page.locator('.group-toggle').click();
-  await expect(page.getByLabel('קבץ לפי גימטריה')).toBeChecked();
-  await expect(page.locator('.entry-card')).toHaveCount(21);
-  await expect(page.locator('.entry-group')).toHaveCount(1);
-  await expect(page.locator('.entries-list.grouped-mode > .entry-card')).toHaveCount(19);
-  await expect(page.locator('.shared-group .entry-card')).toHaveCount(2);
-
-  await page.getByRole('button', { name: 'מחשבון', exact: true }).click();
-  await page.getByRole('button', { name: 'שמורים', exact: true }).click();
-  await expect(page.locator('.entry-card')).toHaveCount(100);
-  await page.getByRole('button', { name: /הצג עוד/ }).click();
-  await expect(page.locator('.entry-card')).toHaveCount(101);
+    await expect(detail.locator(".detail-row--milui")).toBeVisible();
+    await expect(detail.locator(".detail-word-block").first()).toBeVisible();
+    await page.keyboard.press("Escape");
+    await page.evaluate(() => {
+      window.__copied = "";
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          writeText: async (text) => {
+            window.__copied = text;
+          },
+        },
+      });
+    });
+    await rows.first().getByRole("button").click();
+    await page.getByRole("menuitem", { name: "העתק", exact: true }).click();
+    await expect
+      .poll(() => page.evaluate(() => window.__copied))
+      .toContain("בדיקת ספרייה");
+    await rows.first().getByRole("button").click();
+    await page
+      .getByRole("menuitem", { name: "הסר משמורים", exact: true })
+      .click();
+    await page
+      .getByRole("dialog", { name: "להסיר את הערך מהשמורים?", exact: true })
+      .getByRole("button", { name: "הסר משמורים", exact: true })
+      .click();
+    await expect(rows).toHaveCount(2);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+  } finally {
+    for (const id of ids) await page.request.delete(`/api/entries/${id}`);
+  }
 });
 
-test('saved library renders curated matches, opens reader, and removes only the connection', async ({ page }) => {
-  const entry = {
-    id: 804, original_text: 'שלום', full_gematria: 376, full_gematria_hebrew: 'שעו',
-    initials: 'ש', initials_gematria: 300, initials_gematria_hebrew: 'ש',
-    finals: 'ם', finals_gematria: 40, finals_gematria_hebrew: 'מ',
-    created_at: new Date().toISOString(), words: [], curated_match_count: 1,
-    curated_matches: [{
-      id: 1301, originalText: 'בראשית', tanachContext: {
-        bookSlug: 'genesis', chapter: 1, verse: 1, start: 0, end: 6,
-      }, reasonCodes: ['full_gematria', 'initials_text'],
-    }],
-  };
-  await page.addInitScript(({ mockedEntry }) => {
-    const originalFetch = window.fetch.bind(window);
-    window.fetch = (input, init) => {
-      const url = typeof input === 'string' ? input : input.url;
-      if (url.includes('/api/entries?')) {
-        return Promise.resolve(new Response(JSON.stringify({
-          entries: [mockedEntry], total: 1,
-          stats: { saved: 1, distinctValues: 1, sharedValues: 0 },
-          pagination: { hasMore: false, nextOffset: 1 },
-        }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
-      }
-      if (url.includes('/api/entries/804/curated-matches/1301')
-          && (init?.method || input.method) === 'DELETE') {
-        window.__curatedDeleteCalled = true;
-        return Promise.resolve(new Response(JSON.stringify({ success: true }), {
-          status: 200, headers: { 'Content-Type': 'application/json' },
-        }));
-      }
-      return originalFetch(input, init);
-    };
-  }, { mockedEntry: entry });
+test("library error retry, empty guidance and keyboard tabs are clear", async ({
+  page,
+}) => {
   await signIn(page);
-  await page.getByRole('button', { name: 'שמורים', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'שמורים' })).toBeVisible();
-  const card = page.locator('[data-entry-id="804"]');
-  await expect(card).toContainText('1 התאמות שמורות');
-  await card.getByRole('button', { name: 'פתח פירוט', exact: true }).click();
-  const detail = page.locator('[data-detail-entry-id="804"]');
-  await expect(detail.getByRole('heading', { name: 'התאמות נבחרות' })).toBeVisible();
-  expect((await detail.boundingBox()).height).toBeLessThan(360);
-  await expect(detail).toContainText('גימטריה');
-  await expect(detail).toContainText('ראשי תיבות');
-  await detail.getByRole('button', { name: 'סגור פירוט' }).click();
-  await expect(detail).toHaveCount(0);
-  await expect(card.getByRole('button', { name: 'פתח פירוט', exact: true })).toHaveAttribute('aria-expanded', 'false');
-  await card.getByRole('button', { name: 'פתח פירוט', exact: true }).click();
-  const reopenedDetail = page.locator('[data-detail-entry-id="804"]');
-  await expect(reopenedDetail).toBeVisible();
-  await reopenedDetail.getByRole('button', { name: 'פתח בקורא' }).click();
-  await expect(page.locator('.tanach-page')).toBeVisible();
-  await page.getByRole('button', { name: 'שמורים', exact: true }).click();
-  await expect(card).toBeVisible();
-  await card.getByRole('button', { name: 'פתח פירוט', exact: true }).click();
-  const openDetail = page.locator('[data-detail-entry-id="804"]');
-  await openDetail.getByRole('button', { name: 'הסר' }).click();
-  await expect(openDetail).toContainText('להסיר?');
-  await openDetail.getByRole('button', { name: 'ביטול' }).click();
-  await expect(openDetail.getByRole('button', { name: 'הסר' })).toBeVisible();
-  await openDetail.getByRole('button', { name: 'הסר' }).click();
-  await openDetail.getByRole('button', { name: 'אישור' }).click();
-  await expect(card).toBeVisible();
-  await expect(card).not.toContainText('1 התאמות שמורות');
-  await expect.poll(() => page.evaluate(() => window.__curatedDeleteCalled)).toBe(true);
+  await page.route("**/api/entries/curated-matches?**", (route) =>
+    route.fulfill({ status: 503, json: { error: "unavailable" } }),
+  );
+  await library(page);
+  await expect(page.getByRole("alert")).toContainText(
+    "לא ניתן לטעון את הספרייה",
+  );
+  await page.unroute("**/api/entries/curated-matches?**");
+  await page.getByRole("button", { name: "נסה שוב", exact: true }).click();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await page
+    .getByRole("searchbox", { name: "חיפוש בספרייה" })
+    .fill("ביטוי שאינו קיים בספרייה לעולם");
+  await expect(
+    page.getByText("לא נמצאו תוצאות", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "נקה חיפוש וסינון" }).click();
+  await expect(page.getByRole("searchbox")).toHaveValue("");
+  await page.getByRole("tab", { name: /התאמות שמורות/ }).focus();
+  await page.keyboard.press("ArrowLeft");
+  await expect(page.getByRole("tab", { name: /ערכים שמורים/ })).toBeFocused();
+  await expect(page.getByRole("tab", { name: /ערכים שמורים/ })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await page.keyboard.press("Home");
+  await expect(page.getByRole("tab", { name: /התאמות שמורות/ })).toBeFocused();
+});
+
+test("later relationship pages and normalized search are served by persisted query, not a parent page", async ({
+  page,
+}) => {
+  await signIn(page);
+  const requests = [];
+  await page.route("**/api/entries/curated-matches?**", async (route) => {
+    const url = new URL(route.request().url());
+    requests.push(url);
+    const offset = Number(url.searchParams.get("offset") || 0);
+    const limit = Number(url.searchParams.get("limit") || 40);
+    const all = Array.from({ length: 85 }, (_, i) => ({
+      key: `tanach:${9000 + i}`,
+      id: 9000 + i,
+      sourceType: "tanach",
+      parentId: i + 1,
+      parentOriginalText: "אהבה",
+      originalText: "אֶחָד",
+      gematriaValue: 13,
+      reasonCodes: ["full_gematria"],
+      tanachContext: {
+        bookSlug: "Genesis",
+        chapter: 1,
+        verse: 5,
+        start: 43,
+        end: 45,
+      },
+    }));
+    const filtered = url.searchParams.has("search") ? all.slice(-1) : all;
+    await route.fulfill({
+      json: {
+        matches: filtered.slice(offset, offset + limit),
+        total: filtered.length,
+        counts: { matches: 85, entries: 85 },
+        pagination: {
+          nextOffset: offset + limit,
+          hasMore: offset + limit < filtered.length,
+        },
+      },
+    });
+  });
+  await library(page);
+  await expect(page.locator(".match-row")).toHaveCount(40);
+  await page.getByRole("button", { name: /הצג עוד/ }).click();
+  await expect(page.locator(".match-row")).toHaveCount(80);
+  await page.getByRole("button", { name: /הצג עוד/ }).click();
+  await expect(page.locator(".match-row")).toHaveCount(85);
+  await page.getByRole("searchbox").fill("אחד");
+  await expect(page.locator(".match-row")).toHaveCount(1);
+  expect(requests.at(-1).searchParams.get("search")).toBe("אחד");
+  expect(requests.at(-1).searchParams.get("offset")).toBe("0");
+});
+
+test("review captures use real Hebrew relationships and a full pointed pasuk", async ({
+  page,
+}, testInfo) => {
+  await signIn(page);
+  const created = new Set();
+  try {
+    for (const fixture of [
+      { parent: "אהבה", word: "אחד", book: "Genesis", chapter: 1, verse: 5 },
+      { parent: "חיים", word: "חכם", book: "Proverbs", chapter: 10, verse: 1 },
+      { parent: "מלך", word: "מים", book: "Genesis", chapter: 1, verse: 6 },
+    ]) {
+      const verseResponse = await page.request.get(
+        `/api/tanach/verse?book=${fixture.book}&chapter=${fixture.chapter}&verse=${fixture.verse}`,
+      );
+      const text = (await verseResponse.json()).verse.display_text;
+      const cursor = createTanachCursor(text);
+      const words = computeAll(text).words;
+      const index = words.findIndex((word) => word.word === fixture.word);
+      expect(index).toBeGreaterThanOrEqual(0);
+      const start = words
+        .slice(0, index)
+        .reduce((count, word) => count + word.word.length, 0);
+      const end = start + fixture.word.length - 1;
+      const response = await page.request.post("/api/entries/curated-matches", {
+        data: {
+          parentOriginalText: fixture.parent,
+          matches: [
+            {
+              originalText: cursor.range(start, end).text,
+              reasonCode: "full_gematria",
+              tanachContext: {
+                bookSlug: fixture.book,
+                chapter: fixture.chapter,
+                verse: fixture.verse,
+                start,
+                end,
+              },
+            },
+          ],
+        },
+      });
+      expect(response.ok()).toBe(true);
+      const data = await response.json();
+      if (data.parentCreated) created.add(data.parentId);
+    }
+    const full = await saveRange(page, {
+      book: "Deuteronomy",
+      chapter: 6,
+      verse: 5,
+      end: "full",
+    });
+    if (full.parentCreated) created.add(full.parentId);
+    await library(page);
+    await expect(page.locator(".match-row")).toHaveCount(4);
+    await expect(page.locator(".gematria-number")).toHaveText([
+      String(full.value),
+      "90",
+      "68",
+      "13",
+    ]);
+    await page.screenshot({
+      path: `artifacts/saved-library-${testInfo.project.name}.png`,
+      fullPage: true,
+    });
+    const fullRow = page.locator(
+      `[data-match-key="tanach:${full.matches[0].id}"]`,
+    );
+    await fullRow.getByRole("button", { name: /פעולות עבור/ }).click();
+    await expect(page.getByRole("menu")).toBeVisible();
+    await page.screenshot({
+      path: `artifacts/saved-library-menu-${testInfo.project.name}.png`,
+      fullPage: true,
+    });
+    if (testInfo.project.name === "desktop-chromium") {
+      await page.keyboard.press("Escape");
+      await page.setViewportSize({ width: 820, height: 1180 });
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true);
+      await page.screenshot({
+        path: "artifacts/saved-library-tablet.png",
+        fullPage: true,
+      });
+      await fullRow.getByRole("button", { name: /פעולות עבור/ }).click();
+      const tabletMenu = page.getByRole("menu");
+      await expect(tabletMenu).toBeVisible();
+      const tabletBounds = await tabletMenu.boundingBox();
+      expect(tabletBounds.x).toBeGreaterThanOrEqual(0);
+      expect(tabletBounds.x + tabletBounds.width).toBeLessThanOrEqual(820);
+    }
+  } finally {
+    for (const id of created) await page.request.delete(`/api/entries/${id}`);
+  }
 });

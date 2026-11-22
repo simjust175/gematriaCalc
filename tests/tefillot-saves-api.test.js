@@ -112,7 +112,7 @@ test('Tefillot and Tanach range/link saves, duplicates, persistent state, remova
   process.env.TEFILLOT_ENABLED = 'true';
 });
 
-test('numeric Tefillot searches save distinct matches under the same calculation without changing Tanach or ordinary numeric saves', async () => {
+test('numeric searches preserve one target across Tefillot and Tanach relationships while ordinary numeric saves remain distinct', async () => {
   const agent = request.agent(app);
   await agent.post('/api/auth/login').send({ password: 'isolated-tefillot-save-test' });
   const discovery = await agent.get('/api/tefillot/gematria-matches').query({ value: 44, limit: 12 });
@@ -146,8 +146,24 @@ test('numeric Tefillot searches save distinct matches under the same calculation
   const bibleMatch = { originalText: 'אבג', tanachContext: { bookSlug: 'Genesis', chapter: 1, verse: 1, start: 0, end: 2 }, reasonCode: 'full_gematria' };
   const bibleSave = await agent.post('/api/entries/curated-matches').send({ parentOriginalText: '44', matches: [bibleMatch] });
   assert.equal(bibleSave.status, 400);
-  assert.equal(bibleSave.body.error, 'invalid_parent');
+  assert.equal(bibleSave.body.error, 'tanach_range_mismatch');
   assert.equal((await agent.post('/api/entries/curated-matches').send({ parentOriginalText: '44', matches: [match(a), bibleMatch] })).status, 400);
+  const verse = (await agent.get('/api/tanach/verse').query({ book: 'Genesis', chapter: 1, verse: 1 })).body.verse;
+  const cursor = createTanachCursor(verse.display_text);
+  const validBibleMatch = { originalText: cursor.range(0, cursor.count - 1).text,
+    tanachContext: { bookSlug: 'Genesis', chapter: 1, verse: 1, start: 0, end: cursor.count - 1 },
+    reasonCode: 'full_gematria' };
+  const mixed = await agent.post('/api/entries/curated-matches').send({
+    parentOriginalText: '44', matches: [match(a), validBibleMatch],
+  });
+  assert.equal(mixed.status, 200);
+  assert.equal(mixed.body.parentId, parent.id);
+  const relationships = await agent.get('/api/entries/curated-matches').query({ search: '44' });
+  assert.ok(relationships.body.matches.some(item => item.sourceType === 'tanach' && item.parentId === parent.id));
+  assert.ok(relationships.body.matches.some(item => item.sourceType === 'tefillot' && item.parentId === parent.id));
+  const prayers = await agent.get('/api/entries/curated-matches').query({ source: 'tefillot', matchType: 'full_gematria' });
+  assert.ok(prayers.body.matches.some(item => item.id === second.body.matches[0].id));
+  assert.ok(prayers.body.matches.every(item => item.sourceType === 'tefillot'));
   const ordinarySave = await agent.post('/api/entries').send({ originalText: '44' });
   assert.equal(ordinarySave.status, 400);
   assert.equal(ordinarySave.body.error, 'numeric_entry_not_supported');

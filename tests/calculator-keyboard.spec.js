@@ -29,7 +29,7 @@ test('calculator input survives navigation away and back', async ({ page }) => {
   await page.getByRole('button', { name: 'שמורים' }).click();
   await expect(page.locator('.heb-input')).toHaveCount(0);
 
-  await page.getByRole('button', { name: 'מחשבון' }).click();
+  await page.getByRole('button', { name: 'מחשבון', exact: true }).click();
   await expect(textarea).toHaveValue('שלום');
 });
 

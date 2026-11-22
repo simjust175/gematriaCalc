@@ -189,6 +189,8 @@
               :source-text="inputText"
               @open="emit('openTanach', $event)"
               @open-tefillot="emit('openTefillot', $event)"
+              @show-saved="emit('show-saved', $event)"
+              @saved="miluiMatchRefresh += 1"
             />
 
             <!-- ── WORD BREAKDOWN ─────────────────────────── -->
@@ -299,7 +301,7 @@ import {
   normalizeMiluiMapping,
 } from '@/utils/milui.js';
 
-const emit = defineEmits(['openTanach', 'openTefillot']);
+const emit = defineEmits(['openTanach', 'openTefillot', 'show-saved']);
 
 const CALCULATOR_INPUT_STORAGE_KEY = 'gematria-calculator-input';
 function readPersistedInput() {

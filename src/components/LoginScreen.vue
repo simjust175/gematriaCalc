@@ -32,8 +32,8 @@
         <div class="error-msg" v-if="error">{{ error }}</div>
 
         <button type="submit" class="login-btn" :disabled="loading || !password">
-          <span v-if="loading" class="mdi mdi-loading mdi-spin"></span>
-          <span v-else class="mdi mdi-lock-open-outline"></span>
+          <span v-if="loading" class="mdi mdi-loading mdi-spin" aria-hidden="true"></span>
+          <span v-else class="mdi mdi-lock-open-outline" aria-hidden="true"></span>
           כניסה
         </button>
       </form>
