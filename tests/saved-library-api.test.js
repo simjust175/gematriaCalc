@@ -245,3 +245,57 @@ test("GET saved matches combines enabled Tefillot with Tanach without confusing 
     else process.env.TEFILLOT_ENABLED = previous;
   }
 });
+
+test("tab counts remain accurate when relationship listing fails and distinguish unavailable from empty", async () => {
+  const app = express();
+  let failMatches = false;
+  let failEntries = false;
+  const pool = {
+    async query(sql) {
+      if (sql.includes("COUNT(*)::int AS count FROM saved_entries")) {
+        if (failEntries) throw new Error("entries unavailable");
+        return { rows: [{ count: 7 }] };
+      }
+      if (sql.includes("COUNT(*)::int AS count FROM curated_matches")) {
+        if (failMatches) throw new Error("matches unavailable");
+        return { rows: [{ count: 3 }] };
+      }
+      if (sql.includes("AS ready")) return { rows: [{ ready: false }] };
+      throw new Error("Relationship serialization failed");
+    },
+  };
+  registerSavedLibraryRoutes(app, {
+    pool,
+    requireAuth: (req, res, next) =>
+      req.headers.authorization === "test-session"
+        ? next()
+        : res.status(401).json({ error: "unauthorized" }),
+  });
+  assert.equal((await request(app).get("/api/entries/counts")).status, 401);
+  const get = (path) =>
+    request(app).get(path).set("authorization", "test-session");
+  const previousError = console.error;
+  console.error = () => {};
+  try {
+    assert.equal((await get("/api/entries/curated-matches")).status, 500);
+    const counts = await get("/api/entries/counts");
+    assert.equal(counts.status, 200);
+    assert.deepEqual(counts.body, {
+      counts: { entries: 7, matches: 3 },
+      countErrors: {},
+    });
+    failMatches = true;
+    const partial = await get("/api/entries/counts");
+    assert.equal(partial.status, 200);
+    assert.deepEqual(partial.body, {
+      counts: { entries: 7, matches: null },
+      countErrors: { matches: "saved_matches_count_failed" },
+    });
+    failEntries = true;
+    const unavailable = await get("/api/entries/counts");
+    assert.equal(unavailable.status, 503);
+    assert.deepEqual(unavailable.body.counts, { entries: null, matches: null });
+  } finally {
+    console.error = previousError;
+  }
+});

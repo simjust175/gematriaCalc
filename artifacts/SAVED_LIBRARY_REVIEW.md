@@ -1,5 +1,7 @@
 # Saved Library review
 
+This is the original implementation report. The [follow-up acceptance report](SAVED_LIBRARY_ACCEPTANCE.md) supersedes its interface screenshots and validation limitations.
+
 The redesign applies only to the password-protected single-client application on `codex/private-saved-library`, based on `277d2eca2c257f454cee85978c8af25cff7f4c61`. The pull request targets `feature/weekly-parsha-base-words`.
 
 ## Behavior

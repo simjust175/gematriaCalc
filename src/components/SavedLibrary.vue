@@ -26,7 +26,12 @@
       >
         <span class="mdi mdi-link-variant" aria-hidden="true"></span
         ><span>התאמות שמורות</span
-        ><span class="tab-count">{{ counts.matches }}</span>
+        ><span
+          class="tab-count"
+          :aria-busy="countsLoading && counts.matches === null"
+          :title="countLabel('matches')"
+          >{{ countText("matches") }}</span
+        >
       </button>
       <button
         id="saved-entries-tab"
@@ -40,7 +45,12 @@
       >
         <span class="mdi mdi-file-document-outline" aria-hidden="true"></span
         ><span>ערכים שמורים</span
-        ><span class="tab-count">{{ counts.entries }}</span>
+        ><span
+          class="tab-count"
+          :aria-busy="countsLoading && counts.entries === null"
+          :title="countLabel('entries')"
+          >{{ countText("entries") }}</span
+        >
       </button>
     </div>
 
@@ -182,10 +192,23 @@
         activeTab === 'matches' ? 'saved-matches-tab' : 'saved-entries-tab'
       "
       :aria-busy="loading"
+      :data-state="
+        loading && !rows.length
+          ? 'loading'
+          : error
+            ? errorKind === 'auth'
+              ? 'authentication-error'
+              : 'server-error'
+            : rows.length
+              ? 'results'
+              : 'empty'
+      "
       tabindex="0"
     >
       <p class="sr-only" role="status">
-        {{ loading ? "טוען את הספרייה" : `${total} תוצאות` }}
+        {{
+          loading ? "טוען את הספרייה" : error ? errorTitle : `${total} תוצאות`
+        }}
       </p>
       <div
         v-if="loading && !rows.length"
@@ -200,9 +223,18 @@
         class="library-state error-state"
         role="alert"
       >
-        <strong>לא ניתן לטעון את הספרייה</strong><span>{{ error }}</span
-        ><button class="state-action" type="button" @click="refreshEntries">
-          נסה שוב
+        <strong>{{ errorTitle }}</strong
+        ><span>{{ error }}</span
+        ><button
+          class="state-action"
+          type="button"
+          @click="
+            errorKind === 'auth' || errorKind === 'compatibility'
+              ? reloadApplication()
+              : retryLibrary()
+          "
+        >
+          {{ errorActionLabel }}
         </button>
       </div>
       <div v-else-if="!rows.length" class="library-state empty-state">
@@ -278,8 +310,16 @@
       </div>
       <div v-if="error && rows.length" class="page-error" role="alert">
         {{ error
-        }}<button type="button" class="state-action" @click="fetchRows(false)">
-          נסה שוב
+        }}<button
+          type="button"
+          class="state-action"
+          @click="
+            errorKind === 'auth' || errorKind === 'compatibility'
+              ? reloadApplication()
+              : fetchRows(false)
+          "
+        >
+          {{ errorActionLabel }}
         </button>
       </div>
       <button
@@ -403,13 +443,29 @@ const emit = defineEmits([
 const { onHebrewKeydown } = useAutomaticHebrewKeyboard();
 const activeTab = ref("matches");
 const rows = ref([]);
-const counts = ref({ matches: 0, entries: 0 });
+const counts = ref({ matches: null, entries: null });
+const countsLoading = ref(true);
 const total = ref(0);
 const hasMore = ref(false);
 const offset = ref(0);
 const loadedStartOffset = ref(0);
-const loading = ref(false);
+const loading = ref(true);
 const error = ref("");
+const errorKind = ref("");
+const errorTitle = computed(() =>
+  errorKind.value === "auth"
+    ? "נדרשת כניסה מחדש"
+    : errorKind.value === "compatibility"
+      ? "גרסת הספרייה אינה זמינה כרגע"
+      : "לא ניתן לטעון את הספרייה",
+);
+const errorActionLabel = computed(() =>
+  errorKind.value === "auth"
+    ? "כניסה מחדש"
+    : errorKind.value === "compatibility"
+      ? "רענן את היישום"
+      : "נסה שוב",
+);
 const searchQuery = ref("");
 const source = ref("");
 const matchType = ref("");
@@ -435,6 +491,9 @@ const deleting = ref(false);
 const notice = ref("");
 const miluiMapping = ref(null);
 let activeController;
+let countsController;
+let countsRequestId = 0;
+const countVersions = { matches: 0, entries: 0 };
 let requestId = 0;
 let searchTimer;
 let noticeTimer;
@@ -475,6 +534,7 @@ async function fetchRows(reset = true, focus = null) {
   const currentRequest = ++requestId;
   loading.value = true;
   error.value = "";
+  errorKind.value = "";
   menuOpenId.value = null;
   if (reset) {
     offset.value = 0;
@@ -500,17 +560,29 @@ async function fetchRows(reset = true, focus = null) {
       `/api/entries${isMatch ? "/curated-matches" : ""}?${params}`,
       { signal: controller.signal },
     );
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "load");
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const failure = new Error(data.error || "load");
+      failure.status = response.status;
+      throw failure;
+    }
     if (currentRequest !== requestId) return false;
     const incoming = isMatch ? data.matches : data.entries;
+    if (
+      !Array.isArray(incoming) ||
+      !Number.isSafeInteger(data.total) ||
+      data.total < 0
+    )
+      throw new Error("invalid_library_response");
     rows.value = reset ? incoming : [...rows.value, ...incoming];
     if (reset) loadedStartOffset.value = data.pagination?.offset || 0;
     total.value = data.total;
     hasMore.value = data.pagination?.hasMore ?? rows.value.length < data.total;
     offset.value =
       data.pagination?.nextOffset ?? offset.value + incoming.length;
-    if (data.counts) counts.value = data.counts;
+    applyKnownCounts(data.counts);
+    if (!isMatch && !params.has("search"))
+      setCount("entries", data.stats?.saved ?? data.total);
     if (focus) {
       focusedKey.value = data.focusedKey;
       await nextTick();
@@ -524,8 +596,19 @@ async function fetchRows(reset = true, focus = null) {
     }
     return true;
   } catch (err) {
-    if (err.name !== "AbortError" && currentRequest === requestId)
-      error.value = "אירעה שגיאה זמנית. אפשר לנסות שוב.";
+    if (err.name !== "AbortError" && currentRequest === requestId) {
+      errorKind.value = [401, 403].includes(err.status)
+        ? "auth"
+        : err.status === 404
+          ? "compatibility"
+          : "server";
+      error.value =
+        errorKind.value === "auth"
+          ? "תוקף הכניסה פג. יש להיכנס מחדש כדי לראות את השמורים."
+          : errorKind.value === "compatibility"
+            ? "אפשר לרענן את היישום ולנסות שוב."
+            : "הטעינה נכשלה. אפשר לנסות שוב בעוד רגע.";
+    }
     return false;
   } finally {
     if (currentRequest === requestId) loading.value = false;
@@ -534,6 +617,15 @@ async function fetchRows(reset = true, focus = null) {
 function refreshEntries() {
   focusedKey.value = null;
   return fetchRows();
+}
+function retryLibrary() {
+  fetchCounts();
+  if (activeTab.value === "matches" && props.focusMatch)
+    return focusSaved(props.focusMatch);
+  return refreshEntries();
+}
+function reloadApplication() {
+  window.location.reload();
 }
 function onSearch() {
   clearTimeout(searchTimer);
@@ -770,7 +862,7 @@ async function doDelete() {
       deleteIsMatch.value ? "ההתאמה הוסרה מהשמורים" : "הערך הוסר מהשמורים",
     );
     await refreshEntries();
-    if (activeTab.value === "entries") await fetchCounts();
+    await fetchCounts();
   } catch {
     deleteError.value = "לא ניתן להסיר כרגע. אפשר לנסות שוב.";
   } finally {
@@ -806,11 +898,59 @@ async function copyEntry(entry) {
     showNotice("לא ניתן להעתיק כרגע");
   }
 }
+function setCount(key, value) {
+  if (!Number.isSafeInteger(value) || value < 0) return;
+  counts.value[key] = value;
+  countVersions[key] += 1;
+}
+function applyKnownCounts(incoming) {
+  if (!incoming) return;
+  for (const key of ["matches", "entries"]) setCount(key, incoming[key]);
+}
+function countText(key) {
+  const value = counts.value[key];
+  return value === null
+    ? countsLoading.value
+      ? "…"
+      : "—"
+    : value.toLocaleString("he-IL");
+}
+function countLabel(key) {
+  if (counts.value[key] !== null)
+    return key === "matches" ? "התאמות שמורות" : "ערכים שמורים";
+  return countsLoading.value
+    ? "טוען את מספר השמורים"
+    : "מספר השמורים אינו זמין כרגע";
+}
 async function fetchCounts() {
+  countsController?.abort();
+  const controller = new AbortController();
+  countsController = controller;
+  const currentRequest = ++countsRequestId;
+  const versions = { ...countVersions };
+  countsLoading.value = true;
   try {
-    const response = await fetch("/api/entries/curated-matches?limit=1");
-    if (response.ok) counts.value = (await response.json()).counts;
-  } catch {}
+    const response = await fetch("/api/entries/counts", {
+      signal: controller.signal,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (currentRequest !== countsRequestId) return;
+    for (const key of ["matches", "entries"]) {
+      if (countVersions[key] !== versions[key]) continue;
+      const value = data.counts?.[key];
+      counts.value[key] =
+        Number.isSafeInteger(value) && value >= 0 ? value : null;
+      countVersions[key] += 1;
+    }
+  } catch (failure) {
+    if (failure.name !== "AbortError" && currentRequest === countsRequestId) {
+      for (const key of ["matches", "entries"]) {
+        if (countVersions[key] === versions[key]) counts.value[key] = null;
+      }
+    }
+  } finally {
+    if (currentRequest === countsRequestId) countsLoading.value = false;
+  }
 }
 async function fetchMiluiMapping() {
   try {
@@ -836,6 +976,7 @@ onMounted(() => {
   document.addEventListener("pointerdown", outsideFilter);
   if (props.focusMatch) focusSaved(props.focusMatch);
   else refreshEntries();
+  fetchCounts();
   fetchMiluiMapping();
 });
 onBeforeUnmount(() => {
@@ -843,29 +984,32 @@ onBeforeUnmount(() => {
   clearTimeout(searchTimer);
   clearTimeout(noticeTimer);
   activeController?.abort();
+  countsController?.abort();
+  countsRequestId += 1;
   document.removeEventListener("pointerdown", outsideFilter);
 });
 </script>
 
 <style scoped>
 .library-page {
-  max-width: 1200px;
+  width: 100%;
+  max-width: 1540px;
   margin: 0 auto;
 }
 .library-header {
   display: flex;
   align-items: center;
-  gap: 20px;
-  margin: 6px 0 32px;
+  gap: 16px;
+  margin: 4px 0 26px;
 }
 .library-emblem {
   color: #b88c25;
-  font-size: 3rem;
+  font-size: 2.5rem;
   line-height: 1;
 }
 .library-title {
   color: #112740;
-  font-size: 2.35rem;
+  font-size: 2.05rem;
   line-height: 1.25;
   font-weight: 700;
   letter-spacing: -0.5px;
@@ -876,90 +1020,103 @@ onBeforeUnmount(() => {
 .library-subtitle {
   margin-top: 6px;
   color: #7a879d;
-  font-size: 1.1rem;
+  font-size: 1rem;
 }
 .library-tabs {
   display: flex;
-  gap: 8px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #eae3d8;
+  width: min(100%, 560px);
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid #e5dfd5;
+  border-radius: 13px;
+  background: #eeeae3;
 }
 .library-tabs button {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 13px;
+  gap: 9px;
   flex: 1;
-  min-height: 61px;
-  padding: 13px 20px;
-  border: 1px solid #e9e2d7;
-  border-radius: 16px 16px 9px 9px;
-  background: #faf7f1;
-  color: var(--navy);
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 18px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: #69758a;
   font: inherit;
-  font-size: 1.15rem;
+  font-size: 1.02rem;
   font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
 }
 .library-tabs button[aria-selected="true"] {
-  color: #fff;
-  background: #112b46;
-  border-color: #112b46;
-  box-shadow: inset 0 -4px #bd932d;
+  color: #18324b;
+  background: #fffefb;
+  border-color: #e0d7c6;
+  box-shadow: 0 1px 3px #1a27440a;
+}
+.library-tabs button:hover:not([aria-selected="true"]) {
+  color: var(--navy);
+  background: #f5f2ec;
 }
 .library-tabs .mdi {
-  font-size: 1.5rem;
+  font-size: 1.18rem;
 }
 .tab-count {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 46px;
-  padding: 2px 12px;
+  min-width: 28px;
+  min-height: 24px;
+  padding: 1px 8px;
   border-radius: 99px;
-  background: #f5ead5;
-  color: #77591e;
-  font-size: 1rem;
+  background: #e6e1d9;
+  color: #657184;
+  font-size: 0.83rem;
+  font-variant-numeric: tabular-nums;
 }
 [aria-selected="true"] .tab-count {
-  background: #fff6e7;
-  color: #112b46;
+  background: #f4ecdc;
+  color: #79602b;
 }
 .library-tools {
   display: flex;
-  justify-content: space-between;
-  gap: 20px;
-  margin: 25px 0 22px;
+  align-items: stretch;
+  gap: 0;
+  min-height: 50px;
+  margin: 20px 0 22px;
+  border: 1px solid #dddcd7;
+  border-radius: 12px;
+  background: #fffefb;
+}
+.library-tools:focus-within {
+  border-color: #b4a078;
+  box-shadow: 0 0 0 2px #c0984010;
 }
 .search-bar {
   display: flex;
   align-items: center;
   position: relative;
-  width: min(100%, 620px);
-  min-height: 54px;
-  border: 1px solid #cfd2dd;
-  background: #fffdfb;
-  border-radius: 15px;
-}
-.search-bar:focus-within {
-  border-color: #b9923c;
-  box-shadow: 0 0 0 2px #c098401a;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 48px;
 }
 .search-icon {
   color: #1a2744;
-  font-size: 1.65rem;
-  margin-inline: 17px 12px;
+  font-size: 1.35rem;
+  margin-inline: 14px 10px;
 }
 .search-input {
   min-width: 0;
   width: 100%;
-  padding: 12px 0;
+  padding: 11px 0;
   border: 0;
   outline: 0;
   background: transparent;
   color: var(--navy);
   font: inherit;
-  font-size: 1.02rem;
+  font-size: 0.98rem;
 }
 .search-input::placeholder {
   color: #7c89a1;
@@ -978,26 +1135,31 @@ onBeforeUnmount(() => {
 }
 .filter-wrap {
   position: relative;
+  flex: 0 0 auto;
 }
 .filter-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  min-width: 116px;
-  height: 54px;
-  padding: 8px 20px;
-  border: 1px solid #ebe5dd;
-  border-radius: 15px;
-  background: #fffdfb;
+  gap: 9px;
+  min-width: 104px;
+  height: 48px;
+  padding: 8px 16px;
+  border: 0;
+  border-inline-start: 1px solid #e9e4da;
+  border-radius: 11px 0 0 11px;
+  background: transparent;
   color: var(--navy);
-  box-shadow: 0 2px 3px #1a274408;
   font: inherit;
-  font-size: 1rem;
+  font-size: 0.94rem;
   cursor: pointer;
 }
 .filter-button .mdi {
-  font-size: 1.4rem;
+  font-size: 1.2rem;
+}
+.filter-button:hover,
+.filter-button[aria-expanded="true"] {
+  background: #f5f0e6;
 }
 .filter-dot {
   width: 6px;
@@ -1279,41 +1441,43 @@ input:focus-visible {
 @media (max-width: 700px) {
   .library-header {
     gap: 12px;
-    margin: 2px 0 24px;
+    margin: 2px 0 22px;
   }
   .library-emblem {
-    font-size: 2.3rem;
+    font-size: 2.1rem;
   }
   .library-title {
-    font-size: 1.75rem;
+    font-size: 1.65rem;
   }
   .library-subtitle {
     font-size: 0.95rem;
   }
   .library-tabs {
-    gap: 5px;
+    gap: 3px;
+    padding: 3px;
   }
   .library-tabs button {
-    min-height: 58px;
-    gap: 7px;
-    padding: 12px 7px;
-    font-size: 0.94rem;
-    border-radius: 12px 12px 8px 8px;
+    min-height: 44px;
+    gap: 6px;
+    padding: 7px 8px;
+    font-size: 0.88rem;
+    border-radius: 8px;
   }
   .library-tabs .mdi {
     display: none;
   }
   .tab-count {
-    min-width: 29px;
-    padding: 1px 7px;
-    font-size: 0.85rem;
+    min-width: 24px;
+    min-height: 22px;
+    padding: 1px 6px;
+    font-size: 0.76rem;
   }
   .library-tools {
-    gap: 10px;
-    margin: 19px 0 17px;
+    min-height: 46px;
+    margin: 16px 0 17px;
   }
   .search-bar {
-    min-height: 49px;
+    min-height: 44px;
   }
   .search-icon {
     font-size: 1.35rem;
@@ -1323,15 +1487,15 @@ input:focus-visible {
     font-size: 0.9rem;
   }
   .filter-button {
-    min-width: 49px;
-    width: 49px;
-    height: 49px;
+    min-width: 48px;
+    width: 48px;
+    height: 44px;
     padding: 7px;
     gap: 0;
     font-size: 0;
   }
   .filter-button .mdi {
-    font-size: 1.4rem;
+    font-size: 1.25rem;
   }
   .filter-dot {
     position: absolute;

@@ -16,6 +16,7 @@ import assert from 'node:assert/strict';
 import request from 'supertest';
 import { computeAll, normalize, toHebrewNumber } from '../src/composables/useGematria.js';
 import { createTanachCursor } from '../src/composables/useTanachCursor.js';
+import { expectedTanachSource } from './fixtures/tanachSource.js';
 import {
   MILUI_DEFAULT_MAPPING,
   calculateMilui,
@@ -28,6 +29,7 @@ import {
 // Set required env vars before importing the app
 process.env.SESSION_SECRET  = 'test-session-secret-for-api-tests';
 process.env.APP_PASSWORD    = 'correct-test-password-12345';
+const tanachSourceFixture = await expectedTanachSource();
 
 // Import app AFTER env vars are set
 const { app } = await import('../server/app.js');
@@ -1825,9 +1827,9 @@ test('Tanach navigation exposes 24 canonical books and verified Genesis 1:1', as
     [lechLecha.start_book_slug, lechLecha.start_chapter, lechLecha.start_verse],
     ['Genesis', 12, 1]
   );
-  assert.equal(booksRes.body.stats.verses, 23213);
-  assert.equal(booksRes.body.source.version, 'UXLC 2.5');
-  assert.equal(booksRes.body.source.build, '27.6');
+  assert.equal(booksRes.body.stats.verses, tanachSourceFixture.verses);
+  assert.equal(booksRes.body.source.version, tanachSourceFixture.version);
+  assert.equal(booksRes.body.source.build, tanachSourceFixture.build);
   assert.equal(booksRes.body.source.representation_version, 2);
 
   const chapterRes = await agent.get('/api/tanach/verses').query({ book: 'Genesis', chapter: 1 });

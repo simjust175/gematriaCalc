@@ -293,6 +293,10 @@ onBeforeUnmount(removeListeners);
   line-height: 1.85;
   overflow-wrap: anywhere;
 }
+.matching-expression {
+  max-inline-size: min(100%, 46rem);
+  justify-self: start;
+}
 .menu-btn {
   display: inline-flex;
   align-items: center;
@@ -369,7 +373,7 @@ onBeforeUnmount(removeListeners);
     border-radius: 14px;
   }
   .entry-card.match-row {
-    grid-template-columns: minmax(0, 1fr) 22px minmax(56px, auto) 40px;
+    grid-template-columns: minmax(0, 1fr) 22px minmax(56px, auto) 44px;
     gap: 10px;
   }
   .original-expression {
@@ -407,7 +411,7 @@ onBeforeUnmount(removeListeners);
     align-self: center;
   }
   .menu-btn {
-    width: 40px;
+    width: 44px;
     height: 44px;
   }
   .entry-text {

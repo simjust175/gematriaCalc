@@ -12,7 +12,7 @@
     <!-- Main app -->
     <template v-else>
       <AppBar :currentPage="currentPage" @navigate="currentPage = $event" @logout="onLogout" />
-      <main class="main-content">
+      <main class="main-content" :class="{ 'main-content--library': currentPage === 'library' }">
         <KeepAlive>
           <GimForm v-if="currentPage === 'calculator'" @open-tanach="openTanachDiscovery" @open-tefillot="openTefillotDiscovery" @show-saved="openSavedMatch" />
         </KeepAlive>
@@ -203,6 +203,11 @@ html, body {
   max-width: 1400px;
   margin: 0 auto;
   padding: 32px 24px 64px;
+}
+
+.main-content.main-content--library {
+  max-width: 1600px;
+  padding-inline: clamp(16px, 2.5vw, 36px);
 }
 
 @media (max-width: 640px) {

@@ -3,6 +3,7 @@ import { isTefillotAvailable } from "./tefillot.js";
 import {
   serializeTefillotContext,
   tefillotSaveSchemaReady,
+  TEFILLOT_DISPLAY_METADATA_SELECT,
 } from "./tefillotSaveContext.js";
 
 const MATCH_TYPES = new Set([
@@ -213,7 +214,54 @@ export function paginateSavedRelationships(rows, parsed, entryCount) {
   };
 }
 
+async function countSavedMatches(db) {
+  const tanach = await db.query(`
+    SELECT COUNT(*)::int AS count FROM curated_matches cm
+    JOIN saved_entries se ON se.id = cm.parent_id`);
+  let count = tanach.rows[0].count;
+  if ((await tefillotSaveSchemaReady(db)) && (await isTefillotAvailable(db))) {
+    const prayers = await db.query(`
+      SELECT COUNT(*)::int AS count FROM curated_tefillot_matches cm
+      JOIN saved_entries se ON se.id = cm.parent_id`);
+    count += prayers.rows[0].count;
+  }
+  return count;
+}
+
+export async function readSavedLibraryCounts(db) {
+  // Counts do not depend on serializing a relationship or its optional source
+  // metadata. Isolate the tabs so a failed matches query cannot erase a known
+  // entries count. Unknown is explicit; it must never be presented as zero.
+  const results = await Promise.allSettled([
+    db.query("SELECT COUNT(*)::int AS count FROM saved_entries"),
+    countSavedMatches(db),
+  ]);
+  const counts = { entries: null, matches: null };
+  const countErrors = {};
+  for (const [index, tab] of ["entries", "matches"].entries()) {
+    const result = results[index];
+    if (result.status === "fulfilled") {
+      counts[tab] =
+        tab === "entries" ? result.value.rows[0].count : result.value;
+    } else {
+      countErrors[tab] =
+        tab === "entries"
+          ? "saved_entries_count_failed"
+          : "saved_matches_count_failed";
+      console.error(`/api/entries/counts ${tab} error:`, result.reason.message);
+    }
+  }
+  return { counts, countErrors };
+}
+
 export function registerSavedLibraryRoutes(app, { pool, requireAuth }) {
+  app.get("/api/entries/counts", requireAuth, async (_req, res) => {
+    const result = await readSavedLibraryCounts(pool);
+    const unavailable =
+      result.counts.entries === null && result.counts.matches === null;
+    res.status(unavailable ? 503 : 200).json(result);
+  });
+
   app.get("/api/entries/curated-matches", requireAuth, async (req, res) => {
     const parsed = parseSavedMatchQuery(req.query);
     if (parsed.error) return res.status(400).json({ error: parsed.error });
@@ -235,8 +283,7 @@ export function registerSavedLibraryRoutes(app, { pool, requireAuth }) {
           SELECT cm.*, 'tefillot' AS source_type, se.original_text AS parent_original_text,
             se.full_gematria AS parent_gematria,
             u.occasion_slug, u.occasion_label, u.service_slug, u.service_label,
-            u.section_key, u.section_label, u.subsection, u.source_reference,
-            u.source_work, u.source_version, u.license, s.source_url, s.version_source
+            u.section_key, u.section_label, ${TEFILLOT_DISPLAY_METADATA_SELECT}
           FROM curated_tefillot_matches cm JOIN saved_entries se ON se.id = cm.parent_id
           JOIN tefillot_units u ON u.id = cm.tefillot_unit_id
           JOIN tefillot_sources s ON s.id = u.source_id`);

@@ -456,22 +456,44 @@ test("review captures use real Hebrew relationships and a full pointed pasuk", a
     });
     if (testInfo.project.name === "desktop-chromium") {
       await page.keyboard.press("Escape");
-      await page.setViewportSize({ width: 820, height: 1180 });
-      expect(
-        await page.evaluate(
-          () => document.documentElement.scrollWidth <= innerWidth,
-        ),
-      ).toBe(true);
-      await page.screenshot({
-        path: "artifacts/saved-library-tablet.png",
-        fullPage: true,
-      });
-      await fullRow.getByRole("button", { name: /פעולות עבור/ }).click();
-      const tabletMenu = page.getByRole("menu");
-      await expect(tabletMenu).toBeVisible();
-      const tabletBounds = await tabletMenu.boundingBox();
-      expect(tabletBounds.x).toBeGreaterThanOrEqual(0);
-      expect(tabletBounds.x + tabletBounds.width).toBeLessThanOrEqual(820);
+      for (const width of [768, 1440, 1920, 2560]) {
+        await page.setViewportSize({
+          width,
+          height: width <= 768 ? 1024 : 1080,
+        });
+        expect(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= innerWidth,
+          ),
+        ).toBe(true);
+        const libraryBounds = await page.locator(".library-page").boundingBox();
+        if (width >= 1920) {
+          expect(libraryBounds.width).toBeGreaterThanOrEqual(1450);
+          expect(libraryBounds.width).toBeLessThanOrEqual(1600);
+        }
+        const searchBounds = await page.locator(".search-bar").boundingBox();
+        const filterBounds = await page.locator(".filter-button").boundingBox();
+        expect(
+          Math.abs(searchBounds.height - filterBounds.height),
+        ).toBeLessThanOrEqual(1);
+        expect(searchBounds.width).toBeGreaterThan(libraryBounds.width * 0.6);
+        await page.screenshot({
+          path: `artifacts/saved-library-${width}.png`,
+          fullPage: true,
+        });
+        if (width === 768)
+          await page.screenshot({
+            path: "artifacts/saved-library-tablet.png",
+            fullPage: true,
+          });
+        await fullRow.getByRole("button", { name: /פעולות עבור/ }).click();
+        const menu = page.getByRole("menu");
+        await expect(menu).toBeVisible();
+        const menuBounds = await menu.boundingBox();
+        expect(menuBounds.x).toBeGreaterThanOrEqual(0);
+        expect(menuBounds.x + menuBounds.width).toBeLessThanOrEqual(width);
+        await page.keyboard.press("Escape");
+      }
     }
   } finally {
     for (const id of created) await page.request.delete(`/api/entries/${id}`);
