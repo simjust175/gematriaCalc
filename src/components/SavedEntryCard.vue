@@ -1,361 +1,421 @@
 <template>
   <article
     class="entry-card"
-    :class="{ expanded, 'has-shared-value': sharedValue }"
+    :class="{
+      'match-row': relationship,
+      'is-focused': focused,
+      'menu-active': menuOpen,
+    }"
     :data-entry-key="entryKey"
     :data-entry-id="entry.id"
+    :data-match-key="relationship ? entryKey : undefined"
+    :data-parent-entry-id="relationship ? entry.parentId : undefined"
+    tabindex="-1"
   >
-    <div class="entry-body entry-header" @click="$emit('toggle', entryKey)">
-      <div class="entry-main-info">
-        <div class="entry-text">
-          <template v-for="(part, index) in highlightedPhrase" :key="`${part.text}-${index}`">
-            <mark v-if="part.match">{{ part.text }}</mark>
-            <span v-else>{{ part.text }}</span>
-          </template>
-        </div>
-        <div v-if="entry.tanach_book_slug" class="tanach-reference">
-          <span class="mdi mdi-book-open-page-variant-outline" aria-hidden="true"></span>
-          {{ formatTanachReference(entry) }}
-        </div>
-        <div v-else-if="entry.sourceType === 'tefillot' || entry.source_type === 'tefillot' || entry.tefillot_context || entry.tefillotContext" class="tanach-reference tefillot-reference">
-          <span class="mdi mdi-hands-pray" aria-hidden="true"></span>
-          {{ formatTefillotReference(entry) }}
-        </div>
-        <div class="entry-gematria">
-          <span class="gematria-num">{{ entry.full_gematria }}</span>
-          <span class="gematria-dot">·</span>
-          <span class="gematria-heb">{{ entry.full_gematria_hebrew }}</span>
-        </div>
-        <div class="entry-initials">
-          <span>ר״ת:</span>
-          <strong>{{ entry.initials }}</strong>
-          <span class="initials-gematria-label">גימטריית ר״ת:</span>
-          <strong>{{ entry.initials_gematria }}</strong>
-          <span class="gematria-dot">·</span>
-          <span>{{ entry.initials_gematria_hebrew }}</span>
-        </div>
-        <div v-if="Number(entry.curated_match_count)" class="curated-count">
-          <span class="mdi mdi-star-outline" aria-hidden="true"></span>
-          {{ entry.curated_match_count }} התאמות שמורות
-        </div>
-        <div class="entry-initials">
-          <span>ס״ת:</span>
-          <strong>{{ entry.finals }}</strong>
-          <span class="initials-gematria-label">גימטריית סופי תיבות:</span>
-          <strong>{{ entry.finals_gematria }}</strong>
-          <span class="gematria-dot">·</span>
-          <span>{{ entry.finals_gematria_hebrew }}</span>
-        </div>
-      </div>
-
-    </div>
-
-    <div class="entry-footer" @click.stop>
-      <button
-        class="detail-btn"
-        type="button"
-        :aria-expanded="expanded"
-        :aria-controls="expanded ? `saved-entry-detail-${entry.id}` : undefined"
-        @click="$emit('toggle', entryKey)"
+    <template v-if="relationship">
+      <span class="original-expression" dir="auto">{{
+        entry.parentOriginalText
+      }}</span>
+      <span class="relationship-arrow" aria-label="מתאים ל־">←</span>
+      <span
+        v-if="entry.gematriaValue != null"
+        class="gematria-number"
+        :aria-label="`גימטריה ${entry.gematriaValue}`"
+        dir="ltr"
+        >{{ entry.gematriaValue }}</span
       >
-        {{ expanded ? 'סגור' : 'פתח פירוט' }}
-        <span
-          class="expand-icon ui-chevron"
-          :class="expanded ? 'ui-chevron--up' : 'ui-chevron--down'"
-          aria-hidden="true"
-        ></span>
-      </button>
-
-      <div class="entry-menu-wrap">
+      <span v-else class="gematria-spacer" aria-hidden="true"></span>
+      <span class="matching-expression" dir="rtl">{{
+        entry.originalText
+      }}</span>
+    </template>
+    <template v-else>
+      <span class="entry-text" dir="auto">{{ entry.original_text }}</span>
+      <span
+        class="gematria-number"
+        :aria-label="`גימטריה ${entry.full_gematria}`"
+        dir="ltr"
+        >{{ entry.full_gematria }}</span
+      >
+    </template>
+    <button
+      ref="menuButton"
+      class="menu-btn"
+      type="button"
+      :aria-label="`פעולות עבור ${relationship ? entry.originalText : entry.original_text}`"
+      aria-haspopup="menu"
+      :aria-expanded="menuOpen"
+      :aria-controls="menuOpen ? menuId : undefined"
+      @click="toggleMenu"
+      @keydown.down.prevent="openMenu()"
+      @keydown.up.prevent="openMenu(true)"
+    >
+      <span aria-hidden="true">•••</span>
+    </button>
+    <Teleport to="body">
+      <div
+        v-if="menuOpen"
+        :id="menuId"
+        ref="menu"
+        class="saved-actions-menu"
+        role="menu"
+        aria-label="פעולות בשמורים"
+        dir="rtl"
+        :style="menuStyle"
+        @keydown="onMenuKeydown"
+      >
         <button
-          class="menu-btn"
+          v-if="hasSource"
           type="button"
-          :aria-label="`פעולות עבור ${entry.original_text}`"
-          :aria-expanded="menuOpen"
-          @click="$emit('toggle-menu', entryKey)"
+          role="menuitem"
+          @click="choose('open-source')"
         >
-          <span aria-hidden="true">⋯</span>
+          <span class="mdi mdi-book-open-variant" aria-hidden="true"></span
+          >למקור
         </button>
-        <div v-if="menuOpen" class="entry-menu" role="menu">
-          <button type="button" role="menuitem" @click="$emit('toggle', entryKey)">
-            <span class="mdi mdi-open-in-new" aria-hidden="true"></span>
-            {{ expanded ? 'סגור פירוט' : 'פתח פירוט' }}
-          </button>
-          <button type="button" role="menuitem" @click="$emit('copy', entry)">
-            <span class="mdi mdi-content-copy" aria-hidden="true"></span>
-            העתק
-          </button>
-          <button type="button" role="menuitem" class="danger-action" @click="$emit('delete', entry)">
-            <span class="mdi mdi-delete-outline" aria-hidden="true"></span>
-            מחק
-          </button>
-        </div>
+        <button type="button" role="menuitem" @click="choose('details')">
+          <span class="mdi mdi-format-list-bulleted" aria-hidden="true"></span
+          >פירוט מילים
+        </button>
+        <button
+          v-if="!relationship"
+          type="button"
+          role="menuitem"
+          @click="choose('copy')"
+        >
+          <span class="mdi mdi-content-copy" aria-hidden="true"></span>העתק
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          class="danger-action"
+          @click="choose('delete')"
+        >
+          <span class="mdi mdi-trash-can-outline" aria-hidden="true"></span>הסר
+          משמורים
+        </button>
       </div>
-    </div>
+    </Teleport>
   </article>
 </template>
 
 <script setup>
-import { computed } from 'vue';
-import { normalize, toHebrewNumber } from '@/composables/useGematria.js';
-import { tefillotContextOf } from '@/utils/tefillotContext.js';
-
+import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
+import { tefillotContextOf, tanachContextOf } from "@/utils/tefillotContext.js";
 const props = defineProps({
   entry: { type: Object, required: true },
-  expanded: { type: Boolean, default: false },
-  menuOpen: { type: Boolean, default: false },
-  searchQuery: { type: String, default: '' },
-  sharedValue: { type: Boolean, default: false },
+  relationship: Boolean,
+  menuOpen: Boolean,
+  focused: Boolean,
 });
-const entryKey = computed(() => `${props.entry.sourceType || props.entry.source_type || 'manual'}:${props.entry.id}`);
-
-defineEmits(['toggle', 'toggle-menu', 'copy', 'delete']);
-
-const highlightedPhrase = computed(() => {
-  const phrase = props.entry.original_text || '';
-  const query = props.searchQuery.trim();
-  const normalizedQuery = normalize(query);
-  if (!query || /^\d+$/.test(query) || !normalizedQuery || normalizedQuery.length < 2) {
-    return [{ text: phrase, match: false }];
-  }
-  const index = phrase.indexOf(query);
-  if (index < 0) return [{ text: phrase, match: false }];
-  return [
-    { text: phrase.slice(0, index), match: false },
-    { text: phrase.slice(index, index + query.length), match: true },
-    { text: phrase.slice(index + query.length), match: false },
-  ].filter(part => part.text);
-});
-
-function formatTanachReference(entry) {
-  const reference = `${entry.tanach_book_label} ${toHebrewNumber(entry.tanach_chapter)}:${toHebrewNumber(entry.tanach_verse)}`;
-  return entry.parsha_name ? `${reference} · פרשת ${entry.parsha_name}` : reference;
+const emit = defineEmits([
+  "toggle-menu",
+  "details",
+  "open-source",
+  "copy",
+  "delete",
+]);
+const entryKey = computed(() =>
+  props.relationship
+    ? props.entry.key
+    : `${props.entry.sourceType || props.entry.source_type || "manual"}:${props.entry.id}`,
+);
+const menuId = computed(
+  () =>
+    `saved-actions-${props.relationship ? "match" : "entry"}-${entryKey.value.replace(/[^a-z0-9-]/gi, "-")}`,
+);
+const hasSource = computed(
+  () =>
+    props.relationship ||
+    tefillotContextOf(props.entry) ||
+    props.entry.tanach_book_slug ||
+    tanachContextOf(props.entry),
+);
+const menuButton = ref(null);
+const menu = ref(null);
+const menuStyle = ref({});
+let focusLast = false;
+function toggleMenu() {
+  emit("toggle-menu", props.menuOpen ? null : entryKey.value);
 }
-function formatTefillotReference(entry) {
-  const context = tefillotContextOf(entry);
-  return ['תפילות', context?.occasionLabel, context?.serviceLabel, context?.sectionLabel].filter(Boolean).join(' · ')
-    || 'תפילה';
+function openMenu(last = false) {
+  focusLast = last;
+  if (!props.menuOpen) emit("toggle-menu", entryKey.value);
+  else focusItem(last ? -1 : 0);
 }
-
+function closeMenu(restore = false) {
+  emit("toggle-menu", null);
+  if (restore) menuButton.value?.focus();
+}
+function choose(action) {
+  closeMenu(true);
+  emit(action, props.entry);
+}
+function focusItem(index) {
+  const items = menu.value?.querySelectorAll('[role="menuitem"]');
+  if (items?.length)
+    items[(index + items.length) % items.length].focus({ preventScroll: true });
+}
+function positionMenu() {
+  if (!menuButton.value || !menu.value) return;
+  const trigger = menuButton.value.getBoundingClientRect();
+  const rect = menu.value.getBoundingClientRect();
+  const left = Math.max(
+    12,
+    Math.min(trigger.left, window.innerWidth - rect.width - 12),
+  );
+  const below = trigger.bottom + 9;
+  const top =
+    below + rect.height <= window.innerHeight - 12
+      ? below
+      : Math.max(12, trigger.top - rect.height - 9);
+  menuStyle.value = { left: `${left}px`, top: `${top}px` };
+}
+function onOutside(event) {
+  if (
+    !menu.value?.contains(event.target) &&
+    !menuButton.value?.contains(event.target)
+  )
+    closeMenu();
+}
+function onFocusOut(event) {
+  if (!menu.value?.contains(event.target) && event.target !== menuButton.value)
+    closeMenu();
+}
+function onMenuKeydown(event) {
+  const index = [...menu.value.querySelectorAll('[role="menuitem"]')].indexOf(
+    document.activeElement,
+  );
+  if (event.key === "Escape") {
+    event.preventDefault();
+    event.stopPropagation();
+    closeMenu(true);
+  } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    event.preventDefault();
+    focusItem(index + (event.key === "ArrowDown" ? 1 : -1));
+  } else if (event.key === "Home" || event.key === "End") {
+    event.preventDefault();
+    focusItem(event.key === "Home" ? 0 : -1);
+  } else if (event.key === "Tab") closeMenu(true);
+}
+function removeListeners() {
+  document.removeEventListener("pointerdown", onOutside);
+  document.removeEventListener("focusin", onFocusOut);
+  window.removeEventListener("resize", positionMenu);
+  window.removeEventListener("scroll", positionMenu, true);
+}
+watch(
+  () => props.menuOpen,
+  async (open) => {
+    removeListeners();
+    if (!open) return;
+    await nextTick();
+    if (!props.menuOpen || !menu.value || !menuButton.value) return;
+    positionMenu();
+    await nextTick();
+    if (!props.menuOpen || !menu.value || !menuButton.value) return;
+    focusItem(focusLast ? -1 : 0);
+    focusLast = false;
+    document.addEventListener("pointerdown", onOutside);
+    document.addEventListener("focusin", onFocusOut);
+    window.addEventListener("resize", positionMenu);
+    window.addEventListener("scroll", positionMenu, true);
+  },
+);
+onBeforeUnmount(removeListeners);
 </script>
 
 <style scoped>
 .entry-card {
-  background: #fff;
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius);
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-width: 0;
-  overflow: visible;
-  position: relative;
-  transition: box-shadow .15s, border-color .15s;
-}
-
-.entry-card:hover { box-shadow: var(--shadow); }
-.entry-card.expanded {
-  border-color: var(--gold);
-  box-shadow: 0 0 0 1px rgba(192, 152, 64, .14);
-}
-.entry-card.has-shared-value:not(.expanded) { border-color: #d8c79f; }
-
-.entry-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 44px;
   align-items: center;
-  cursor: pointer;
-  display: flex;
-  gap: 18px;
-  min-height: 112px;
-  padding: 14px 18px;
+  gap: 24px;
+  min-width: 0;
+  min-height: 88px;
+  padding: 18px 20px;
+  border: 1px solid #ebe6de;
+  border-radius: 17px;
+  background: #fffefd;
+  box-shadow: 0 2px 3px #1a274405;
 }
-
-.entry-body { flex: 1 1 auto; }
-.entry-main-info { flex: 1; min-width: 0; }
-
-.entry-text {
+.entry-card.match-row {
+  grid-template-columns: minmax(100px, 1fr) 24px 78px minmax(0, 2.8fr) 44px;
+}
+.entry-card.is-focused,
+.entry-card.menu-active {
+  border-color: #bd923b;
+  background: #fffcf5;
+}
+.entry-card:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+.original-expression {
+  justify-self: center;
+  min-width: 0;
+  max-width: min(100%, 180px);
+  width: 100%;
+  border-radius: 14px;
+  background: #f9f3e9;
+  padding: 8px 12px;
+  text-align: center;
+  font-size: 1.35rem;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.relationship-arrow {
   color: var(--navy);
-  font-size: 1.18rem;
+  font-size: 1.5rem;
+  text-align: center;
+}
+.gematria-number {
+  justify-self: center;
+  min-width: 68px;
+  max-width: 100%;
+  padding: 4px 12px;
+  border-radius: 99px;
+  background: #fcf0d9;
+  color: #72541a;
+  text-align: center;
+  font-size: 1.2rem;
   font-weight: 700;
   line-height: 1.4;
-  margin-bottom: 5px;
   overflow-wrap: anywhere;
-  text-align: right;
 }
-
-.entry-text mark {
-  background: var(--gold-light);
-  border-radius: 3px;
-  color: inherit;
-  padding: 0 2px;
-}
-
-.tanach-reference {
-  align-items: center;
-  background: var(--gold-light);
-  border-radius: 999px;
-  color: #80601d;
-  display: inline-flex;
-  font-size: .72rem;
-  font-weight: 600;
-  gap: 5px;
-  margin-bottom: 5px;
-  max-width: 100%;
-  overflow-wrap: anywhere;
-  padding: 2px 8px;
-}
-
-.entry-gematria {
-  align-items: center;
-  display: flex;
-  gap: 7px;
-  line-height: 1.1;
-}
-
-.gematria-num {
-  color: var(--gold);
-  font-size: 1.38rem;
-  font-weight: 700;
-}
-
-.gematria-dot { color: #ccc; }
-.gematria-heb { color: var(--text-secondary); font-size: .91rem; }
-
-.entry-initials {
-  align-items: baseline;
-  color: var(--text-secondary);
-  display: flex;
-  flex-wrap: wrap;
-  font-size: .78rem;
-  gap: 5px;
-  line-height: 1.3;
-  margin-top: 6px;
-}
-
-.entry-initials strong {
-  color: var(--navy);
-  font-size: .88rem;
-}
-
-.initials-gematria-label { margin-right: 8px; }
-
-.entry-menu-wrap { position: relative; }
-
-.menu-btn,
-.detail-btn {
-  align-items: center;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  color: var(--text-secondary);
-  cursor: pointer;
-  display: inline-flex;
-  font-family: inherit;
-  justify-content: center;
-  transition: background .15s, border-color .15s, color .15s;
-}
-
-.menu-btn {
+.matching-expression,
+.entry-text {
+  min-width: 0;
+  color: #17243b;
+  font-family: "Noto Serif Hebrew", "Times New Roman", serif;
   font-size: 1.45rem;
-  height: 34px;
-  line-height: 1;
-  padding: 0 7px 8px;
-  width: 36px;
+  font-weight: 600;
+  line-height: 1.85;
+  overflow-wrap: anywhere;
 }
-
-.menu-btn:hover,
-.menu-btn:focus-visible,
-.detail-btn:hover,
-.detail-btn:focus-visible {
-  background: var(--gold-light);
-  border-color: var(--border);
+.matching-expression {
+  max-inline-size: min(100%, 46rem);
+  justify-self: start;
+}
+.menu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background: #fff;
   color: var(--navy);
+  border: 1px solid #eee8df;
+  border-radius: 12px;
+  box-shadow: 0 2px 3px #1a274410;
+  cursor: pointer;
+  font-size: 0.9rem;
+  letter-spacing: 2px;
 }
-
+.menu-btn:hover,
+.menu-btn[aria-expanded="true"] {
+  background: var(--gold-light);
+  border-color: #e7d9bd;
+}
 .menu-btn:focus-visible,
-.detail-btn:focus-visible {
+.saved-actions-menu button:focus-visible {
   outline: 2px solid var(--gold);
   outline-offset: 2px;
 }
-
-.entry-menu {
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(26, 39, 68, .12);
-  min-width: 142px;
-  overflow: hidden;
-  position: absolute;
-  bottom: 38px;
+.saved-actions-menu {
+  position: fixed;
+  top: 0;
   left: 0;
-  z-index: 10;
+  z-index: 200;
+  width: 224px;
+  max-width: calc(100vw - 24px);
+  padding: 8px;
+  border: 1px solid #ece5da;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 8px 26px #1a274422;
+  font-family: "Source Sans Pro", Arial, sans-serif;
 }
-
-.entry-menu button {
+.saved-actions-menu button {
+  display: flex;
   align-items: center;
-  background: transparent;
+  gap: 14px;
+  width: 100%;
+  min-height: 46px;
+  padding: 9px 12px;
+  background: none;
   border: 0;
+  border-radius: 8px;
   color: var(--navy);
   cursor: pointer;
-  display: flex;
-  font-family: inherit;
-  font-size: .8rem;
-  gap: 8px;
-  padding: 10px 12px;
   text-align: right;
-  width: 100%;
+  font: inherit;
+  font-size: 1rem;
 }
-
-.entry-menu button:hover { background: var(--gold-light); }
-.entry-menu .danger-action { color: #a33b35; }
-
-.detail-btn {
-  font-size: .75rem;
-  gap: 8px;
-  justify-content: flex-start;
-  padding: 6px 8px;
-  white-space: nowrap;
+.saved-actions-menu button .mdi {
+  font-size: 1.3rem;
 }
-
-.expand-icon { height: 8px; width: 8px; }
-
-.entry-footer {
-  align-items: center;
-  border-top: 1px solid #eee9e0;
-  display: flex;
-  justify-content: space-between;
-  min-height: 42px;
-  padding: 0 12px;
+.saved-actions-menu button:hover,
+.saved-actions-menu button:focus {
+  background: #f8f3e9;
 }
-
-.entry-footer .detail-btn {
-  color: var(--navy);
-  font-weight: 600;
+.saved-actions-menu .danger-action {
+  color: #b72b30;
+  margin-top: 5px;
+  border-top: 1px solid #eee5d6;
+  border-radius: 0 0 8px 8px;
+  padding-top: 13px;
 }
-
-.entry-footer .detail-btn:hover,
-.entry-footer .detail-btn:focus-visible {
-  background: var(--gold-light);
-}
-
-.entry-footer .menu-btn {
-  color: #8e8a82;
-  height: 32px;
-  padding: 0 6px 7px;
-  width: 32px;
-}
-
-@media (max-width: 680px) {
-  .entry-header { gap: 10px; min-height: 0; padding: 14px 16px; }
-  .entry-text { font-size: 1.08rem; }
-  .detail-btn { font-size: .7rem; padding-inline: 4px; }
-  .entry-initials { gap: 4px; margin-top: 7px; }
-  .initials-gematria-label { margin-right: 5px; }
-}
-
-@media (max-width: 420px) {
-  .entry-header { align-items: flex-start; }
-  .entry-footer { min-height: 42px; }
-  .entry-menu { left: 0; }
+@media (max-width: 700px) {
+  .entry-card {
+    gap: 12px;
+    padding: 15px 12px;
+    border-radius: 14px;
+  }
+  .entry-card.match-row {
+    grid-template-columns: minmax(0, 1fr) 22px minmax(56px, auto) 44px;
+    gap: 10px;
+  }
+  .original-expression {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: start;
+    width: auto;
+    font-size: 1.05rem;
+    padding: 4px 11px;
+  }
+  .relationship-arrow {
+    grid-column: 2;
+    grid-row: 1;
+    font-size: 1.2rem;
+  }
+  .match-row .gematria-number,
+  .gematria-spacer {
+    grid-column: 3;
+    grid-row: 1;
+  }
+  .gematria-number {
+    min-width: 54px;
+    font-size: 1rem;
+    padding: 3px 9px;
+  }
+  .matching-expression {
+    grid-column: 1 / 4;
+    grid-row: 2;
+    font-size: 1.16rem;
+    line-height: 1.95;
+  }
+  .match-row .menu-btn {
+    grid-column: 4;
+    grid-row: 1 / 3;
+    align-self: center;
+  }
+  .menu-btn {
+    width: 44px;
+    height: 44px;
+  }
+  .entry-text {
+    font-size: 1.15rem;
+  }
 }
 </style>

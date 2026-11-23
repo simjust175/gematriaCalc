@@ -13,7 +13,7 @@ import {
   verifyTefillotSaveContext, tefillotSaveErrorStatus, tefillotSaveSchemaReady,
   manualEntryCondition, hydrateTefillotEntries,
 } from './tefillotSaveContext.js';
-import { parshaSearchKey } from './tanachParshiot.js';
+import { parshaSearchKey, canonicalParshaRow } from './tanachParshiot.js';
 import {
   parseGematriaSearchQuery,
   searchTanachGematria,
@@ -27,6 +27,9 @@ import { registerBaseWordRoutes } from './baseWords.js';
 import { findWeeklyBaseWordMatches, parseWeeklyBaseWordsQuery } from './weeklyBaseWordMatches.js';
 import { registerTefillotRoutes } from './tefillot.js';
 import { registerCorpusSuggestionRoutes } from './corpusSuggestions.js';
+import { registerSavedLibraryRoutes } from './savedLibrary.js';
+import { registerTanachPdfRoutes } from './tanachPdf.js';
+import { registerSavedLibraryPdfRoutes } from './savedLibraryPdf.js';
 import {
   getExplicitMiluiMatches,
   recordMiluiSaveMode,
@@ -142,6 +145,9 @@ function requireAuth(req, res, next) {
 
 registerBaseWordRoutes(app, { pool, requireAuth });
 registerTefillotRoutes(app, { pool, requireAuth });
+registerSavedLibraryRoutes(app, { pool, requireAuth });
+registerTanachPdfRoutes(app, { pool, requireAuth });
+registerSavedLibraryPdfRoutes(app, { pool, requireAuth });
 registerMiluiInterpretationRoutes(app, {
   pool,
   requireAuth,
@@ -242,7 +248,7 @@ app.get('/api/tanach/books', requireAuth, async (_req, res) => {
     res.json({
       books: booksResult.rows,
       canonicalBooks: [...canonicalMap.values()],
-      parshiot: parshiotResult.rows,
+      parshiot: parshiotResult.rows.map(canonicalParshaRow),
       source: sourceResult.rows[0] || null,
       stats: {
         canonicalBooks: canonicalMap.size,
@@ -885,6 +891,9 @@ const CURATED_REASON_CODES = new Set([
 function serializeCuratedMatch(row) {
   return {
     id: row.id,
+    key: `tanach:${row.id}`,
+    sourceType: 'tanach',
+    parentId: row.parent_id,
     originalText: row.original_text,
     tanachContext: {
       bookSlug: row.tanach_book_slug,
@@ -912,9 +921,13 @@ app.post('/api/entries/curated-matches', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'missing_fields' });
     }
     const parentCalculated = computeAll(parentOriginalText);
-    const prayerOnly = matches.every(match => match?.tefillotContext && !match.tanachContext);
-    if (!parentCalculated || (parentCalculated.inputMode === 'numeric' && !prayerOnly)) {
+    if (!parentCalculated) {
       return res.status(400).json({ error: 'invalid_parent' });
+    }
+    // Numeric discovery is a calculation target, not a Hebrew phrase. The
+    // existing numeric parent representation preserves it for every source.
+    if (parentCalculated.inputMode === 'numeric' && parentCalculated.fullGematria > 2147483647) {
+      return res.status(400).json({ error: 'numeric_target_out_of_range' });
     }
     for (const match of matches) {
       if (!match || typeof match.originalText !== 'string'
@@ -993,7 +1006,8 @@ app.post('/api/entries/curated-matches', requireAuth, async (req, res) => {
           context.unitId, context.start, context.end, JSON.stringify([match.reasonCode])]);
         const row = result.rows[0];
         saved.set(`tefillot:${row.id}`, {
-          id: row.id, sourceType: 'tefillot', originalText: verified.originalText,
+          id: row.id, key: `tefillot:${row.id}`, sourceType: 'tefillot', parentId,
+          originalText: verified.originalText,
           tefillotContext: context, reasonCodes: row.reason_codes,
         });
         continue;

@@ -1,6 +1,6 @@
-import { computed, getCurrentScope, onScopeDispose, ref, watch } from 'vue';
+import { computed, getCurrentScope, onScopeDispose, ref, watch } from "vue";
 
-const FILTERS = ['all', 'whole_word', 'whole_phrase', 'whole_verse', 'partial'];
+const FILTERS = ["all", "whole_word", "whole_phrase", "whole_verse", "partial"];
 
 export function useTanachGematriaMatches(targetRef, options = {}) {
   const fetchImpl = options.fetchImpl || globalThis.fetch;
@@ -17,69 +17,126 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
   const counts = ref({ whole_word: 0, whole_phrase: 0, partial: 0 });
   const total = ref(0);
   const page = ref(1);
-  const filter = ref('all');
-  const search = ref('');
+  const filter = ref("all");
+  const search = ref("");
   const includeKollel = ref(false);
   const bookOrder = ref(0);
-  const parshaId = ref('');
-  const chapterBook = ref('');
+  const parshaId = ref("");
+  const parshaScope = ref("");
+  const parshaBreakdown = ref(null);
+  const chapterBook = ref("");
   const chapter = ref(0);
   const verse = ref(0);
   const currentParshah = ref(false);
   const weeklyParshah = ref(null);
   const loading = ref(false);
-  const error = ref('');
-  const sourceWarning = ref('');
+  const error = ref("");
+  const sourceWarning = ref("");
   const hasMore = ref(false);
   const sourceCounts = ref({ tanach: 0, tefillot: 0 });
 
   let timer = null;
   let controller = null;
   let requestId = 0;
+  let breakdownQueryKey = "";
 
   function valueOfTarget() {
-    const raw = typeof targetRef === 'function' ? targetRef() : targetRef?.value ?? targetRef;
+    const raw =
+      typeof targetRef === "function"
+        ? targetRef()
+        : (targetRef?.value ?? targetRef);
     const value = Number(raw);
     return Number.isInteger(value) && value > 0 ? value : null;
   }
   function targetForRequest() {
     const target = valueOfTarget();
     if (target === null) return null;
-    return target + (
-      currentMethod() === 'gematria' && includeKollel.value && kollelAvailable.value ? 1 : 0
+    return (
+      target +
+      (currentMethod() === "gematria" &&
+      includeKollel.value &&
+      kollelAvailable.value
+        ? 1
+        : 0)
     );
   }
   function valueOf(refOrValue) {
-    return typeof refOrValue === 'function' ? refOrValue() : refOrValue?.value ?? refOrValue;
+    return typeof refOrValue === "function"
+      ? refOrValue()
+      : (refOrValue?.value ?? refOrValue);
   }
   function currentMethod() {
     const method = valueOf(methodRef);
-    return ['initials', 'finals'].includes(method) ? method : 'gematria';
+    return ["initials", "finals"].includes(method) ? method : "gematria";
   }
   const kollelAvailable = computed(() => {
     const target = valueOfTarget();
-    return currentMethod() === 'gematria'
-      && target !== null
-      && Number.isSafeInteger(target)
-      && target < Number.MAX_SAFE_INTEGER;
+    return (
+      currentMethod() === "gematria" &&
+      target !== null &&
+      Number.isSafeInteger(target) &&
+      target < Number.MAX_SAFE_INTEGER
+    );
   });
   function currentSequence() {
-    return String(valueOf(sequenceRef) ?? '').trim();
+    return String(valueOf(sequenceRef) ?? "").trim();
   }
   function currentWordCount() {
     return [...currentSequence()].length;
   }
   function currentOrderIndependent() {
-    return currentMethod() !== 'gematria' && valueOf(orderIndependentRef) === true;
+    return (
+      currentMethod() !== "gematria" && valueOf(orderIndependentRef) === true
+    );
   }
   function currentSource() {
     const source = valueOf(sourceRef);
-    if (source === 'all' || source === 'tefillot') return source;
-    return 'tanach';
+    if (source === "all" || source === "tefillot") return source;
+    return "tanach";
   }
   function canRequest() {
-    if (currentSource() === 'tefillot' && !tefillotAvailable()) return false;
-    return currentMethod() === 'gematria' ? !!valueOfTarget() : currentWordCount() >= 1;
+    if (currentSource() === "tefillot" && !tefillotAvailable()) return false;
+    return currentMethod() === "gematria"
+      ? !!valueOfTarget()
+      : currentWordCount() >= 1;
+  }
+
+  function queryParams(nextPage = 1) {
+    const method = currentMethod();
+    const params = new URLSearchParams({
+      method,
+      page: String(nextPage),
+      limit: String(limit),
+    });
+    if (method === "gematria") {
+      params.set("value", String(targetForRequest()));
+      params.set("type", filter.value);
+    } else {
+      params.set("sequence", currentSequence());
+      if (currentOrderIndependent()) params.set("order_independent", "true");
+    }
+    if (search.value.trim()) params.set("search", search.value.trim());
+    if (parshaScope.value === "torah") params.set("parsha_scope", "torah");
+    else {
+      if (bookOrder.value) params.set("book_order", String(bookOrder.value));
+      if (chapterBook.value) params.set("chapter_book", chapterBook.value);
+      if (chapter.value) params.set("chapter", String(chapter.value));
+      if (verse.value) params.set("verse", String(verse.value));
+      if (currentParshah.value) params.set("parsha", "current");
+    }
+    if (parshaId.value) params.set("parsha_id", parshaId.value);
+    return params;
+  }
+  const querySnapshot = computed(() =>
+    Object.freeze({
+      source: parshaScope.value === "torah" ? "tanach" : currentSource(),
+      params: Object.freeze(Object.fromEntries(queryParams().entries())),
+    }),
+  );
+  function breakdownKey(params = queryParams()) {
+    const globalQuery = new URLSearchParams(params);
+    for (const key of ["page", "limit", "parsha_id"]) globalQuery.delete(key);
+    return globalQuery.toString();
   }
 
   function cancel() {
@@ -90,114 +147,161 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
   }
 
   async function request(nextPage, append = false) {
-    const target = valueOfTarget();
-    const method = currentMethod();
     if (!canRequest()) return;
     const currentId = ++requestId;
     controller?.abort();
     const requestController = new AbortController();
     controller = requestController;
     loading.value = true;
-    error.value = '';
-    sourceWarning.value = '';
+    error.value = "";
+    sourceWarning.value = "";
 
     try {
-      const params = new URLSearchParams({
-        method,
-        page: String(nextPage),
-        limit: String(limit),
-      });
-      if (method === 'gematria') {
-        params.set('value', String(targetForRequest()));
-        params.set('type', filter.value);
-      } else {
-        params.set('sequence', currentSequence());
-        if (currentOrderIndependent()) params.set('order_independent', 'true');
-      }
-      if (search.value.trim()) params.set('search', search.value.trim());
-       if (bookOrder.value) params.set('book_order', String(bookOrder.value));
-       if (parshaId.value) params.set('parsha_id', parshaId.value);
-       if (chapterBook.value) params.set('chapter_book', chapterBook.value);
-       if (chapter.value) params.set('chapter', String(chapter.value));
-       if (verse.value) params.set('verse', String(verse.value));
-      if (currentParshah.value) params.set('parsha', 'current');
-      const source = currentSource();
+      const params = queryParams(nextPage);
+      const source = parshaScope.value === "torah" ? "tanach" : currentSource();
       const requests = [];
-      if (source !== 'tefillot') {
-        requests.push(fetchImpl(`/api/tanach/gematria-matches?${params}`, {
-          signal: requestController.signal,
-        }).then(async response => {
-          if (!response.ok) throw new Error('לא ניתן לטעון התאמות מן התנ״ך');
-          return { source: 'tanach', data: await response.json() };
-        }));
+      if (source !== "tefillot") {
+        requests.push(
+          fetchImpl(`/api/tanach/gematria-matches?${params}`, {
+            signal: requestController.signal,
+          }).then(async (response) => {
+            if (!response.ok) throw new Error("לא ניתן לטעון התאמות מן התנ״ך");
+            return { source: "tanach", data: await response.json() };
+          }),
+        );
       }
-      if (source !== 'tanach' && tefillotAvailable()) {
+      if (source !== "tanach" && tefillotAvailable()) {
         const tefillotParams = new URLSearchParams(params);
-        if (filter.value === 'whole_verse') tefillotParams.set('type', 'all');
-        for (const key of ['book_order', 'parsha_id', 'chapter_book', 'chapter', 'verse', 'parsha']) {
+        if (filter.value === "whole_verse") tefillotParams.set("type", "all");
+        for (const key of [
+          "book_order",
+          "parsha_id",
+          "parsha_scope",
+          "chapter_book",
+          "chapter",
+          "verse",
+          "parsha",
+        ]) {
           tefillotParams.delete(key);
         }
-        const occasion = String(valueOf(tefillotOccasionRef) || '');
-        const service = String(valueOf(tefillotServiceRef) || '');
-        if (occasion) tefillotParams.set('occasion', occasion);
-        if (service) tefillotParams.set('service', service);
-        requests.push(fetchImpl(`/api/tefillot/gematria-matches?${tefillotParams}`, {
-          signal: requestController.signal,
-        }).then(async response => {
-          if (!response.ok) throw new Error('לא ניתן לטעון התאמות מן התפילות');
-          return { source: 'tefillot', data: await response.json() };
-        }));
+        const occasion = String(valueOf(tefillotOccasionRef) || "");
+        const service = String(valueOf(tefillotServiceRef) || "");
+        if (occasion) tefillotParams.set("occasion", occasion);
+        if (service) tefillotParams.set("service", service);
+        requests.push(
+          fetchImpl(`/api/tefillot/gematria-matches?${tefillotParams}`, {
+            signal: requestController.signal,
+          }).then(async (response) => {
+            if (!response.ok)
+              throw new Error("לא ניתן לטעון התאמות מן התפילות");
+            return { source: "tefillot", data: await response.json() };
+          }),
+        );
       }
       const outcomes = await Promise.allSettled(requests);
       const payloads = outcomes
-        .filter(outcome => outcome.status === 'fulfilled')
-        .map(outcome => outcome.value);
+        .filter((outcome) => outcome.status === "fulfilled")
+        .map((outcome) => outcome.value);
       if (payloads.length === 0) {
-        throw outcomes.find(outcome => outcome.status === 'rejected')?.reason
-          || new Error('אירעה שגיאה בטעינת ההתאמות');
+        throw (
+          outcomes.find((outcome) => outcome.status === "rejected")?.reason ||
+          new Error("אירעה שגיאה בטעינת ההתאמות")
+        );
       }
-      if (source !== 'all' && outcomes.some(outcome => outcome.status === 'rejected')) {
-        throw outcomes.find(outcome => outcome.status === 'rejected').reason;
+      if (
+        source !== "all" &&
+        outcomes.some((outcome) => outcome.status === "rejected")
+      ) {
+        throw outcomes.find((outcome) => outcome.status === "rejected").reason;
       }
       if (currentId !== requestId || requestController.signal.aborted) return;
-      if (outcomes.some(outcome => outcome.status === 'rejected')) {
-        sourceWarning.value = 'חלק מהמקורות לא נטענו. מוצגות רק התוצאות שהתקבלו.';
+      if (outcomes.some((outcome) => outcome.status === "rejected")) {
+        sourceWarning.value =
+          "חלק מהמקורות לא נטענו. מוצגות רק התוצאות שהתקבלו.";
       }
-      const bySource = Object.fromEntries(payloads.map(item => [item.source, item.data]));
-      if (filter.value === 'whole_verse' && !bySource.tanach) {
-        throw new Error('לא ניתן לטעון התאמות מן התנ״ך');
+      const bySource = Object.fromEntries(
+        payloads.map((item) => [item.source, item.data]),
+      );
+      const breakdownBooks = bySource.tanach?.parshaBreakdown?.books;
+      if (
+        parshaScope.value === "torah" &&
+        (!Array.isArray(breakdownBooks) ||
+          breakdownBooks.length !== 5 ||
+          breakdownBooks.reduce(
+            (size, book) => size + (book.parshiot?.length || 0),
+            0,
+          ) !== 54)
+      ) {
+        throw new Error("לא ניתן לטעון את ההתאמות לפי פרשה כרגע");
       }
-      const tanachResults = (bySource.tanach?.results || []).map(item => ({ ...item, sourceType: 'tanach' }));
-      const tefillotResults = filter.value === 'whole_verse' ? [] : bySource.tefillot?.results || [];
+      parshaBreakdown.value = bySource.tanach?.parshaBreakdown || null;
+      breakdownQueryKey = parshaBreakdown.value ? breakdownKey(params) : "";
+      if (filter.value === "whole_verse" && !bySource.tanach) {
+        throw new Error("לא ניתן לטעון התאמות מן התנ״ך");
+      }
+      const tanachResults = (bySource.tanach?.results || []).map((item) => ({
+        ...item,
+        sourceType: "tanach",
+      }));
+      const tefillotResults =
+        filter.value === "whole_verse" ? [] : bySource.tefillot?.results || [];
       const incoming = [];
-      for (let index = 0; index < Math.max(tanachResults.length, tefillotResults.length); index += 1) {
+      for (
+        let index = 0;
+        index < Math.max(tanachResults.length, tefillotResults.length);
+        index += 1
+      ) {
         if (tanachResults[index]) incoming.push(tanachResults[index]);
         if (tefillotResults[index]) incoming.push(tefillotResults[index]);
       }
       results.value = append ? [...results.value, ...incoming] : incoming;
-      if (!(append && outcomes.some(outcome => outcome.status === 'rejected'))) {
-        counts.value = ['all', 'whole_word', 'whole_phrase', 'whole_verse', 'partial'].reduce((result, key) => {
-          result[key] = Number(bySource.tanach?.counts?.[key] || 0)
-            + (key === 'whole_verse' ? 0 : Number(bySource.tefillot?.counts?.[key] || 0));
+      if (
+        !(append && outcomes.some((outcome) => outcome.status === "rejected"))
+      ) {
+        counts.value = [
+          "all",
+          "whole_word",
+          "whole_phrase",
+          "whole_verse",
+          "partial",
+        ].reduce((result, key) => {
+          result[key] =
+            Number(bySource.tanach?.counts?.[key] || 0) +
+            (key === "whole_verse"
+              ? 0
+              : Number(bySource.tefillot?.counts?.[key] || 0));
           return result;
         }, {});
       }
       sourceCounts.value = {
         tanach: bySource.tanach
           ? Number(bySource.tanach.total || 0)
-          : (append ? sourceCounts.value.tanach : 0),
-        tefillot: filter.value === 'whole_verse' ? 0 : bySource.tefillot
-          ? Number(bySource.tefillot.total || 0)
-          : (append ? sourceCounts.value.tefillot : 0),
+          : append
+            ? sourceCounts.value.tanach
+            : 0,
+        tefillot:
+          filter.value === "whole_verse"
+            ? 0
+            : bySource.tefillot
+              ? Number(bySource.tefillot.total || 0)
+              : append
+                ? sourceCounts.value.tefillot
+                : 0,
       };
       total.value = sourceCounts.value.tanach + sourceCounts.value.tefillot;
       page.value = nextPage;
-      hasMore.value = payloads.some(item => (filter.value !== 'whole_verse' || item.source === 'tanach') && item.data.hasMore === true);
-      weeklyParshah.value = bySource.tanach?.weeklyParshah
-        || (append ? weeklyParshah.value : null);
+      hasMore.value = payloads.some(
+        (item) =>
+          (filter.value !== "whole_verse" || item.source === "tanach") &&
+          item.data.hasMore === true,
+      );
+      weeklyParshah.value =
+        bySource.tanach?.parshaBreakdown?.weeklyParshah ||
+        bySource.tanach?.weeklyParshah ||
+        (append ? weeklyParshah.value : null);
     } catch (reason) {
-      if (reason?.name !== 'AbortError' && currentId === requestId) {
-        error.value = reason?.message || 'אירעה שגיאה בטעינת ההתאמות';
+      if (reason?.name !== "AbortError" && currentId === requestId) {
+        error.value = reason?.message || "אירעה שגיאה בטעינת ההתאמות";
       }
     } finally {
       if (currentId === requestId) {
@@ -216,9 +320,11 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
     page.value = 1;
     hasMore.value = false;
     weeklyParshah.value = null;
+    if (!parshaScope.value || breakdownQueryKey !== breakdownKey())
+      parshaBreakdown.value = null;
     sourceCounts.value = { tanach: 0, tefillot: 0 };
-    error.value = '';
-    sourceWarning.value = '';
+    error.value = "";
+    sourceWarning.value = "";
     if (!canRequest()) {
       loading.value = false;
       return;
@@ -229,13 +335,17 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
 
   function setFilter(nextFilter) {
     if (!FILTERS.includes(nextFilter) || filter.value === nextFilter) return;
-    if (nextFilter === 'whole_verse' && (currentSource() === 'tefillot' || currentMethod() !== 'gematria')) return;
+    if (
+      nextFilter === "whole_verse" &&
+      (currentSource() === "tefillot" || currentMethod() !== "gematria")
+    )
+      return;
     filter.value = nextFilter;
     schedule();
   }
 
   function setSearch(nextSearch) {
-    const nextValue = String(nextSearch ?? '');
+    const nextValue = String(nextSearch ?? "");
     if (search.value === nextValue) return;
     search.value = nextValue;
     schedule();
@@ -250,10 +360,18 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
 
   function setBookOrder(nextBookOrder) {
     const nextValue = Number(nextBookOrder) || 0;
-    if (bookOrder.value === nextValue && !parshaId.value && !chapter.value && !currentParshah.value) return;
+    if (
+      bookOrder.value === nextValue &&
+      !parshaId.value &&
+      !chapter.value &&
+      !currentParshah.value &&
+      !parshaScope.value
+    )
+      return;
+    parshaScope.value = "";
     bookOrder.value = nextValue;
-    parshaId.value = '';
-    chapterBook.value = '';
+    parshaId.value = "";
+    chapterBook.value = "";
     chapter.value = 0;
     verse.value = 0;
     currentParshah.value = false;
@@ -261,10 +379,10 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
   }
 
   function setParshaId(nextParshaId) {
-    const nextValue = String(nextParshaId ?? '');
+    const nextValue = String(nextParshaId ?? "");
     if (parshaId.value === nextValue && !currentParshah.value) return;
     parshaId.value = nextValue;
-    chapterBook.value = '';
+    chapterBook.value = "";
     chapter.value = 0;
     verse.value = 0;
     currentParshah.value = false;
@@ -272,9 +390,17 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
   }
 
   function setChapter(nextChapterBook, nextChapter) {
-    const nextBook = String(nextChapterBook ?? '');
+    const nextBook = String(nextChapterBook ?? "");
     const nextValue = Number(nextChapter) || 0;
-    if (chapterBook.value === nextBook && chapter.value === nextValue && !verse.value && !currentParshah.value) return;
+    if (
+      chapterBook.value === nextBook &&
+      chapter.value === nextValue &&
+      !verse.value &&
+      !currentParshah.value &&
+      !parshaScope.value
+    )
+      return;
+    parshaScope.value = "";
     chapterBook.value = nextBook;
     chapter.value = nextValue;
     verse.value = 0;
@@ -284,21 +410,41 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
 
   function setVerse(nextVerse) {
     const nextValue = Number(nextVerse) || 0;
-    if (verse.value === nextValue && !currentParshah.value) return;
+    if (
+      verse.value === nextValue &&
+      !currentParshah.value &&
+      !parshaScope.value
+    )
+      return;
+    parshaScope.value = "";
     verse.value = nextValue;
     currentParshah.value = false;
     schedule();
   }
 
   function toggleCurrentParshah() {
+    parshaScope.value = "";
     currentParshah.value = !currentParshah.value;
     if (currentParshah.value) {
       bookOrder.value = 0;
-      parshaId.value = '';
-      chapterBook.value = '';
+      parshaId.value = "";
+      chapterBook.value = "";
       chapter.value = 0;
       verse.value = 0;
     }
+    schedule();
+  }
+
+  function setParshaScope(enabled) {
+    const next = enabled ? "torah" : "";
+    if (parshaScope.value === next) return;
+    parshaScope.value = next;
+    bookOrder.value = 0;
+    parshaId.value = "";
+    chapterBook.value = "";
+    chapter.value = 0;
+    verse.value = 0;
+    currentParshah.value = false;
     schedule();
   }
 
@@ -325,8 +471,15 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
       includeKollel.value,
     ],
     () => {
-      if (filter.value === 'whole_verse' && (currentSource() === 'tefillot' || currentMethod() !== 'gematria')) {
-        filter.value = 'all';
+      if (parshaScope.value && currentSource() !== "tanach") {
+        parshaScope.value = "";
+        parshaId.value = "";
+      }
+      if (
+        filter.value === "whole_verse" &&
+        (currentSource() === "tefillot" || currentMethod() !== "gematria")
+      ) {
+        filter.value = "all";
       }
       if (includeKollel.value && !kollelAvailable.value) {
         includeKollel.value = false;
@@ -334,7 +487,7 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
       }
       schedule();
     },
-    { immediate: true, flush: 'sync' },
+    { immediate: true, flush: "sync" },
   );
 
   function dispose() {
@@ -345,7 +498,39 @@ export function useTanachGematriaMatches(targetRef, options = {}) {
   if (getCurrentScope()) onScopeDispose(dispose);
 
   return {
-    results, counts, total, sourceCounts, loading, error, sourceWarning, filter, search, includeKollel, bookOrder, parshaId, chapterBook, chapter, verse, currentParshah, weeklyParshah,
-    page, hasMore, setFilter, setSearch, setIncludeKollel, setBookOrder, setParshaId, setChapter, setVerse, toggleCurrentParshah, loadMore, refresh, stop: dispose,
+    results,
+    counts,
+    total,
+    sourceCounts,
+    loading,
+    error,
+    sourceWarning,
+    filter,
+    search,
+    includeKollel,
+    bookOrder,
+    parshaId,
+    parshaScope,
+    parshaBreakdown,
+    querySnapshot,
+    chapterBook,
+    chapter,
+    verse,
+    currentParshah,
+    weeklyParshah,
+    page,
+    hasMore,
+    setFilter,
+    setSearch,
+    setIncludeKollel,
+    setBookOrder,
+    setParshaId,
+    setParshaScope,
+    setChapter,
+    setVerse,
+    toggleCurrentParshah,
+    loadMore,
+    refresh,
+    stop: dispose,
   };
 }

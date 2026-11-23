@@ -60,17 +60,12 @@
           <span v-if="tefillotContextOf(match)?.sourceReference">{{ tefillotContextOf(match).sourceReference }}</span>
           <span v-for="reason in (match.reason_codes || match.reasonCodes || [])" :key="reason" class="reason-badge">{{ reasonLabel(reason) }}</span>
           <button type="button" @click="$emit('open-curated', match)">פתח בקורא</button>
-          <button v-if="removingId !== curatedMatchKey(match)" type="button" class="remove-curated" @click="removingId = curatedMatchKey(match)">הסר</button>
-          <template v-else>
-            <span class="remove-confirm">להסיר?</span>
-            <button type="button" class="remove-confirm-button" @click="$emit('remove-curated', { entry, match }); removingId = null">אישור</button>
-            <button type="button" class="remove-cancel-button" @click="removingId = null">ביטול</button>
-          </template>
+          <button type="button" class="remove-curated" @click="$emit('remove-curated', { entry, match })">הסר משמורים</button>
         </div>
       </article>
     </section>
 
-    <details v-if="entry.words && entry.words.length > 0" :key="entry.id" class="detail-words">
+    <details v-if="entry.words && entry.words.length > 0" :key="entry.id" class="detail-words" :open="wordsOpen">
       <summary class="detail-words-toggle">
         <span>פירוט מילים</span>
         <span class="mdi mdi-chevron-down detail-words-chevron" aria-hidden="true"></span>
@@ -82,7 +77,7 @@
             <span class="word-gematria">{{ word.gematria }}</span>
           </div>
           <div class="detail-letter-list">
-            <span v-for="letter in word.letters" :key="`${word.position}-${letter.letter}-${letter.value}`" class="detail-letter">
+            <span v-for="(letter, letterIndex) in word.letters" :key="`${word.position}-${letterIndex}`" class="detail-letter">
               {{ letter.letter }} · {{ letter.value }}
             </span>
           </div>
@@ -98,7 +93,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 import { getWordBreakdown, toHebrewNumber } from '@/composables/useGematria.js';
 import { calculateMilui } from '@/utils/milui.js';
 import { tefillotContextOf } from '@/utils/tefillotContext.js';
@@ -106,9 +101,9 @@ import { tefillotContextOf } from '@/utils/tefillotContext.js';
 const props = defineProps({
   entry: { type: Object, required: true },
   miluiMapping: { type: Object, default: null },
+  wordsOpen: { type: Boolean, default: false },
 });
 defineEmits(['close', 'open-curated', 'remove-curated', 'open-entry-tefillot']);
-const removingId = ref(null);
 
 const currentMilui = computed(() => (
   props.miluiMapping
@@ -140,9 +135,6 @@ function reasonLabel(reason) {
     saved_word: 'מילה שמורה',
     milui_gematria: 'מילוי',
   }[reason] || reason;
-}
-function curatedMatchKey(match) {
-  return `${match.sourceType || match.source_type || 'tanach'}:${match.id}`;
 }
 function matchReference(match) {
   const prayer = tefillotContextOf(match);

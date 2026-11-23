@@ -12,9 +12,11 @@
     <!-- Main app -->
     <template v-else>
       <AppBar :currentPage="currentPage" @navigate="currentPage = $event" @logout="onLogout" />
-      <main class="main-content">
-        <GimForm v-if="currentPage === 'calculator'" @open-tanach="openTanachDiscovery" @open-tefillot="openTefillotDiscovery" />
-        <SavedLibrary v-else-if="currentPage === 'library'" @open-tanach="openTanachDiscovery" @open-tefillot="openTefillotDiscovery" />
+      <main class="main-content" :class="{ 'main-content--library': currentPage === 'library' }">
+        <KeepAlive>
+          <GimForm v-if="currentPage === 'calculator'" @open-tanach="openTanachDiscovery" @open-tefillot="openTefillotDiscovery" @show-saved="openSavedMatch" />
+        </KeepAlive>
+        <SavedLibrary v-if="currentPage === 'library'" :focus-match="pendingSavedMatch" @focus-consumed="consumeSavedMatch" @open-calculator="currentPage = 'calculator'" @open-tanach="openTanachDiscovery" @open-tefillot="openTefillotDiscovery" />
         <BaseWords v-else-if="currentPage === 'base-words'" />
         <TanachReader
           v-else-if="currentPage === 'tanach'"
@@ -59,6 +61,8 @@ const authState  = ref('checking');
 const currentPage = ref('calculator');
 const pendingTanachReference = ref(null);
 const pendingTefillotReference = ref(null);
+const pendingSavedMatch = ref(null);
+let savedMatchRequestId = 0;
 let tefillotReferenceRequestId = 0;
 let tanachReferenceRequestId = 0;
 
@@ -68,6 +72,15 @@ onMounted(async () => {
 
 function onLogin() {
   authState.value = 'authenticated';
+}
+
+function openSavedMatch(match) {
+  pendingSavedMatch.value = { ...match, requestId: ++savedMatchRequestId };
+  currentPage.value = 'library';
+}
+
+function consumeSavedMatch(requestId) {
+  if (pendingSavedMatch.value?.requestId === requestId) pendingSavedMatch.value = null;
 }
 
 function openTanachDiscovery(result) {
@@ -113,6 +126,7 @@ async function onLogout() {
   currentPage.value = 'calculator';
   pendingTanachReference.value = null;
   pendingTefillotReference.value = null;
+  pendingSavedMatch.value = null;
 }
 </script>
 
@@ -189,6 +203,11 @@ html, body {
   max-width: 1400px;
   margin: 0 auto;
   padding: 32px 24px 64px;
+}
+
+.main-content.main-content--library {
+  max-width: 1600px;
+  padding-inline: clamp(16px, 2.5vw, 36px);
 }
 
 @media (max-width: 640px) {

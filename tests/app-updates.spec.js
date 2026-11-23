@@ -110,7 +110,8 @@ test('close X and Escape defer without acknowledging; a newer release can still 
   const deployed = await openUpdate(page);
   await page.getByRole('button', { name: 'סגירה', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  deployed.version = '1.0.1';
+  const nextMajor = BigInt(APP_RELEASE.version.replace(/^v/, '').split(/[.+-]/)[0]) + 1n;
+  deployed.version = `${nextMajor}.0.0`;
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.keyboard.press('Escape');

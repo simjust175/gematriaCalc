@@ -25,7 +25,7 @@ test('direct numbers drive calculator, Tanach, saved matches, and base words', a
 
   try {
     const input = page.locator('.heb-input');
-    await expect(page.locator('.keyboard-toggle input')).toBeChecked();
+    await expect(page.getByRole('checkbox', { name: 'מקלדת עברית אוטומטית', exact: true })).toBeChecked();
     await input.pressSequentially('602');
     await expect(input).toHaveValue('602');
 
@@ -39,7 +39,7 @@ test('direct numbers drive calculator, Tanach, saved matches, and base words', a
     await expect(page.locator('.result-panel .save-split')).toHaveCount(0);
 
     const discovery = page.locator('.gematria-discovery');
-    await expect(discovery.getByRole('heading')).toContainText('602');
+    await expect(discovery.getByRole('heading', { level: 2 })).toContainText('602');
     await expect(discovery.getByRole('button', { name: 'גימטריה' })).toHaveAttribute('aria-pressed', 'true');
     await expect(discovery.getByRole('button', { name: 'ראשי תיבות' })).toBeDisabled();
     await expect(discovery.getByRole('button', { name: 'סופי תיבות' })).toBeDisabled();

@@ -33,7 +33,8 @@ test('enabled private Tefillot discovery combines sources, filters, and opens it
   const card = discovery.locator('.match-card:not(.skeleton-card)').first();
   await expect(card.locator('.source-badge--tefillot')).toBeVisible();
   await expect(card.locator('.citation strong')).toContainText('·');
-  await card.getByRole('button', { name: 'פתח בקורא' }).click();
+  await card.getByRole('button', { name: 'פעולות נוספות להתאמה' }).click();
+  await page.getByRole('menuitem', { name: 'למקור', exact: true }).click();
   await expect(page.locator('.tefillot-page .prayer-text mark')).toBeVisible();
   await expect(page.locator('.tefillot-page .source-card')).toContainText(/CC-BY|Public Domain/);
   await expect(page.locator('.tefillot-page .occasion-grid')).not.toContainText(/ראש השנה|יום כיפור|נעילה/);

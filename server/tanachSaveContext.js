@@ -1,5 +1,6 @@
 import { computeAll, normalize } from '../src/composables/useGematria.js';
 import { createTanachCursor } from '../src/composables/useTanachCursor.js';
+import { getParshahForReference } from './tanachParshiot.js';
 
 function saveError(code, message) {
   const error = new Error(message);
@@ -45,21 +46,18 @@ export async function verifyTanachSaveContext(originalText, tanachContext, db) {
   const parshaId = typeof tanachContext.parshaId === 'string' ? tanachContext.parshaId : null;
   let parsha = null;
   if (parshaId) {
+    const canonicalPortion = getParshahForReference({ bookSlug, chapter, verse });
+    if (canonicalPortion?.id !== parshaId) throw saveError('INVALID_TANACH_CONTEXT', 'Invalid Tanach context');
+    // Retain the existing database identity/FK while validating against the
+    // imported corpus's canonical numbering, not an older stored boundary.
     const parshaResult = await db.query(
       `SELECT p.id, p.name_he
        FROM tanach_parshiot p
-       JOIN tanach_books start_book ON start_book.slug = p.start_book_slug
-       JOIN tanach_books end_book ON end_book.slug = p.end_book_slug
-       JOIN tanach_books current_book ON current_book.slug = $2
-       WHERE p.id = $1
-         AND (current_book.canonical_order, current_book.segment_order, $3::int, $4::int)
-           >= (start_book.canonical_order, start_book.segment_order, p.start_chapter, p.start_verse)
-         AND (current_book.canonical_order, current_book.segment_order, $3::int, $4::int)
-           <= (end_book.canonical_order, end_book.segment_order, p.end_chapter, p.end_verse)`,
-      [parshaId, bookSlug, chapter, verse]
+       WHERE p.id = $1`,
+      [parshaId]
     );
     if (!parshaResult.rowCount) throw saveError('INVALID_TANACH_CONTEXT', 'Invalid Tanach context');
-    parsha = { id: parshaResult.rows[0].id, name: parshaResult.rows[0].name_he };
+    parsha = { id: canonicalPortion.id, name: canonicalPortion.nameHe };
   }
 
   return {
