@@ -71,6 +71,7 @@
         <WeeklyBaseWordsScan
           v-if="showWeeklyScan"
           id="weekly-base-words-panel"
+          @saved="miluiMatchRefresh += 1"
           @close="showWeeklyScan = false"
           @open-tanach="emit('openTanach', $event)"
         />

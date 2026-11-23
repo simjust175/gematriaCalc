@@ -48,10 +48,18 @@
               <span class="reference">{{ item.bookName }} {{ item.chapter }}:{{ item.verse }} · {{ item.type === 'whole_word' ? 'מילה שלמה' : 'ביטוי שלם' }}</span>
               <span class="match-text" dir="rtl">{{ item.text }}</span>
             </div>
-            <button type="button" class="open" @click="$emit('open-tanach', item)">
-              <span class="mdi mdi-book-open-outline" aria-hidden="true"></span>
-              פתח בתנ״ך
-            </button>
+            <WeeklyResultActions
+              :reference="`${item.bookName} ${item.chapter}:${item.verse} · ${item.text}`"
+              :base-saved="saves.baseSaved(item)"
+              :match-saved="saves.matchSaved(item)"
+              :checking-base="saves.baseLoading.value"
+              :checking-match="saves.checking.value.has(normalize(item.baseWordText))"
+              :saving="saves.saving(item)"
+              @check="saves.checkMatch(item)"
+              @save-base="saveResult(item, 'base')"
+              @save-match="saveResult(item, 'match')"
+              @open-tanach="$emit('open-tanach', item)"
+            />
           </article>
         </div>
         <footer class="scan-footer">
@@ -63,13 +71,28 @@
         <p v-if="loadMoreError" class="scan-footnote error" role="alert">{{ loadMoreError }}</p>
       </template>
     </template>
+    <p v-if="saves.notice.value" class="save-notice" :class="{ error: saves.notice.value.error }" :role="saves.notice.value.error ? 'alert' : 'status'">
+      <span :class="['mdi', saves.notice.value.error ? 'mdi-alert-circle-outline' : 'mdi-check-circle-outline']" aria-hidden="true"></span>
+      {{ saves.notice.value.text }}
+    </p>
   </section>
 </template>
 
 <script setup>
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue';
+import WeeklyResultActions from './WeeklyResultActions.vue';
+import { normalize } from '../composables/useGematria.js';
+import { useWeeklyResultSaves } from '../composables/useWeeklyResultSaves.js';
 
-defineEmits(['close', 'open-tanach']);
+const emit = defineEmits(['close', 'open-tanach', 'saved']);
+const saves = useWeeklyResultSaves();
+let noticeTimer;
+let refreshOnActivation = false;
+async function saveResult(item, kind) {
+  clearTimeout(noticeTimer);
+  if (await (kind === 'base' ? saves.saveBase(item) : saves.saveMatch(item))) emit('saved');
+  noticeTimer = setTimeout(() => { saves.notice.value = null; }, 4500);
+}
 const data = ref(null);
 const loading = ref(false);
 const loadingMore = ref(false);
@@ -122,9 +145,18 @@ function loadMore() {
 }
 watch(selectedWord, () => scan(true));
 onMounted(() => scan(true));
+onDeactivated(() => { refreshOnActivation = true; });
+onActivated(() => {
+  if (refreshOnActivation) saves.refresh();
+  refreshOnActivation = false;
+});
+window.addEventListener('base-words-changed', saves.reloadBase);
 onBeforeUnmount(() => {
   requestSequence += 1;
   controller?.abort();
+  clearTimeout(noticeTimer);
+  saves.dispose();
+  window.removeEventListener('base-words-changed', saves.reloadBase);
 });
 </script>
 
@@ -143,17 +175,17 @@ onBeforeUnmount(() => {
 .filter-wrap select {max-width:100%;padding:8px 12px;border:1px solid #dfd5be;border-radius:8px;background:#fff;color:#1a2744;font:inherit;}
 .scan-results {display:grid;gap:0;max-height:520px;overflow:auto;}
 .match-row {display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 2px;border-bottom:1px solid #efe9dd;}
-.match-copy {display:flex;flex-direction:column;gap:3px;min-width:0;}
+.match-copy {display:flex;flex:1;flex-direction:column;gap:3px;min-width:0;}
 .word {font-weight:700;font-size:.88rem;}
 .value {font-size:.75rem;color:#ae8532;margin-inline-start:6px;}
 .reference {font-size:.72rem;color:#6f7b8e;}
 .match-text {font-size:.88rem;color:#293958;overflow-wrap:anywhere;}
-.open {flex-shrink:0;border:1px solid #ddc89b;background:#faf5e9;border-radius:8px;padding:8px 10px;color:#8c6928;font:inherit;font-size:.77rem;cursor:pointer;}
-.open:hover {background:#f3e8ce;}
-.open:focus-visible,.close:focus-visible,.load-more:focus-visible {outline:2px solid #ae8738;outline-offset:2px;}
+.close:focus-visible,.load-more:focus-visible {outline:2px solid #ae8738;outline-offset:2px;}
+.save-notice {display:flex;align-items:center;gap:6px;margin:12px 0 0;font-size:.78rem;color:#54715d;}
+.save-notice.error {color:#a45747;}
 .scan-footer {display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-top:14px;font-size:.75rem;color:#787e8c;}
 .load-more {padding:9px 13px;border:1px solid #dec999;border-radius:8px;background:#fcf7ec;color:#8c6928;font:inherit;cursor:pointer;}
 .load-more:disabled {opacity:.6;cursor:default;}
 .scan-footnote {font-size:.74rem;color:#787e8c;margin:12px 0 0;}
-@media(max-width:560px) {.weekly-scan{padding:15px}.match-row{align-items:start;flex-direction:column}.open{align-self:flex-start}.scan-results{max-height:430px}}
+@media(max-width:560px) {.weekly-scan{padding:15px}.match-row{align-items:start;gap:8px}.scan-results{max-height:430px}}
 </style>
